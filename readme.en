@@ -17,11 +17,6 @@ Batch Execution: Select target servers and execute tasks with one click.
 SSH Reconnection: Automatic handling of connection drops during large file transfers.
 ⚡ Quick Start
 Build
-bash
-
-编辑
-
-
 
 # Windows
 go build -o deploy-manager.exe ./cmd/server/main.go
@@ -32,12 +27,8 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o deploy-manager ./cmd/server/ma
 # Or use Makefile
 make build
 make linux
-Run
-bash
 
-编辑
-
-
+run
 
 # Default port 3000, password must be specified
 ./deploy-manager --password yourpass
@@ -49,15 +40,13 @@ bash
 # Production mode
 GIN_MODE=release ./deploy-manager --password yourpass
 Startup Arguments
-表格
+
 Argument	Short	Description	Default
 --port	-p	Specify service port	3000
 --password	-P	Set admin password	Must be specified on first start
 Login Credentials
 The admin password must be specified via the command line on first launch:
-bash
 
-编辑
 
 
 
@@ -68,10 +57,11 @@ Default Username: admin
 Data Directory
 Data is stored in the ./data directory.
 Log file: ./data/deploy.log.
+
+
 🛠️ Configuration (Usually not required to modify)
 yaml
 
-编辑
 
 
 
@@ -94,6 +84,7 @@ log:
 admin:
   username: admin
   password: ""  # Leave empty to auto-generate
+
 📡 API Endpoints
 Authentication
 POST /api/login - Login
@@ -144,10 +135,10 @@ Authentication: JWT
 WebSocket: gorilla/websocket
 Frontend: HTMX + Alpine.js + TailwindCSS
 Terminal: xterm.js
-📂 Project Structure
-text
 
-编辑
+📂 Project Structure
+
+
 
 
 
