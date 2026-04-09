@@ -1,0 +1,181 @@
+Deploy Manager
+Motivation: Currently, there are no satisfactory free SSH tools available, so I decided to build one myself. Deploy Manager is a lightweight server deployment and management tool written in Go. It supports service deployment, a Web terminal, and file management.
+🚀 Features
+Multi-Server Management: Manage SSH connections for multiple servers, including support for Bastion hosts (Jump Servers).
+Service Deployment: One-click deployment of Docker Compose services.
+Scheduled Tasks: Crontab task management (To be implemented).
+Web Terminal: Real-time terminal based on WebSocket. Supports multi-tabs, mouse selection for copy, and Ctrl+V paste.
+File Management: Browse, preview, upload, and download files.
+Infrastructure (Batch Execution): Execute general运维 tasks across multiple servers simultaneously. Supports script and package distribution, command execution, and direct script editing in the UI.
+🏗️ Infrastructure Module
+The batch execution module is designed to run installation scripts or deployment tasks on multiple servers at once.
+Key Characteristics
+Scenario Management: Create, edit, and delete execution scenarios (general运维 tasks).
+File Management: Upload and download server files.
+Online Editing: Preview and edit files directly on the server.
+Batch Execution: Select target servers and execute tasks with one click.
+SSH Reconnection: Automatic handling of connection drops during large file transfers.
+⚡ Quick Start
+Build
+bash
+
+编辑
+
+
+
+# Windows
+go build -o deploy-manager.exe ./cmd/server/main.go
+
+# Linux
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o deploy-manager ./cmd/server/main.go
+
+# Or use Makefile
+make build
+make linux
+Run
+bash
+
+编辑
+
+
+
+# Default port 3000, password must be specified
+./deploy-manager --password yourpass
+
+# Specify port
+./deploy-manager --port 3001 --password yourpass
+./deploy-manager -p 3001 -P yourpass
+
+# Production mode
+GIN_MODE=release ./deploy-manager --password yourpass
+Startup Arguments
+表格
+Argument	Short	Description	Default
+--port	-p	Specify service port	3000
+--password	-P	Set admin password	Must be specified on first start
+Login Credentials
+The admin password must be specified via the command line on first launch:
+bash
+
+编辑
+
+
+
+./deploy-manager --password yourpassword
+# or
+./deploy-manager -P yourpassword
+Default Username: admin
+Data Directory
+Data is stored in the ./data directory.
+Log file: ./data/deploy.log.
+🛠️ Configuration (Usually not required to modify)
+yaml
+
+编辑
+
+
+
+server:
+  port: 3000
+  data_dir: ./data
+
+database:
+  path: ./data/deploy.db
+
+jwt:
+  secret: ""  # Leave empty to auto-generate
+  expire_hours: 2
+  refresh_expire_days: 7
+
+log:
+  level: info
+  path: ./data/deploy.log
+
+admin:
+  username: admin
+  password: ""  # Leave empty to auto-generate
+📡 API Endpoints
+Authentication
+POST /api/login - Login
+POST /api/refresh - Refresh Token
+GET /api/user - Get User Info
+Server Management
+GET /api/servers - Server List
+POST /api/servers - Add Server
+PUT /api/servers/:id - Update Server
+DELETE /api/servers/:id - Delete Server
+GET /api/servers/:id/test - Test Connection (Supports Bastion hosts)
+Deployment Management
+GET /api/deployments - Deployment List
+POST /api/deployments - Create Deployment
+DELETE /api/deployments/:id - Delete Deployment
+POST /api/deployments/:id/restart - Restart Deployment
+GET /api/deployments/:id/logs - View Logs
+Scheduled Tasks
+GET /api/crons - Task List
+POST /api/crons - Create Task
+DELETE /api/crons/:id - Delete Task
+POST /api/crons/:id/execute - Execute Task
+File Management
+GET /api/files/:id - File List
+POST /api/files/:id/upload - Upload File
+GET /api/files/:id/download - Download File
+DELETE /api/files/:id - Delete File
+Web Terminal
+GET /api/terminal/:id - WebSocket Connection
+Infrastructure (Batch Tasks)
+GET /api/infrastructure/scenarios - Scenario List
+POST /api/infrastructure/scenarios - Create Scenario
+PUT /api/infrastructure/scenarios/:id - Update Scenario
+DELETE /api/infrastructure/scenarios/:id - Delete Scenario
+POST /api/infrastructure/scenarios/:id/files - Upload File (Script/Package)
+GET /api/infrastructure/scenarios/:id/files/:filename - Get File Content
+PUT /api/infrastructure/scenarios/:id/files/:filename - Update File Content
+DELETE /api/infrastructure/scenarios/:id/files/:filename - Delete File
+POST /api/infrastructure/execute - Execute Scenario
+GET /api/infrastructure/executions - Execution History List
+GET /api/infrastructure/executions/:id - Execution Details
+🛠️ Tech Stack
+Backend: Go 1.21+
+Web Framework: Gin
+Database: SQLite + GORM
+SSH: golang.org/x/crypto/ssh
+Authentication: JWT
+WebSocket: gorilla/websocket
+Frontend: HTMX + Alpine.js + TailwindCSS
+Terminal: xterm.js
+📂 Project Structure
+text
+
+编辑
+
+
+
+deploy-manager/
+├── cmd/server/main.go      # Program entry point
+├── internal/
+│   ├── config/             # Configuration management
+│   ├── database/           # Database
+│   ├── handler/            # HTTP Handlers
+│   │   ├── infrastructure.go  # Infrastructure module
+│   │   ├── terminal.go     # Terminal module
+│   │   ├── file.go         # File management
+│   │   └── ...
+│   ├── service/            # Business logic
+│   │   └── ssh.go          # SSH service
+│   └── model/              # Data models
+├── pkg/ssh/                # SSH client
+├── web/
+│   ├── templates/          # HTML templates
+│   │   ├── infrastructure.html  # Infrastructure page
+│   │   └── terminal.html   # Terminal page
+│   └── static/             # Static files
+├── uploads/                # Upload directory
+├── config.yaml             # Config file
+├── go.mod
+└── Makefile
+🔒 Security
+Change the default admin password immediately after the first launch.
+It is recommended to use a reverse proxy to enable HTTPS in production environments.
+📄 License
+MIT License
