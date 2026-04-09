@@ -1,3 +1,4 @@
+[English readme](./readme.en)
 # Deploy Manager
 
 初衷，目前没有称手的ssh免费工具，于是自己做了一个，基于 Go 的轻量级服务器部署管理工具，支持服务部署、Web终端和文件管理。
