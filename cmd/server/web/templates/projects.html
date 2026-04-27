@@ -53,6 +53,8 @@
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-xl font-semibold" x-text="selectedProject?.name"></h3>
                         <div class="flex space-x-2">
+                            <input type="file" id="importProjectCSVFile" @change="importProjectCSV($event)" accept=".csv" class="hidden">
+                            <button @click="document.getElementById('importProjectCSVFile').click()" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm">📤 导入CSV</button>
                             <button @click="exportProjectCSV()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm">📥 导出CSV</button>
                             <button @click="showAddComponentModal=true" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm">➕ 添加组件</button>
                         </div>
@@ -960,6 +962,93 @@ function projectApp() {
             this.pendingShowPassword = null;
             this.pendingAction = null;
             this.verifyPassword = '';
+        },
+
+        importProjectCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (!this.selectedProject) {
+                this.showToast('请先选择项目', 'error');
+                event.target.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const text = e.target.result.replace(/^\ufeff/, '');
+                const lines = text.split(/\r?\n/).filter(l => l.trim());
+                if (lines.length < 2) {
+                    this.showToast('CSV文件没有数据行', 'error');
+                    return;
+                }
+                const headerLine = lines[0];
+                const headers = this.parseCSVLine(headerLine);
+                const colMap = {};
+                const expected = ['组件名称','类型','版本','部署目录','访问用户','访问密码','访问地址','启动命令','停止命令','状态命令','日志命令'];
+                expected.forEach(h => {
+                    const idx = headers.indexOf(h);
+                    if (idx >= 0) colMap[h] = idx;
+                });
+                if (colMap['组件名称'] === undefined) {
+                    this.showToast('CSV缺少"组件名称"列', 'error');
+                    return;
+                }
+                const projectId = this.selectedProject.id;
+                let success = 0, fail = 0;
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = this.parseCSVLine(lines[i]);
+                    if (cols.length < 2) continue;
+                    const comp = {
+                        project_id: projectId,
+                        name: (cols[colMap['组件名称']] || '').trim(),
+                        type: (cols[colMap['类型']] || '').trim() || 'application',
+                        version: (cols[colMap['版本']] || '').trim(),
+                        deploy_dir: (cols[colMap['部署目录']] || '').trim(),
+                        access_user: (cols[colMap['访问用户']] || '').trim(),
+                        access_password: (cols[colMap['访问密码']] || '').trim(),
+                        access_url: (cols[colMap['访问地址']] || '').trim(),
+                        start_cmd: (cols[colMap['启动命令']] || '').trim(),
+                        stop_cmd: (cols[colMap['停止命令']] || '').trim(),
+                        status_cmd: (cols[colMap['状态命令']] || '').trim(),
+                        log_cmd: (cols[colMap['日志命令']] || '').trim(),
+                        server_ids: []
+                    };
+                    if (!comp.name) continue;
+                    try {
+                        const res = await fetch('/api/projects/components', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                            body: JSON.stringify(comp)
+                        });
+                        if (res.ok) success++; else fail++;
+                    } catch (err) { fail++; }
+                }
+                this.showToast('导入完成: 成功' + success + '个' + (fail > 0 ? ', 失败' + fail + '个' : ''), fail > 0 ? 'error' : 'success');
+                await this.loadProjects();
+                this.selectedProject = this.projects.find(p => p.id === projectId) || null;
+                event.target.value = '';
+            };
+            reader.readAsText(file, 'UTF-8');
+        },
+
+        parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (inQuotes) {
+                    if (ch === '"') {
+                        if (i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; }
+                        else { inQuotes = false; }
+                    } else { current += ch; }
+                } else {
+                    if (ch === '"') { inQuotes = true; }
+                    else if (ch === ',') { result.push(current); current = ''; }
+                    else { current += ch; }
+                }
+            }
+            result.push(current);
+            return result;
         },
 
         exportProjectCSV() {
