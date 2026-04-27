@@ -441,6 +441,7 @@ function containerTerminalApp() {
             };
             
             tab.currentLine = '';
+            tab.currentLineUnknown = false;
             tab.pendingRmConfirm = false;
             tab.pendingRmLine = '';
 
@@ -452,12 +453,14 @@ function containerTerminalApp() {
                             const line = tab.pendingRmLine;
                             tab.pendingRmLine = '';
                             tab.currentLine = '';
+                            tab.currentLineUnknown = false;
                             tab.ws.send(JSON.stringify({ type: 'input', data: line }));
                             tab.terminal.write('\r\n');
                         } else if (data === 'n' || data === 'N' || data === '\r' || data === '\x03' || data === '\x15') {
                             tab.pendingRmConfirm = false;
                             tab.pendingRmLine = '';
                             tab.currentLine = '';
+                            tab.currentLineUnknown = false;
                             tab.terminal.write('\r\n\x1b[33m已取消\x1b[0m\r\n');
                             tab.ws.send(JSON.stringify({ type: 'input', data: '\x03' }));
                         } else {
@@ -466,37 +469,37 @@ function containerTerminalApp() {
                         return;
                     }
                     if (data === '\r' || data === '\n') {
-                        if (self.isRmCommand(tab.currentLine)) {
+                        let lineToCheck = tab.currentLineUnknown ? self.getCurrentTerminalLine(tab.terminal) : tab.currentLine;
+                        tab.currentLine = '';
+                        tab.currentLineUnknown = false;
+                        if (self.isRmCommand(lineToCheck)) {
                             tab.pendingRmConfirm = true;
                             tab.pendingRmLine = data;
                             tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
-                            tab.currentLine = '';
                             return;
                         }
-                        tab.currentLine = '';
                     } else if (data === '\x7f' || data === '\b') {
                         if (tab.currentLine.length > 0) tab.currentLine = tab.currentLine.slice(0, -1);
                     } else if (data === '\x03') {
                         tab.currentLine = '';
+                        tab.currentLineUnknown = false;
                     } else if (data === '\x15') {
                         tab.currentLine = '';
+                    } else if (data.startsWith('\x1b[') || data.startsWith('\x1bO')) {
+                        tab.currentLineUnknown = true;
                     } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
                         tab.currentLine += data;
-                    } else if (data.length > 1 && !data.startsWith('\x1b[')) {
+                    } else if (data.length > 1) {
                         if (data.includes('\n') || data.includes('\r')) {
-                            const lines = data.split(/\r?\n/);
-                            for (const line of lines) {
-                                if (line && self.isRmCommand(line)) {
-                                    tab.pendingRmConfirm = true;
-                                    tab.pendingRmLine = data;
-                                    tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
-                                    tab.currentLine = '';
-                                    return;
-                                }
+                            if (self.isRmCommand(data)) {
+                                tab.pendingRmConfirm = true;
+                                tab.pendingRmLine = data;
+                                tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
+                                tab.currentLine = '';
+                                return;
                             }
-                            tab.currentLine = '';
                         } else {
-                            tab.currentLine += data;
+                            tab.currentLineUnknown = true;
                         }
                     }
                     tab.ws.send(JSON.stringify({ type: 'input', data: data })); 
@@ -517,6 +520,15 @@ function containerTerminalApp() {
             const trimmed = line.trim();
             if (!trimmed) return false;
             return /^\s*rm\b/.test(trimmed) || /[|;&]\s*rm\b/.test(trimmed) || /\brm\s/.test(trimmed);
+        },
+        getCurrentTerminalLine(terminal) {
+            try {
+                const line = terminal.buffer.active.getLine(terminal.buffer.active.cursorY);
+                if (line) {
+                    return line.translateToString(true, 0, terminal.cols).trim();
+                }
+            } catch(e) {}
+            return '';
         },
         updateConnectionStatus(text, className) {
             const statusEl = document.getElementById('connectionStatus');
