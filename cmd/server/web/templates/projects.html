@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目部署 - 部署管理系统</title>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #374151; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #6b7280; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+    </style>
+    <script src="/static/js/alpine.min.js" defer></script>
+</head>
+<body class="bg-gray-900 text-white" x-data="projectApp()" x-init="init()">
+    <div class="min-h-screen flex flex-col">
+        <header class="bg-gray-800 px-4 py-3 flex justify-between items-center border-b border-gray-700">
+            <div class="flex items-center space-x-4">
+                <a href="/" class="text-gray-400 hover:text-white">🏠主页</a>
+                <h1 class="text-xl font-semibold">📂 项目部署</h1>
+            </div>
+            <button @click="logout()" class="text-gray-400 hover:text-red-400">🚪退出</button>
+        </header>
+
+        <main class="flex-1 p-6 overflow-auto">
+            <div class="mb-4 flex justify-between items-center">
+                <h2 class="text-lg font-semibold">项目列表</h2>
+                <button @click="showAddProjectModal=true" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">➕ 新建项目</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <template x-for="project in projects" :key="project.id">
+                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-blue-500">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-lg font-semibold cursor-pointer hover:text-blue-400" @click="selectProject(project)" x-text="project.name"></h3>
+                            <div class="flex items-center space-x-2">
+                                <button @click="editProject(project)" class="text-blue-400 hover:text-blue-300 text-sm" title="编辑">✏️</button>
+                                <span x-show="project.is_default" class="text-xs bg-blue-600 px-2 py-0.5 rounded">默认</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-400 text-sm mb-3 cursor-pointer hover:text-gray-300" @click="selectProject(project)" x-text="project.description || '暂无描述'"></p>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-500 cursor-pointer hover:text-gray-400" @click="selectProject(project)" x-text="(project.components || []).length + ' 个组件'"></span>
+                            <span :class="project.status === 'active' ? 'text-green-400' : 'text-yellow-400'" x-text="project.status === 'active' ? '运行中' : project.status"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <div x-show="selectedProject" class="mt-8">
+                <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold" x-text="selectedProject?.name"></h3>
+                        <div class="flex space-x-2">
+                            <button @click="exportProjectCSV()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm">📥 导出CSV</button>
+                            <button @click="showAddComponentModal=true" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm">➕ 添加组件</button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-left text-gray-400 border-b border-gray-700">
+                                    <th class="pb-2">组件名称</th>
+                                    <th class="pb-2">类型</th>
+                                    <th class="pb-2">版本</th>
+                                    <th class="pb-2">部署状态</th>
+                                    <th class="pb-2">部署服务器</th>
+                                    <th class="pb-2">用户</th>
+                                    <th class="pb-2">密码</th>
+                                    <th class="pb-2">访问地址</th>
+                                    <th class="pb-2">运行状态</th>
+                                    <th class="pb-2">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="comp in (selectedProject?.components || [])" :key="comp.id">
+                                    <tr class="border-b border-gray-700 hover:bg-gray-700">
+                                        <td class="py-3" x-text="comp.name"></td>
+                                        <td class="py-3" x-text="comp.type"></td>
+                                        <td class="py-3" x-text="comp.version || '-'"></td>
+                                        <td class="py-3">
+                                            <select @change="updateComponentStatus(comp, $event.target.value)"
+                                                    class="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm"
+                                                    :class="{'text-green-400': comp.status === 'deployed', 'text-gray-500': comp.status !== 'deployed'}">
+                                                <option value="not_deployed" :selected="comp.status === 'not_deployed'">未部署</option>
+                                                <option value="deployed" :selected="comp.status === 'deployed'">已部署</option>
+                                            </select>
+                                        </td>
+                                        <td class="py-3">
+                                            <span x-show="comp.deployed_servers">
+                                                <template x-for="(serverId, index) in comp.deployed_servers.split(',')" :key="index">
+                                                    <a :href="'/terminal?server=' + serverId.trim() + '&token=' + getToken()"
+                                                       target="_blank"
+                                                       class="text-blue-400 hover:text-blue-300 underline mr-2"
+                                                       :title="'点击打开终端'">
+                                                        <span x-text="getServerIP(serverId.trim())"></span>
+                                                    </a>
+                                                </template>
+                                            </span>
+                                            <span x-show="!comp.deployed_servers" class="text-gray-500">-</span>
+                                        </td>
+                                        <td class="py-3 text-gray-400" x-text="comp.access_user || '-'"></td>
+                                        <td class="py-3">
+                                            <span x-show="comp.access_password" @click="showVerifyForPassword(comp)" class="cursor-pointer text-blue-400 hover:text-blue-300">******</span>
+                                            <span x-show="!comp.access_password" class="text-gray-500">-</span>
+                                        </td>
+                                        <td class="py-3">
+                                            <a x-show="comp.access_url" :href="comp.access_url" target="_blank" class="text-blue-400 hover:text-blue-300" x-text="comp.access_url"></a>
+                                            <span x-show="!comp.access_url" class="text-gray-500">-</span>
+                                        </td>
+                                        <td class="py-3">
+                                            <div class="flex items-center space-x-3">
+                                                <button @click="componentAction(comp, 'status')" class="text-purple-400 hover:text-purple-300 text-2xl px-1" title="查看状态">⚡</button>
+                                                <button @click="componentAction(comp, 'log')" class="text-blue-400 hover:text-blue-300 text-2xl px-1" title="查看日志">📋</button>
+                                                <button @click="componentAction(comp, 'start')" class="text-green-400 hover:text-green-300 text-2xl px-1" title="启动">▶</button>
+                                                <button @click="componentAction(comp, 'stop')" class="text-yellow-400 hover:text-yellow-300 text-2xl px-1" title="停止">⏹</button>
+                                            </div>
+                                        </td>
+                                        <td class="py-3">
+                                            <div class="flex space-x-2">
+                                                <button @click="editComponent(comp)" class="text-blue-400 hover:text-blue-300">编辑</button>
+                                                <button x-show="comp.config_file" @click="editConfigFile(comp)" class="text-purple-400 hover:text-purple-300">配置</button>
+                                                <button @click="viewDeployLog(comp)" class="text-yellow-400 hover:text-yellow-300">部署日志</button>
+                                                <button @click="deployComponent(comp)" class="text-green-400 hover:text-green-300">部署</button>
+                                                <button @click="deleteComponent(comp.id)" class="text-red-400 hover:text-red-300">删除</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                                <tr x-show="(selectedProject?.components || []).length === 0">
+                                    <td colspan="10" class="py-8 text-center text-gray-500">暂无组件</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div x-show="showAddProjectModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4" x-text="editingProject ? '编辑项目' : '新建项目'"></h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">项目名称</label>
+                    <input type="text" x-model="newProject.name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">描述</label>
+                    <textarea x-model="newProject.description" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button @click="closeProjectModal()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
+                <button @click="saveProject()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700" x-text="editingProject ? '保存' : '创建'"></button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showAddComponentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+            <h3 class="text-lg font-semibold mb-4" x-text="editingComponent ? '编辑组件' : '添加组件'"></h3>
+            <div class="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar" style="max-height: calc(80vh - 120px);">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">组件名称</label>
+                    <input type="text" x-model="newComponent.name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">类型</label>
+                        <select x-model="newComponent.type" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white">
+                            <option value="database">数据库</option>
+                            <option value="messagequeue">消息队列</option>
+                            <option value="compute">计算引擎</option>
+                            <option value="registry">注册中心</option>
+                            <option value="scheduler">调度器</option>
+                            <option value="storage">存储</option>
+                            <option value="cache">缓存</option>
+                            <option value="application">应用</option>
+                            <option value="etl">ETL</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">版本</label>
+                        <input type="text" x-model="newComponent.version" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: 15, 3.4">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">部署目录</label>
+                    <input type="text" x-model="newComponent.deploy_dir" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: /opt/app/myapp (自动创建)">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">状态查看命令</label>
+                    <input type="text" x-model="newComponent.status_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: systemctl status myapp">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">服务日志命令</label>
+                    <input type="text" x-model="newComponent.log_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: docker logs -f myapp">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">访问地址</label>
+                    <input type="text" x-model="newComponent.access_url" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: http://192.168.1.100:8080">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">访问用户</label>
+                        <input type="text" x-model="newComponent.access_user" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: admin">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">访问密码</label>
+                        <div class="relative">
+                            <input :type="showPassword ? 'text' : 'password'" x-model="newComponent.access_password" class="w-full px-3 py-2 pr-10 bg-gray-700 border border-gray-600 rounded text-white" placeholder="密码">
+                            <button type="button" @click="showPassword = !showPassword" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                                <span x-show="!showPassword">👁</span>
+                                <span x-show="showPassword">🙈</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">安装命令</label>
+                    <input type="text" x-model="newComponent.install_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: ./install.sh">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">启动命令</label>
+                    <input type="text" x-model="newComponent.start_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: ./start.sh">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">停止命令</label>
+                    <input type="text" x-model="newComponent.stop_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: ./stop.sh">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">配置文件</label>
+                    <input type="text" x-model="newComponent.config_file" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: /opt/app/conf/app.conf">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">目标服务器（多选）</label>
+                    <div class="max-h-32 overflow-y-auto border border-gray-600 rounded p-2">
+                        <template x-for="server in servers" :key="server.id">
+                            <label class="flex items-center space-x-2 text-sm text-gray-300 py-1 cursor-pointer">
+                                <input type="checkbox" :value="server.id" x-model="newComponent.server_ids" class="w-4 h-4">
+                                <span x-text="server.name + ' (' + server.ip + ')'"></span>
+                            </label>
+                        </template>
+                    </div>
+                </div>
+                <div x-show="editingComponent">
+                    <label class="block text-sm text-gray-400 mb-1">安装包（可多选）</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="file" id="packageFile" multiple class="text-sm text-gray-400">
+                        <button @click="uploadPackages()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-sm whitespace-nowrap">上传</button>
+                    </div>
+                    <div x-show="editingComponent?.install_pkg" class="mt-1">
+                        <template x-for="pkg in getPackages()" :key="pkg">
+                            <div class="flex items-center text-xs text-gray-500">
+                                <span x-text="pkg" class="mr-2"></span>
+                                <button @click="deletePackage(pkg)" class="text-red-400 hover:text-red-300" title="删除">✕</button>
+                            </div>
+                        </template>
+                    </div>
+                    <div x-show="uploadProgress" class="mt-2">
+                        <div class="w-full bg-gray-700 rounded h-2">
+                            <div class="bg-purple-600 h-2 rounded" :style="'width: ' + uploadProgress + '%'"></div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1" x-text="uploadStatus"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button @click="closeComponentModal()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
+                <button @click="saveComponent()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showDeployConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+            <h3 class="text-lg font-semibold mb-4">部署确认: <span x-text="deployingComponent?.name"></span></h3>
+            <div class="space-y-3">
+                <div class="text-gray-400 text-sm">
+                    <span class="font-semibold">组件:</span> <span x-text="deployingComponent?.name"></span>
+                </div>
+                <div class="text-gray-400 text-sm">
+                    <span class="font-semibold">部署目录:</span> <span x-text="deployingComponent?.deploy_dir || '-'"></span>
+                </div>
+                <div class="text-gray-400 text-sm">
+                    <span class="font-semibold">目标服务器:</span>
+                </div>
+                <div class="max-h-40 overflow-y-auto border border-gray-600 rounded p-2">
+                    <template x-for="server in deployConfirmServers" :key="server.id">
+                        <div class="text-sm text-gray-300 py-1" x-text="server.name + ' (' + server.ip + ')'"></div>
+                    </template>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button @click="showDeployConfirmModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
+                <button @click="confirmDeploy()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700">确认部署</button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showDeployModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+            <h3 class="text-lg font-semibold mb-4">部署组件: <span x-text="deployingComponent?.name"></span></h3>
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">选择目标服务器</label>
+                <div class="max-h-60 overflow-y-auto border border-gray-600 rounded">
+                    <template x-for="server in servers" :key="server.id">
+                        <label class="flex items-center p-2 hover:bg-gray-700 cursor-pointer">
+                            <input type="checkbox" :value="server.id" x-model="selectedServers" class="mr-2">
+                            <span x-text="server.name + ' (' + server.ip + ')'"></span>
+                        </label>
+                    </template>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button @click="showDeployModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
+                <button @click="confirmDeploy()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700">确认部署</button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showDeployLogModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <h3 class="text-lg font-semibold mb-4">部署日志: <span x-text="deployingComponent?.name"></span></h3>
+            <div class="bg-gray-900 p-4 rounded text-sm text-gray-300 whitespace-pre-wrap font-mono h-64 overflow-y-auto" x-text="deployLogContent || '暂无日志'"></div>
+            <div class="flex justify-end mt-4">
+                <button @click="showDeployLogModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showConfigModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+            <h3 class="text-lg font-semibold mb-2">配置文件: <span x-text="editingConfigComponent?.config_file"></span></h3>
+            <div class="text-xs text-gray-400 mb-2">会自动生成带时间戳的备份文件</div>
+            <textarea x-model="configFileContent" class="flex-1 w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white font-mono text-sm resize-none" rows="20" placeholder="配置文件内容..."></textarea>
+            <div class="flex justify-end space-x-3 mt-4">
+                <button @click="showConfigModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
+                <button @click="saveConfigFile()" class="px-4 py-2 bg-purple-600 rounded hover:bg-purple-700">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showStatusModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 rounded-lg p-6 w-4/5 h-4/5 flex flex-col">
+            <div class="flex items-center justify-between mb-2 pb-2 border-b border-gray-700">
+                <h3 class="text-lg font-semibold">
+                    <span x-text="actionType === 'log' ? '日志：' + (actionComponent?.name || '') + ' - ' + (logServerName || '') : '操作结果：' + (deployingComponent?.name || '')"></span>
+                </h3>
+                <button @click="showStatusModal = false" class="text-gray-500 hover:text-white">&times;</button>
+            </div>
+            <div class="flex items-center space-x-2 mb-4">
+                <button @click="loadComponentLog('50')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">50行</button>
+                <button @click="loadComponentLog('100')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">100行</button>
+                <button @click="loadComponentLog('500')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">500行</button>
+                <button @click="loadComponentLog('1000')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">1000行</button>
+                <button @click="loadComponentLog(logTail, false)" class="px-3 py-1 bg-green-500 text-white rounded text-sm">刷新最新</button>
+                <button @click="loadComponentLog(logTail, true)" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">更多</button>
+            </div>
+            <div class="flex-1 bg-gray-900 p-4 rounded text-sm text-gray-300 whitespace-pre-wrap font-mono overflow-y-auto" x-text="(actionType === 'log' ? logOutput : statusOutput) || '无输出'"></div>
+            <div class="flex justify-end mt-4 pt-2 border-t border-gray-700">
+                <button @click="showStatusModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showActionServerModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+            <h3 class="text-lg font-semibold mb-4" x-text="actionType === 'start' ? '启动' : actionType === 'stop' ? '停止' : actionType === 'status' ? '查看状态' : '查看日志' + ' - ' + (actionComponent?.name || '')"></h3>
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm text-gray-400">选择目标服务器</label>
+                    <template x-if="actionType !== 'log'">
+                        <button @click="selectedActionServers = actionServers.map(s => s.id)" class="text-sm text-blue-400 hover:text-blue-300">全选</button>
+                    </template>
+                </div>
+                <div class="max-h-60 overflow-y-auto border border-gray-600 rounded">
+                    <template x-for="server in actionServers" :key="server.id">
+                        <label class="flex items-center p-2 hover:bg-gray-700 cursor-pointer">
+                            <input x-show="actionType === 'log'" type="radio" :value="server.id" @change="selectedActionServers = [server.id]" :checked="selectedActionServers.includes(server.id)" name="actionServer" class="mr-2">
+                            <input x-show="actionType !== 'log'" type="checkbox" :value="server.id" x-model="selectedActionServers" class="mr-2">
+                            <span x-text="server.name + ' (' + server.ip + ')'"></span>
+                        </label>
+                    </template>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button @click="showActionServerModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
+                <button @click="confirmAction()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showVerifyModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm">
+            <h3 class="text-lg font-semibold mb-4">验证管理员</h3>
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">请输入管理员密码</label>
+                <input type="password" x-model="verifyPassword" @keyup.enter="confirmVerify()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white">
+            </div>
+            <div class="flex justify-end space-x-3 mt-4">
+                <button @click="showVerifyModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
+                <button @click="confirmVerify()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showMessage" class="fixed top-4 right-4 px-4 py-2 rounded text-white z-50"
+         :class="messageType === 'error' ? 'bg-red-600' : 'bg-green-600'" style="display: none;" x-text="message"></div>
+
+<script>
+function projectApp() {
+    return {
+        token: '',
+        projects: [],
+        servers: [],
+        selectedProject: null,
+        showAddProjectModal: false,
+        editingProject: null,
+        showAddComponentModal: false,
+        showDeployModal: false,
+        showMessage: false,
+        message: '',
+        messageType: 'success',
+        newProject: { name: '', description: '' },
+        newComponent: { name: '', type: 'database', version: '', deploy_dir: '', status_cmd: '', log_cmd: '', access_user: '', access_password: '', access_url: '', install_cmd: '', start_cmd: '', stop_cmd: '', config_file: '' },
+        editingComponent: null,
+        deployingComponent: null,
+        selectedServers: [],
+        uploadProgress: 0,
+        uploadStatus: '',
+        showPassword: false,
+        showDeployLogModal: false,
+        deployLogContent: '',
+        showStatusModal: false,
+        showLogModal: false,
+        logOutput: '',
+        logTail: '100',
+        logOffset: 0,
+        logServerName: '',
+        statusOutput: '',
+        showConfigModal: false,
+        configFileContent: '',
+        editingConfigComponent: null,
+        showVerifyModal: false,
+        verifyPassword: '',
+        pendingShowPassword: null,
+        adminVerified: false,
+        pendingAction: null,
+        showActionServerModal: false,
+        actionComponent: null,
+        actionType: '',
+        actionServers: [],
+        selectedActionServers: [],
+        showDeployConfirmModal: false,
+        deployConfirmServers: [],
+
+        init() {
+            const params = new URLSearchParams(window.location.search);
+            this.token = params.get('token');
+            if (!this.token) {
+                this.token = localStorage.getItem('access_token');
+            }
+            if (!this.token) {
+                window.location.href = '/login';
+                return;
+            }
+            this.loadProjects();
+            this.loadServers();
+        },
+
+        getToken() { return this.token || localStorage.getItem('access_token'); },
+        logout() { localStorage.removeItem('access_token'); window.location.href = '/login'; },
+
+        async loadProjects() {
+            try {
+                const res = await fetch('/api/projects', { headers: { 'Authorization': 'Bearer ' + this.getToken() } });
+                const data = await res.json();
+                if (res.ok) {
+                    this.projects = data.projects || [];
+                }
+            } catch (e) { console.error(e); }
+        },
+
+        async loadServers() {
+            try {
+                const res = await fetch('/api/servers', { headers: { 'Authorization': 'Bearer ' + this.getToken() } });
+                const data = await res.json();
+                if (res.ok) {
+                    this.servers = data.servers || [];
+                }
+            } catch (e) { console.error(e); }
+        },
+
+        selectProject(project) {
+            this.selectedProject = project;
+        },
+
+        async createProject() {
+            if (!this.newProject.name) {
+                this.showToast('请输入项目名称', 'error');
+                return;
+            }
+            try {
+                const res = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.newProject)
+                });
+                if (res.ok) {
+                    this.showAddProjectModal = false;
+                    this.newProject = { name: '', description: '' };
+                    this.loadProjects();
+                    this.showToast('项目创建成功', 'success');
+                }
+            } catch (e) { this.showToast('创建失败', 'error'); }
+        },
+
+        editProject(project) {
+            this.editingProject = project;
+            this.newProject = { name: project.name, description: project.description || '' };
+            this.showAddProjectModal = true;
+        },
+
+        closeProjectModal() {
+            this.showAddProjectModal = false;
+            this.editingProject = null;
+            this.newProject = { name: '', description: '' };
+        },
+
+        async saveProject() {
+            if (!this.newProject.name) {
+                this.showToast('请输入项目名称', 'error');
+                return;
+            }
+            try {
+                if (this.editingProject) {
+                    const res = await fetch('/api/projects/' + this.editingProject.id, {
+                        method: 'PUT',
+                        headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.newProject)
+                    });
+                    if (res.ok) {
+                        this.closeProjectModal();
+                        this.loadProjects();
+                        this.showToast('项目保存成功', 'success');
+                    } else {
+                        this.showToast('保存失败', 'error');
+                    }
+                } else {
+                    const res = await fetch('/api/projects', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.newProject)
+                    });
+                    if (res.ok) {
+                        this.closeProjectModal();
+                        this.loadProjects();
+                        this.showToast('项目创建成功', 'success');
+                    } else {
+                        this.showToast('创建失败', 'error');
+                    }
+                }
+            } catch (e) { this.showToast('操作失败', 'error'); }
+        },
+
+        editComponent(comp) {
+            this.editingComponent = comp;
+            let serverIds = [];
+            if (comp.server_ids) {
+                try { serverIds = JSON.parse(comp.server_ids); } catch(e) { serverIds = []; }
+            }
+            this.newComponent = {
+                name: comp.name,
+                type: comp.type,
+                description: comp.description || '',
+                version: comp.version || '',
+                deploy_dir: comp.deploy_dir || '',
+                status_cmd: comp.status_cmd || '',
+                log_cmd: comp.log_cmd || '',
+                access_user: comp.access_user || '',
+                access_password: comp.access_password || '',
+                access_url: comp.access_url || '',
+                install_cmd: comp.install_cmd || '',
+                start_cmd: comp.start_cmd || '',
+                stop_cmd: comp.stop_cmd || '',
+                config_file: comp.config_file || '',
+                server_ids: serverIds
+            };
+            this.showAddComponentModal = true;
+        },
+
+        closeComponentModal() {
+            this.showAddComponentModal = false;
+            this.editingComponent = null;
+            this.newComponent = { name: '', type: 'database', version: '', deploy_dir: '', status_cmd: '', access_user: '', access_password: '', access_url: '', install_cmd: '', start_cmd: '', stop_cmd: '', server_ids: [] };
+        },
+
+        async saveComponent() {
+            if (!this.newComponent.name || !this.selectedProject) {
+                this.showToast('请填写组件名称', 'error');
+                return;
+            }
+            try {
+                let url = '/api/projects/components';
+                let method = 'POST';
+                if (this.editingComponent) {
+                    url = '/api/projects/components/' + this.editingComponent.id;
+                    method = 'PUT';
+                }
+                console.log('Saving to:', url, this.newComponent);
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...this.newComponent, project_id: this.selectedProject.id })
+                });
+                const data = await res.json();
+                console.log('Save result:', res.ok, data);
+                if (res.ok) {
+                    this.closeComponentModal();
+                    this.loadProjects();
+                    this.selectProject(this.projects.find(p => p.id === this.selectedProject.id));
+                    this.showToast('保存成功', 'success');
+                } else {
+                    this.showToast('保存失败: ' + (data.error || '未知错误'), 'error');
+                }
+            } catch (e) {
+                console.error('Save error:', e);
+                this.showToast('保存失败', 'error');
+            }
+        },
+
+        async deleteComponent(id) {
+            if (!confirm('确定要删除这个组件吗？')) return;
+            try {
+                const res = await fetch('/api/projects/components/' + id, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() }
+                });
+                if (res.ok) {
+                    this.loadProjects();
+                    this.selectProject(this.projects.find(p => p.id === this.selectedProject.id));
+                    this.showToast('删除成功', 'success');
+                }
+            } catch (e) { this.showToast('删除失败', 'error'); }
+        },
+
+        deployComponent(comp) {
+            let serverIds = [];
+            if (comp.server_ids) {
+                try { serverIds = JSON.parse(comp.server_ids); } catch(e) { serverIds = []; }
+            }
+
+            if (serverIds.length === 0) {
+                this.showToast('请先编辑组件，选择目标服务器', 'error');
+                return;
+            }
+
+            serverIds = serverIds.map(id => Number(id));
+
+            this.deployingComponent = comp;
+            this.deployConfirmServers = this.servers.filter(s => serverIds.includes(Number(s.id)));
+            this.showDeployConfirmModal = true;
+        },
+
+        async doDeploy(serverIds) {
+            this.showToast('正在部署...', 'success');
+            this.showDeployModal = false;
+            try {
+                const res = await fetch('/api/projects/components/' + this.deployingComponent.id + '/deploy', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ server_ids: serverIds })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    this.showToast('部署完成', 'success');
+                    await this.loadProjects();
+                    if (this.selectedProject) {
+                        this.selectProject(this.projects.find(p => p.id === this.selectedProject.id));
+                    }
+                } else {
+                    this.showToast('部署失败: ' + (data.error || '未知错误'), 'error');
+                }
+            } catch (e) {
+                this.showToast('部署失败', 'error');
+            }
+        },
+
+        async confirmDeploy() {
+            if (!this.deployingComponent || this.deployConfirmServers.length === 0) {
+                this.showToast('请选择目标服务器', 'error');
+                return;
+            }
+            this.showDeployConfirmModal = false;
+            const serverIds = this.deployConfirmServers.map(s => Number(s.id));
+            await this.doDeploy(serverIds);
+        },
+
+        async uploadPackages() {
+            console.log('uploadPackages called, editingComponent:', this.editingComponent);
+            const fileInput = document.getElementById('packageFile');
+            const files = fileInput.files;
+            if (!files || files.length === 0) {
+                this.showToast('请选择文件', 'error');
+                return;
+            }
+            if (!this.editingComponent) {
+                this.showToast('请先保存组件', 'error');
+                return;
+            }
+            console.log('Component ID:', this.editingComponent.id);
+
+            this.uploadProgress = 0;
+            this.uploadStatus = '准备上传...';
+            let uploaded = 0;
+            let failed = 0;
+
+            for (let i = 0; i < files.length; i++) {
+                this.uploadStatus = '上传中 ' + (i + 1) + '/' + files.length;
+
+                const formData = new FormData();
+                formData.append('file', files[i]);
+
+                try {
+                    const res = await fetch('/api/projects/components/' + this.editingComponent.id + '/package', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + this.getToken() },
+                        body: formData
+                    });
+                    const data = await res.json();
+                    console.log('Upload response:', res.ok, data);
+                    if (res.ok) {
+                        uploaded++;
+                        // 追加到文件列表
+                        if (this.editingComponent.install_pkg) {
+                            this.editingComponent.install_pkg += ',' + data.filename;
+                        } else {
+                            this.editingComponent.install_pkg = data.filename;
+                        }
+                    } else {
+                        console.error('Upload failed:', data);
+                        failed++;
+                    }
+                } catch (e) {
+                    console.error('Upload error:', e);
+                    failed++;
+                }
+
+                this.uploadProgress = Math.round(((i + 1) / files.length) * 100);
+            }
+
+            this.uploadStatus = '完成: 成功 ' + uploaded + ', 失败 ' + failed;
+
+            if (failed === 0) {
+                this.showToast('上传成功 ' + uploaded + ' 个文件', 'success');
+            } else {
+                this.showToast('完成: 成功 ' + uploaded + ' 个, 失败 ' + failed + ' 个', failed > 0 ? 'error' : 'success');
+            }
+
+            document.getElementById('packageFile').value = '';
+            this.uploadProgress = 0;
+
+            this.loadProjects();
+            this.selectProject(this.projects.find(p => p.id === this.selectedProject.id));
+        },
+
+        async deletePackage(filename) {
+            if (!this.editingComponent) return;
+            if (!filename) {
+                if (!confirm('确定要删除所有安装包吗？')) return;
+            } else {
+                if (!confirm('确定要删除 ' + filename + ' 吗？')) return;
+            }
+
+            try {
+                const url = '/api/projects/components/' + this.editingComponent.id + '/package' +
+                    (filename ? '?file=' + encodeURIComponent(filename) : '');
+                const res = await fetch(url, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() }
+                });
+                if (res.ok) {
+                    this.showToast('删除成功', 'success');
+                    await this.loadProjects();
+                    const updatedProject = this.projects.find(p => p.id === this.selectedProject.id);
+                    if (updatedProject) {
+                        const comp = updatedProject.components.find(c => c.id === this.editingComponent.id);
+                        if (comp) {
+                            this.editingComponent.install_pkg = comp.install_pkg;
+                        }
+                    }
+                } else {
+                    this.showToast('删除失败', 'error');
+                }
+            } catch (e) { this.showToast('删除失败', 'error'); }
+        },
+
+        async showComponentStatus(comp) {
+            await this.componentAction(comp, 'status');
+        },
+
+        async componentAction(comp, action) {
+            console.log('componentAction:', comp, action, 'status:', comp.status);
+
+            if (comp.status !== 'deployed') {
+                this.showToast('组件未部署，请先设置为已部署状态', 'error');
+                return;
+            }
+
+            this.actionComponent = comp;
+            this.actionType = action;
+
+            let deployedIds = [];
+            if (comp.deployed_servers) {
+                deployedIds = comp.deployed_servers.split(',').map(s => parseInt(s.trim())).filter(id => id > 0);
+            }
+
+            if (action === 'log') {
+                if (deployedIds.length > 0) {
+                    this.actionServers = this.servers.filter(s => deployedIds.includes(s.id));
+                } else {
+                    this.actionServers = this.servers;
+                }
+                this.selectedActionServers = [];
+                this.showActionServerModal = true;
+            } else if (deployedIds.length > 0) {
+                this.actionServers = this.servers.filter(s => deployedIds.includes(s.id));
+                this.selectedActionServers = deployedIds;
+                this.showActionServerModal = true;
+            } else {
+                this.actionServers = this.servers.slice(0, 1) || [];
+                this.showActionServerModal = true;
+            }
+        },
+
+        async confirmAction() {
+            if (this.selectedActionServers.length === 0) {
+                this.showToast('请选择目标服务器', 'error');
+                return;
+            }
+
+            if (this.actionType === 'log') {
+                this.showActionServerModal = false;
+                this.logServerName = this.actionServers.find(s => s.id === this.selectedActionServers[0])?.name || '';
+                this.logOffset = 0;
+                this.loadComponentLog('100', false);
+                return;
+            }
+
+            this.showActionServerModal = false;
+
+            try {
+                const res = await fetch('/api/projects/components/' + this.actionComponent.id + '/action', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: this.actionType, server_ids: this.selectedActionServers })
+                });
+                const data = await res.json();
+                console.log('action result:', res.ok, data);
+                if (res.ok) {
+                    let actionName = this.actionType === 'start' ? '启动' : this.actionType === 'stop' ? '停止' : this.actionType === 'status' ? '状态' : '日志';
+                    let serverCount = data.server_count || 1;
+                    this.statusOutput = actionName + ' - 已选择 ' + serverCount + ' 台服务器\n\n' + (data.output || '无输出');
+                    this.showStatusModal = true;
+                    await this.loadProjects();
+                } else {
+                    this.showToast(data.error || '操作失败', 'error');
+                }
+            } catch (e) {
+                console.error('action error:', e);
+                this.showToast('操作失败', 'error');
+            }
+        },
+
+        async loadComponentLog(tail, append) {
+            this.logTail = tail;
+            if (!append) {
+                this.logOffset = 0;
+            }
+
+            try {
+                const res = await fetch('/api/projects/components/' + this.actionComponent.id + '/action', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'log', server_ids: this.selectedActionServers, tail: tail, offset: this.logOffset })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    if (append) {
+                        this.logOutput += '\n' + (data.output || '');
+                        this.logOffset += parseInt(tail) || 100;
+                    } else {
+                        this.logOutput = data.output || '无输出';
+                    }
+                    this.actionType = 'log';
+                    this.showStatusModal = true;
+                } else {
+                    this.showToast(data.error || '获取日志失败', 'error');
+                }
+            } catch (e) {
+                this.showToast('获取日志失败', 'error');
+            }
+        },
+
+        showToast(msg, type = 'success') {
+            this.message = msg;
+            this.messageType = type;
+            this.showMessage = true;
+            setTimeout(() => this.showMessage = false, 3000);
+        },
+
+        getServerIP(serverId) {
+            if (!serverId) return '-';
+            const id = parseInt(serverId);
+            const server = this.servers.find(s => s.id === id || s.id === String(id));
+            return server ? server.ip : 'ID:' + serverId;
+        },
+
+        getPackages() {
+            if (!this.editingComponent || !this.editingComponent.install_pkg) return [];
+            return this.editingComponent.install_pkg.split(',').filter(p => p && p.trim());
+        },
+
+        showVerifyForPassword(comp) {
+            this.pendingShowPassword = comp;
+            this.verifyPassword = '';
+            this.showVerifyModal = true;
+        },
+
+        async confirmVerify() {
+            try {
+                const res = await fetch('/api/verify-admin', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: this.verifyPassword })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.valid) {
+                    this.showVerifyModal = false;
+
+                    if (this.pendingAction === 'export') {
+                        this.doExportCSV();
+                    } else if (this.pendingShowPassword) {
+                        const pwd = this.pendingShowPassword.access_password || '';
+                        this.statusOutput = '访问密码: ' + pwd;
+                        this.showStatusModal = true;
+                    }
+                } else {
+                    this.showToast('密码错误', 'error');
+                }
+            } catch (e) {
+                this.showToast('验证失败', 'error');
+            }
+            this.pendingShowPassword = null;
+            this.pendingAction = null;
+            this.verifyPassword = '';
+        },
+
+        exportProjectCSV() {
+            if (!this.selectedProject || !this.selectedProject.components) {
+                this.showToast('没有可导出的数据', 'error');
+                return;
+            }
+            this.pendingAction = 'export';
+            this.verifyPassword = '';
+            this.showVerifyModal = true;
+        },
+
+        async doExportCSV() {
+            const project = this.selectedProject;
+            const components = project.components;
+
+            let csv = '组件名称,类型,版本,部署目录,状态,部署服务器,访问用户,访问密码,访问地址,启动命令,停止命令,状态命令,日志命令\n';
+
+            for (const comp of components) {
+                let serverIP = '-';
+                if (comp.deployed_servers) {
+                    const serverId = parseInt(comp.deployed_servers.split(',')[0]);
+                    const server = this.servers.find(s => s.id === serverId);
+                    if (server) serverIP = server.ip;
+                }
+
+                const row = [
+                    comp.name || '',
+                    comp.type || '',
+                    comp.version || '',
+                    comp.deploy_dir || '',
+                    comp.status || '',
+                    serverIP,
+                    comp.access_user || '',
+                    comp.access_password || '',
+                    comp.access_url || '',
+                    comp.start_cmd || '',
+                    comp.stop_cmd || '',
+                    comp.status_cmd || '',
+                    comp.log_cmd || ''
+                ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',');
+
+                csv += row + '\n';
+            }
+
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = project.name + '_组件列表.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+
+            this.showToast('导出成功', 'success');
+        },
+
+        async updateComponentStatus(comp, newStatus) {
+            try {
+                const res = await fetch('/api/projects/components/' + comp.id, {
+                    method: 'PUT',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                if (res.ok) {
+                    comp.status = newStatus;
+                    this.showToast('状态已更新', 'success');
+                } else {
+                    this.showToast('更新失败', 'error');
+                }
+            } catch (e) {
+                this.showToast('更新失败', 'error');
+            }
+        },
+
+        async viewDeployLog(comp) {
+            this.deployingComponent = comp;
+            this.deployLogContent = comp.deploy_log || '暂无日志';
+            this.showDeployLogModal = true;
+        }
+    }
+}
+</script>
+
+<script>
+// Add missing functions
+if (typeof projectApp === 'function') {
+    const originalFn = projectApp;
+    projectApp = function() {
+        const data = originalFn();
+        data.editConfigFile = async function(comp) {
+            this.editingConfigComponent = comp;
+            this.configFileContent = '';
+            if (!comp.deployed_servers || !comp.config_file) {
+                this.showToast('组件未部署或未配置配置文件', 'error');
+                return;
+            }
+            const serverId = parseInt(comp.deployed_servers.split(',')[0]);
+            const server = this.servers.find(s => s.id === serverId);
+            if (!server) {
+                this.showToast('未找到服务器', 'error');
+                return;
+            }
+            try {
+                const res = await fetch('/api/files/' + server.id + '/read?path=' + encodeURIComponent(comp.config_file), {
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() }
+                });
+                const data = await res.json();
+                this.configFileContent = res.ok ? (data.content || '') : '# 无法读取配置文件';
+            } catch (e) {
+                this.configFileContent = '# 无法读取配置文件';
+            }
+            this.showConfigModal = true;
+        };
+        data.saveConfigFile = async function() {
+            const comp = this.editingConfigComponent;
+            if (!comp || !comp.config_file || !comp.deployed_servers) {
+                this.showToast('配置错误', 'error');
+                return;
+            }
+            const serverIds = comp.deployed_servers.split(',').map(s => parseInt(s.trim())).filter(id => id > 0);
+            const serverList = this.servers.filter(s => serverIds.includes(s.id));
+            if (serverList.length === 0) {
+                this.showToast('未找到服务器', 'error');
+                return;
+            }
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            let successCount = 0;
+            for (const server of serverList) {
+                try {
+                    const res = await fetch('/api/files/' + server.id + '/write', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: comp.config_file, content: this.configFileContent, backup: true })
+                    });
+                    if (res.ok) successCount++;
+                } catch (e) {}
+            }
+            this.showToast('已保存到 ' + successCount + ' 台服务器', 'success');
+            this.showConfigModal = false;
+        };
+        return data;
+    };
+}
+</script>
+</body>
+</html>

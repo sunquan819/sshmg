@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库管理</title>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <script defer src="/static/js/alpine.min.js"></script>
+    <style>
+        .cm-editor { height: 180px; font-size: 13px; }
+        .result-table { border-collapse: collapse; font-size: 12px; }
+        .result-table th, .result-table td { border: 1px solid #444; padding: 6px 8px; text-align: left; white-space: nowrap; }
+        .result-table th { background: #2d2d2d; position: sticky; top: 0; }
+        .result-table tr:hover td { background: #3d3d3d; }
+        .tree-item { cursor: pointer; padding: 4px 8px; border-radius: 3px; }
+        .tree-item:hover { background: #404040; }
+        .tree-item.active { background: #0d47a1; }
+        .resizer { width: 4px; cursor: col-resize; background: #333; }
+        .resizer:hover { background: #1976d2; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white" x-data="dbApp()" x-init="init()">
+<div class="flex h-screen">
+    <!-- 左侧数据库列表 -->
+    <div class="w-64 bg-gray-800 flex flex-col border-r border-gray-700">
+        <div class="p-3 border-b border-gray-700 flex items-center justify-between">
+            <span class="font-medium">数据库</span>
+            <div class="flex gap-2">
+                <a :href="'/?token=' + getToken()" class="text-gray-400 hover:text-white" title="返回首页">🏠</a>
+                <button @click="logout()" class="text-gray-400 hover:text-red-400" title="退出">🚪</button>
+            </div>
+            <div class="flex gap-2">
+                <button @click="showAddModal=true" class="text-blue-400 hover:text-blue-300" title="添加数据库">➕</button>
+                <button @click="loadDatabases()" class="text-gray-400 hover:text-white" title="刷新">🔄</button>
+            </div>
+        </div>
+        <div x-show="selectedDb" class="px-2 py-1 bg-gray-700 text-xs flex justify-between items-center">
+            <span class="text-gray-400" x-text="'当前: ' + (selectedSchema || (selectedDb && selectedDb.database) || '默认')"></span>
+            <button @click="editDatabase(selectedDb)" class="text-yellow-400 hover:text-yellow-300" title="编辑">✏️</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-2">
+            <template x-for="db in databases" :key="db.id">
+                <div>
+                    <div @click="selectDb(db)" :class="selectedDb?.id === db.id ? 'active' : ''" class="tree-item flex items-center gap-2">
+                        <span x-text="db.status === 'connected' ? '🟢' : '🔴'"></span>
+                        <span x-text="db.name"></span>
+                        <span class="text-xs text-gray-500" x-text="db.type"></span>
+                    </div>
+                    <!-- 模式/数据库列表 -->
+                    <div x-show="selectedDb?.id === db.id && schemas.length > 0" class="ml-2">
+                        <template x-for="schema in schemas" :key="schema">
+                            <div>
+                                <div @click="selectSchema(schema)" :class="selectedSchema === schema ? 'active' : ''" class="tree-item flex items-center gap-1 text-yellow-400 text-sm">
+                                    <span>📁</span>
+                                    <span x-text="schema"></span>
+                                </div>
+                                <!-- 表列表 -->
+                                <div x-show="selectedSchema === schema" class="ml-4">
+                                    <div x-show="loadingTables" class="text-gray-500 text-xs py-1">加载中...</div>
+                                    <div x-show="!loadingTables && tables.length === 0" class="text-gray-500 text-xs py-1">暂无表</div>
+                                    <template x-for="table in tables" :key="table.name">
+                                        <div @click="queryTable(table.name)" class="tree-item flex items-center gap-1 text-gray-400 text-sm">
+                                            <span>📋</span>
+                                            <span x-text="table.name"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+            <div x-show="databases.length === 0" class="text-gray-500 text-center py-4">暂无数据库</div>
+        </div>
+    </div>
+
+    <!-- 中间 SQL 编辑器 -->
+    <div class="flex-1 flex flex-col min-w-0">
+        <!-- Redis 预设命令 -->
+        <div x-show="selectedDb && selectedDb.type === 'redis'" class="px-3 py-2 bg-gray-800 border-b border-gray-700">
+            <div class="text-xs text-gray-400 mb-2">预设命令（点击填写命令）：</div>
+            <div class="flex flex-wrap gap-2">
+                <button @click="setEditorValue('SCAN')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">SCAN</button>
+                <button @click="setEditorValue('GET key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">GET</button>
+                <button @click="setEditorValue('SET key value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">SET</button>
+                <button @click="setEditorValue('DEL key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">DEL</button>
+                <button @click="setEditorValue('HGETALL hash')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">HGETALL</button>
+                <button @click="setEditorValue('HSET hash field value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">HSET</button>
+                <button @click="setEditorValue('LRANGE list 0 -1')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">LRANGE</button>
+                <button @click="setEditorValue('RPUSH list value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">RPUSH</button>
+                <button @click="setEditorValue('SMEMBERS set')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">SMEMBERS</button>
+                <button @click="setEditorValue('SADD set member')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">SADD</button>
+                <button @click="setEditorValue('TYPE key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">TYPE</button>
+                <button @click="setEditorValue('TTL key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">TTL</button>
+                <button @click="setEditorValue('EXPIRE key 60')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">EXPIRE</button>
+                <button @click="setEditorValue('DBSIZE')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">DBSIZE</button>
+                <button @click="setEditorValue('INFO')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">INFO</button>
+                <button @click="setEditorValue('CLIENT LIST')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">CLIENT</button>
+                <button @click="setEditorValue('SLOWLOG GET 10')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">SLOWLOG</button>
+                <button @click="setEditorValue('CONFIG GET maxmemory')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">CONFIG</button>
+                <button @click="setEditorValue('MEMORY STATS')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">MEMORY</button>
+                <button @click="setEditorValue('CLUSTER INFO')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">CLUSTER</button>
+            </div>
+        </div>
+        <!-- Kafka 预设命令 -->
+        <div x-show="selectedDb && selectedDb.type === 'kafka'" class="px-3 py-2 bg-gray-800 border-b border-gray-700">
+            <div class="text-xs text-gray-400 mb-2">预设命令：</div>
+            <div class="flex flex-wrap gap-2">
+                <button @click="setEditorValue('LIST_TOPICS')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded">LIST_TOPICS</button>
+                <button @click="setEditorValue('BROKERS')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded">BROKERS</button>
+                <button @click="setEditorValue('TOPIC_INFO ' + (selectedSchema || 'your-topic'))" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded">TOPIC_INFO</button>
+                <button @click="setEditorValue('CREATE_TOPIC your-topic 3 1')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded">CREATE_TOPIC</button>
+                <button @click="setEditorValue('CONSUME ' + (selectedSchema || 'your-topic') + ' 10')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded">CONSUME</button>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">用法: LIST_TOPICS | BROKERS | TOPIC_INFO &lt;topic&gt; | CREATE_TOPIC &lt;topic&gt; [partitions] [replication] | CONSUME &lt;topic&gt; [count]</div>
+        </div>
+        <div class="h-1/3 flex flex-col border-b border-gray-700">
+            <div class="flex items-center justify-between px-3 py-2 bg-gray-800">
+                <span class="text-sm">SQL 编辑器</span>
+                <div class="flex gap-2">
+                    <button @click="loadTables()" x-show="selectedDb" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">🔄 刷新表</button>
+                    <button @click="executeQuery()" :disabled="!selectedDb || executing" class="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-3 py-1 rounded text-sm">▶ 执行</button>
+                    <button @click="formatSql()" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-sm">格式化</button>
+                    <button @click="clearEditor()" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-sm">清空</button>
+                </div>
+            </div>
+            <textarea x-ref="editor" class="flex-1 bg-gray-800 text-white p-2 font-mono text-sm resize-none border-0 focus:outline-none"></textarea>
+        </div>
+
+        <!-- 结果集 -->
+        <div class="flex-1 flex flex-col min-h-0">
+            <div class="flex items-center justify-between px-3 py-2 bg-gray-800">
+                <div class="flex items-center gap-4">
+                    <span class="text-sm">结果集</span>
+                    <span x-show="queryDuration > 0" class="text-xs text-gray-400" x-text="`查询耗时: ${queryDuration}ms | 返回: ${queryRows} 行`"></span>
+                </div>
+                <div class="flex gap-2">
+                    <button @click="addRow()" x-show="selectedTable" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">➕ 添加行</button>
+                    <button @click="deleteRow()" x-show="selectedRows.size > 0" class="text-xs bg-red-700 hover:bg-red-600 px-2 py-1 rounded">🗑️ 删除选中</button>
+                    <button @click="saveChanges()" x-show="hasChanges" class="text-xs bg-green-700 hover:bg-green-600 px-2 py-1 rounded">💾 保存修改</button>
+                    <button @click="exportCsv()" x-show="queryResult.length > 0" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">📥 CSV</button>
+                    <button @click="exportSql()" x-show="queryResult.length > 0 && (selectedDb.type === 'mysql' || selectedDb.type === 'postgresql')" class="text-xs bg-green-700 hover:bg-green-600 px-2 py-1 rounded">📥 SQL</button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-auto bg-gray-900">
+                <div x-show="queryError" class="p-4 text-red-400" x-text="queryError"></div>
+                <div x-show="queryResult.length > 0" class="overflow-auto">
+                    <table class="result-table text-gray-300">
+                        <thead>
+                            <tr>
+                                <th class="w-8"><input type="checkbox" @click="toggleSelectAll($event)"></th>
+                                <template x-for="key in resultColumns" :key="key">
+                                    <th x-text="key"></th>
+                                </template>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(row, idx) in queryResult" :key="idx">
+                                <tr :class="changedRows.has(idx) ? 'bg-yellow-900' : (selectedRows.has(idx) ? 'bg-blue-900' : '')">
+                                    <td class="w-8"><input type="checkbox" :checked="selectedRows.has(idx)" @change="toggleRowSelect(idx)"></td>
+                                    <template x-for="key in resultColumns" :key="key">
+                                        <td style="cursor: pointer" @click="selectCell(idx, key)" @dblclick.stop="startEdit($event, idx, key)">
+                                            <input type="text" 
+                                                ref="'cell-' + idx + '-' + key"
+                                                autocomplete="off"
+                                                :value="row[key] === null ? '' : row[key]" 
+                                                @change="cellChanged(idx, key, $event.target.value)"
+                                                @blur="endEdit($event, idx, key)"
+                                                readonly
+                                                class="w-full bg-transparent border-none px-1"
+                                                :class="row[key] === null ? 'text-gray-500 italic' : ''"
+                                            >
+                                        </td>
+                                    </template>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <div x-show="!queryError && queryResult.length === 0" class="flex items-center justify-center h-full text-gray-500">
+                    执行 SQL 查看结果
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧表结构 -->
+    <div x-show="selectedTable" class="w-80 bg-gray-800 border-l border-gray-700 flex flex-col">
+        <div class="p-3 border-b border-gray-700 flex items-center justify-between">
+            <span class="font-medium" x-text="selectedTable"></span>
+            <button @click="selectedTable = null" class="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <!-- 上部分：列信息 -->
+        <div class="overflow-y-auto p-3 border-b border-gray-700" style="max-height: 50%;">
+            <div class="text-sm font-medium mb-2 text-gray-400">列信息</div>
+            <template x-for="col in tableColumns" :key="col.name">
+                <div class="py-2 border-b border-gray-700">
+                    <div class="flex items-center gap-2">
+                        <span class="text-blue-400 font-mono" x-text="col.name"></span>
+                        <span class="text-xs text-gray-500" x-text="col.type"></span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span x-text="col.nullable === 'YES' ? '可空' : '非空'"></span>
+                        <span x-show="col.key === 'PRI'" class="ml-2 text-yellow-400">主键</span>
+                        <span x-show="col.default" class="ml-2" x-text="'默认: ' + col.default"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+        <!-- 下部分：单元格详情 -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <div class="p-3 border-b border-gray-700">
+                <div class="text-sm font-medium text-gray-400">单元格详情</div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-3">
+                <template x-if="!selectedCell">
+                    <div class="text-gray-500 text-sm">点击单元格查看详情</div>
+                </template>
+                <template x-if="selectedCell">
+                    <div class="text-sm">
+                        <div class="mb-2">
+                            <span class="text-gray-400">行: </span>
+                            <span x-text="selectedCell.rowIndex + 1"></span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-gray-400">列: </span>
+                            <span class="text-blue-400 font-mono" x-text="selectedCell.key"></span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-gray-400">值: </span>
+                            <span x-text="selectedCell.value" class="text-white break-all"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加数据库弹窗 -->
+<div x-show="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+        <h3 class="text-lg font-medium mb-4" x-text="editingDb ? '编辑数据库' : '添加数据库'"></h3>
+        <div class="space-y-3">
+            <div class="flex gap-3">
+                <div class="flex-1">
+                    <label class="block text-xs text-gray-400 mb-1">名称</label>
+                    <input type="text" x-model="formData.name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                </div>
+                <div class="w-24">
+                    <label class="block text-xs text-gray-400 mb-1">类型</label>
+                    <select x-model="formData.type" @change="onTypeChange()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                        <option value="mysql">MySQL</option>
+                        <option value="postgresql">PostgreSQL</option>
+                        <option value="redis">Redis</option>
+                        <option value="kafka">Kafka</option>
+                    </select>
+                </div>
+                <div class="w-24">
+                    <label class="block text-xs text-gray-400 mb-1">端口</label>
+                    <input type="number" x-model="formData.port" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">主机</label>
+                <input type="text" x-model="formData.host" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+            </div>
+            <div class="flex gap-3">
+                <div class="flex-1">
+                    <label class="block text-xs text-gray-400 mb-1">数据库名</label>
+                    <input type="text" x-model="formData.database" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs text-gray-400 mb-1">用户名</label>
+                    <input type="text" x-model="formData.username" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs text-gray-400 mb-1">密码</label>
+                    <input type="password" x-model="formData.password" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <div class="flex-1">
+                    <label class="block text-xs text-gray-400 mb-1">分组</label>
+                    <input type="text" x-model="formData.group" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                </div>
+                <div class="flex items-end">
+                    <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+                        <input type="checkbox" x-model="formData.show_all_schemas" class="w-4 h-4">
+                        显示全部模式
+                    </label>
+                </div>
+            </div>
+            <!-- 跳板机配置 -->
+            <div class="border-t border-gray-700 pt-3">
+                <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+                    <input type="checkbox" x-model="formData.jump_enabled" class="w-4 h-4">
+                    <span>启用跳板机 (SSH 隧道)</span>
+                </label>
+            </div>
+            <div x-show="formData.jump_enabled" class="p-3 bg-gray-700 rounded text-sm">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">选择跳板机服务器</label>
+                    <select x-model="formData.jump_server_id" @change="applyJumpServer()" class="w-full px-2 py-1 bg-gray-600 border border-gray-500 rounded text-white text-xs">
+                        <option value="">-- 选择服务器 --</option>
+                        <template x-for="s in servers" :key="s.id">
+                            <option :value="s.id" x-text="s.name + ' (' + s.ip + ')'"></option>
+                        </template>
+                    </select>
+                </div>
+            </div>
+            <!-- 代理配置 -->
+            <div class="border-t border-gray-700 pt-3">
+                <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+                    <input type="checkbox" x-model="formData.proxy_enabled" class="w-4 h-4">
+                    <span>启用代理 (Clash)</span>
+                </label>
+            </div>
+            <div x-show="formData.proxy_enabled" class="p-3 bg-gray-700 rounded text-sm">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">选择代理服务器</label>
+                    <select x-model="formData.proxy_server_id" @change="applyProxyServer()" class="w-full px-2 py-1 bg-gray-600 border border-gray-500 rounded text-white text-xs">
+                        <option value="">-- 选择代理服务器 --</option>
+                        <template x-for="s in proxyServers" :key="s.id">
+                            <option :value="s.id" x-text="s.name + ' (' + s.ip + ')'"></option>
+                        </template>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="flex justify-between mt-6">
+            <button @click="testConnection()" :disabled="testing" class="px-4 py-2 bg-gray-600 rounded text-sm hover:bg-gray-500">
+                <span x-text="testing ? '测试中...' : '测试连接'"></span>
+            </button>
+            <div class="flex gap-3">
+                <button @click="showAddModal=false; editingDb=null" class="px-4 py-2 bg-gray-700 rounded text-sm hover:bg-gray-600">取消</button>
+                <button @click="saveDatabase()" class="px-4 py-2 bg-blue-600 rounded text-sm hover:bg-blue-700">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function dbApp() {
+    return {
+        servers: [],
+        databases: [],
+        selectedDb: null,
+        schemas: [],
+        selectedSchema: '',
+        tables: [],
+        loadingTables: false,
+        selectedTable: null,
+        tableColumns: [],
+        showAddModal: false,
+        editingDb: null,
+        testing: false,
+        formData: { name: '', type: 'mysql', host: '', port: 3306, database: '', username: '', password: '', group: '', show_all_schemas: false, jump_enabled: false, jump_server_id: '', proxy_enabled: false, proxy_server_id: '' },
+        
+        query: '',
+        queryResult: [],
+        queryError: '',
+        queryDuration: 0,
+        queryRows: 0,
+        resultColumns: [],
+        executing: false,
+        
+        hasChanges: false,
+        changedRows: new Map(),
+        originalData: [],
+        selectedRows: new Set(),
+        selectedCell: null,
+        
+        limit: 100,
+        offset: 0,
+        colOffset: 0,
+        
+        editor: null,
+        
+        init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlToken = urlParams.get('token');
+            if (urlToken) {
+                localStorage.setItem('access_token', urlToken);
+            }
+            this.loadServers();
+            this.loadDatabases();
+        },
+        
+        async loadServers() {
+            try {
+                const res = await fetch('/api/servers', { headers: { 'Authorization': 'Bearer ' + this.getToken() } });
+                const data = await res.json();
+                if (res.ok && data.servers) {
+                    this.servers = data.servers;
+                }
+            } catch (e) { console.error('Failed to load servers:', e); }
+        },
+        
+        get proxyServers() {
+            const proxies = this.servers.filter(s => s.server_type === 'proxy');
+            return proxies.length > 0 ? proxies : this.servers;
+        },
+        
+        applyJumpServer() {
+            if (!this.formData.jump_server_id) {
+                this.formData.jump_host = '';
+                return;
+            }
+            const server = this.servers.find(s => s.id == this.formData.jump_server_id || s.id == parseInt(this.formData.jump_server_id));
+            if (server) {
+                this.formData.jump_host = server.ip;
+            }
+        },
+        
+        applyProxyServer() {
+            if (!this.formData.proxy_server_id) {
+                this.formData.proxy_host = '';
+                this.formData.proxy_port = 7890;
+                return;
+            }
+            const server = this.servers.find(s => s.id == this.formData.proxy_server_id || s.id == parseInt(this.formData.proxy_server_id));
+            if (server) {
+                this.formData.proxy_host = server.ip;
+                this.formData.proxy_port = 7890;
+            }
+        },
+        
+        getToken() { return localStorage.getItem('access_token'); },
+        
+        onTypeChange() {
+            const ports = { mysql: 3306, postgresql: 5432, redis: 6379, kafka: 9092 };
+            if (ports[this.formData.type]) {
+                this.formData.port = ports[this.formData.type];
+            }
+        },
+        
+        async loadDatabases() {
+            try {
+                const res = await fetch('/api/databases', { headers: { 'Authorization': 'Bearer ' + this.getToken() } });
+                const data = await res.json();
+                if (res.ok) this.databases = data.databases || [];
+            } catch(e) { console.error(e); }
+        },
+        
+        async selectDb(db) {
+            if (this.selectedDb && this.selectedDb.id === db.id) {
+                // 再次点击，收起
+                this.selectedDb = null;
+                this.schemas = [];
+                this.selectedSchema = '';
+                this.tables = [];
+            } else {
+                this.selectedDb = db;
+                this.schemas = [];
+                this.selectedSchema = '';
+                this.tables = [];
+                this.selectedTable = null;
+                this.tableColumns = [];
+                console.log('Selecting db:', db.id, db.name);
+                await this.loadSchemas();
+                // 如果有 schemas，加载第一个
+                if (this.schemas.length > 0) {
+                    await this.selectSchema(this.schemas[0]);
+                }
+            }
+        },
+        
+        async selectSchema(schema) {
+            if (this.selectedSchema === schema) {
+                this.selectedSchema = '';
+                this.tables = [];
+            } else {
+                this.selectedSchema = schema;
+                await this.loadTables();
+            }
+        },
+        
+        async loadSchemas() {
+            if (!this.selectedDb) return;
+            try {
+                console.log('Loading schemas for db:', this.selectedDb.id, 'showAllSchemas:', this.selectedDb.show_all_schemas);
+                const res = await fetch('/api/databases/' + this.selectedDb.id + '/schemas', { 
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() } 
+                });
+                const data = await res.json();
+                console.log('Schemas response:', data);
+                if (res.ok) this.schemas = data.schemas || [];
+                console.log('Schemas set:', this.schemas);
+            } catch(e) { 
+                console.error('Load schemas error:', e); 
+                this.schemas = [];
+            }
+        },
+        
+        async loadColumns(tableName) {
+            if (!this.selectedDb) return;
+            try {
+                let url = '/api/databases/' + this.selectedDb.id + '/columns?table=' + encodeURIComponent(tableName);
+                if (this.selectedSchema) {
+                    url += '&schema=' + encodeURIComponent(this.selectedSchema);
+                }
+                const res = await fetch(url, { 
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() } 
+                });
+                const data = await res.json();
+                if (res.ok) this.tableColumns = data.columns || [];
+                console.log('Columns:', this.tableColumns);
+            } catch(e) { console.error(e); }
+        },
+        
+        async loadTables() {
+            if (!this.selectedDb) return;
+            this.loadingTables = true;
+            try {
+                console.log('Loading tables for db:', this.selectedDb.id, 'schema:', this.selectedSchema);
+                let url = '/api/databases/' + this.selectedDb.id + '/tables';
+                if (this.selectedSchema) {
+                    url += '?schema=' + this.selectedSchema;
+                }
+                const res = await fetch(url, { 
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() } 
+                });
+                const data = await res.json();
+                console.log('Tables response:', data);
+                if (res.ok) this.tables = data.tables || [];
+                console.log('Tables loaded:', this.tables.length);
+            } catch(e) { 
+                console.error('Load tables error:', e); 
+                this.tables = [];
+            } finally {
+                this.loadingTables = false;
+            }
+        },
+        
+        queryTable(tableName) {
+            this.selectedTable = tableName;
+            this.loadColumns(tableName);
+            let q;
+            if (this.selectedDb.type === 'redis') {
+                // Redis 点击 key 显示其值
+                if (this.$refs.editor) {
+                    this.$refs.editor.value = 'GET ' + tableName;
+                }
+            } else if (this.selectedDb.type === 'mysql') {
+                q = '`' + tableName + '`';
+                if (this.$refs.editor) {
+                    this.$refs.editor.value = 'SELECT * FROM ' + q + ' LIMIT 100';
+                }
+            } else {
+                const schema = this.selectedSchema || 'public';
+                q = schema + '.' + tableName;
+                if (this.$refs.editor) {
+                    this.$refs.editor.value = 'SELECT * FROM ' + q + ' LIMIT 100';
+                }
+            }
+            this.executeQuery();
+        },
+        
+        async executeQuery() {
+            if (!this.selectedDb) {
+                alert('请先选择一个数据库');
+                return;
+            }
+            let sql = this.$refs.editor ? this.$refs.editor.value.trim() : this.query;
+            if (!sql) {
+                alert('请输入SQL语句');
+                return;
+            }
+            
+            this.executing = true;
+            this.queryError = '';
+            this.queryResult = [];
+            this.resultColumns = [];
+            this.offset = 0;
+            
+            try {
+                console.log('Executing query:', sql);
+                const res = await fetch('/api/databases/' + this.selectedDb.id + '/query', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: sql })
+                });
+                const data = await res.json();
+                console.log('Response:', data);
+                if (data.error) {
+                    this.queryError = data.error;
+                } else {
+                    this.queryResult = data.result || [];
+                    this.queryDuration = data.duration || 0;
+                    this.queryRows = data.rows || 0;
+                    this.hasChanges = false;
+                    this.changedRows = new Map();
+                    this.selectedRows = new Set();
+                    this.originalData = JSON.parse(JSON.stringify(this.queryResult));
+                    this.colOffset = 0;
+                    console.log('queryResult:', this.queryResult);
+                    console.log('queryRows:', this.queryRows);
+                    if (this.queryResult.length > 0) {
+                        this.resultColumns = Object.keys(this.queryResult[0]);
+                        console.log('resultColumns:', this.resultColumns);
+                    }
+                }
+            } catch(e) { 
+                console.error(e);
+                this.queryError = e.message; 
+            }
+            this.executing = false;
+        },
+        
+        selectCell(rowIdx, key) {
+            const value = this.queryResult[rowIdx][key];
+            this.selectedCell = { rowIndex: rowIdx, key: key, value: value === null ? '' : String(value) };
+        },
+        
+        startEdit(event, rowIdx, key) {
+            const input = event.target;
+            input.readOnly = false;
+            input.classList.add('focus:outline-none', 'focus:ring-1', 'focus:ring-blue-500');
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+        },
+        
+        endEdit(event, rowIdx, key) {
+            const input = event.target;
+            input.readOnly = true;
+            input.classList.remove('focus:outline-none', 'focus:ring-1', 'focus:ring-blue-500');
+        },
+        
+        formatSql() {
+            if (this.$refs.editor) {
+                let sql = this.$refs.editor.value.trim();
+                sql = sql.replace(/\s+/g, ' ').replace(/,\s*/g, ',\n  ').replace(/\s*(SELECT|FROM|WHERE|AND|OR|ORDER BY|GROUP BY|HAVING|LIMIT)\s*/gi, '\n$1 ');
+                this.$refs.editor.value = sql.trim();
+            }
+        },
+        
+        clearEditor() {
+            if (this.$refs.editor) this.$refs.editor.value = '';
+            this.queryResult = [];
+            this.queryError = '';
+        },
+        
+        setEditorValue(value) {
+            if (this.$refs.editor) this.$refs.editor.value = value;
+        },
+        
+        scrollCols(delta) {
+            console.log('scrollCols called, delta:', delta, 'colOffset:', this.colOffset, 'cols:', this.resultColumns.length);
+            let max = this.resultColumns.length > 20 ? this.resultColumns.length - 20 : 0;
+            this.colOffset = Math.max(0, Math.min(max, this.colOffset + delta));
+            console.log('scrollCols after:', this.colOffset, 'max:', max);
+        },
+        
+        toggleRowSelect(idx) {
+            if (this.selectedRows.has(idx)) {
+                this.selectedRows.delete(idx);
+            } else {
+                this.selectedRows.add(idx);
+            }
+            this.selectedRows = new Set(this.selectedRows);
+        },
+        
+        toggleSelectAll(e) {
+            if (e.target.checked) {
+                for (let i = 0; i < this.queryResult.length; i++) {
+                    this.selectedRows.add(i);
+                }
+            } else {
+                this.selectedRows.clear();
+            }
+            this.selectedRows = new Set(this.selectedRows);
+        },
+        
+        addRow() {
+            if (!this.selectedTable) {
+                alert('请先选择一个表');
+                return;
+            }
+            if (!confirm('确定要添加新行吗？')) return;
+            
+            let newRow = {};
+            if (this.resultColumns.length > 0) {
+                for (let col of this.resultColumns) {
+                    newRow[col] = null;
+                }
+            } else if (this.tableColumns.length > 0) {
+                for (let col of this.tableColumns) {
+                    newRow[col.name] = null;
+                }
+            } else {
+                alert('没有列信息，无法添加行');
+                return;
+            }
+            let newIdx = this.queryResult.length;
+            this.queryResult.push(newRow);
+            this.originalData.push({...newRow});
+            this.hasChanges = true;
+            this.changedRows.set(newIdx, true);
+            this.changedRows = new Map(this.changedRows);
+            
+            if (this.resultColumns.length === 0) {
+                this.resultColumns = Object.keys(newRow);
+            }
+            
+            this.$nextTick(() => {
+                const tableBody = document.querySelector('.result-table tbody');
+                if (tableBody) {
+                    const rows = tableBody.querySelectorAll('tr');
+                    if (rows[newIdx]) {
+                        rows[newIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            });
+        },
+        
+        async deleteRow() {
+            if (!this.selectedTable) {
+                alert('请先选择一个表');
+                return;
+            }
+            if (this.selectedRows.size === 0) {
+                alert('请先选择要删除的行');
+                return;
+            }
+            if (!confirm(`确定要删除选中的 ${this.selectedRows.size} 行吗？此操作不可恢复！`)) return;
+            
+            this.executing = true;
+            let successCount = 0;
+            let errorMsg = '';
+            
+            const pkColumn = this.tableColumns.find(col => col.key === 'PRI');
+            const pkName = pkColumn ? pkColumn.name : 'id';
+            
+            let sortedRows = Array.from(this.selectedRows).sort((a, b) => b - a);
+            
+            for (let idx of sortedRows) {
+                const row = this.queryResult[idx];
+                const pkVal = row[pkName];
+                
+                if (pkVal === null || pkVal === undefined) {
+                    errorMsg += `\n第 ${idx + 1} 行没有主键，无法删除`;
+                    continue;
+                }
+                
+                const tableName = this.selectedTable;
+                const sql = `DELETE FROM \`${tableName}\` WHERE \`${pkName}\` = ` + (pkVal === null ? 'NULL' : "'" + String(pkVal).replace(/'/g, "''") + "'");
+                
+                try {
+                    const res = await fetch('/api/databases/' + this.selectedDb.id + '/query', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: sql })
+                    });
+                    const data = await res.json();
+                    if (data.error) {
+                        errorMsg += `\n${sql}: ${data.error}`;
+                    } else {
+                        this.queryResult.splice(idx, 1);
+                        successCount++;
+                    }
+                } catch(e) {
+                    errorMsg += `\n${e.message}`;
+                }
+            }
+            
+            this.selectedRows.clear();
+            this.selectedRows = new Set();
+            
+            if (errorMsg) {
+                alert('部分删除失败: ' + errorMsg);
+            }
+            if (successCount > 0) {
+                alert(`成功删除 ${successCount} 行`);
+            }
+            
+            this.executing = false;
+        },
+        
+        reExecuteQuery() {
+            let sql = this.$refs.editor ? this.$refs.editor.value.trim() : '';
+            if (!sql || !this.selectedDb) return;
+            
+            sql = sql.trim();
+            let limitRegex = /limit\s+(\d+)(?:\s*,\s*(\d+))?/i;
+            let match = sql.match(limitRegex);
+            
+            if (match) {
+                let offset = this.offset;
+                let count = match[2] ? parseInt(match[2]) : this.limit;
+                if (!match[2]) {
+                    offset = 0;
+                    count = this.offset + this.limit;
+                }
+                sql = sql.replace(limitRegex, 'LIMIT ' + offset + ', ' + count);
+            } else {
+                sql = sql + ' LIMIT ' + this.offset + ', ' + this.limit;
+            }
+            
+            console.log('reExecuteQuery:', sql);
+            
+            this.executing = true;
+            this.queryError = '';
+            
+            fetch('/api/databases/' + this.selectedDb.id + '/query', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: sql })
+            }).then(res => res.json()).then(data => {
+                if (data.error) {
+                    this.queryError = data.error;
+                } else {
+                    this.queryResult = data.result || [];
+                    this.queryDuration = data.duration || 0;
+                    this.queryRows = data.rows || 0;
+                    this.hasChanges = false;
+                    this.changedRows = new Map();
+                    this.originalData = JSON.parse(JSON.stringify(this.queryResult));
+                    if (this.queryResult.length > 0) {
+                        this.resultColumns = Object.keys(this.queryResult[0]);
+                    }
+                }
+                this.executing = false;
+            }).catch(e => {
+                this.queryError = e.message;
+                this.executing = false;
+            });
+        },
+        
+        exportCsv() {
+            if (this.queryResult.length === 0) return;
+            let csv = this.resultColumns.join(',') + '\n';
+            this.queryResult.forEach(row => {
+                csv += this.resultColumns.map(k => {
+                    let v = row[k];
+                    if (v === null) return '';
+                    if (typeof v === 'string' && (v.includes(',') || v.includes('"') || v.includes('\n'))) {
+                        return '"' + v.replace(/"/g, '""') + '"';
+                    }
+                    return v;
+                }).join(',') + '\n';
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'export.csv';
+            a.click();
+        },
+
+        exportSql() {
+            if (this.queryResult.length === 0) return;
+            const tableName = this.selectedTable || 'export_table';
+            const quoteChar = this.selectedDb.type === 'mysql' ? '`' : '"';
+            let sql = '-- SQL Export\n-- Table: ' + tableName + '\n-- Generated: ' + new Date().toLocaleString() + '\n\n';
+
+            this.queryResult.forEach(row => {
+                const cols = [];
+                const vals = [];
+                this.resultColumns.forEach(col => {
+                    cols.push(quoteChar + col + quoteChar);
+                    const v = row[col];
+                    if (v === null || v === undefined) {
+                        vals.push('NULL');
+                    } else if (typeof v === 'number') {
+                        vals.push(String(v));
+                    } else {
+                        vals.push("'" + String(v).replace(/'/g, "''") + "'");
+                    }
+                });
+                sql += 'INSERT INTO ' + quoteChar + tableName + quoteChar + ' (' + cols.join(', ') + ') VALUES (' + vals.join(', ') + ');\n';
+            });
+
+            const blob = new Blob([sql], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'export.sql';
+            a.click();
+        },
+        
+        cellChanged(rowIdx, key, newValue) {
+            const originalValue = this.originalData[rowIdx][key];
+            const currentValue = this.queryResult[rowIdx][key];
+            const isNullOriginal = originalValue === null || originalValue === 'NULL';
+            const isNullNew = newValue === '' || newValue === null;
+            
+            if (isNullOriginal && isNullNew) return;
+            if (!isNullOriginal && !isNullNew && String(originalValue) === newValue) return;
+            
+            this.changedRows.set(rowIdx, true);
+            this.hasChanges = true;
+            this.queryResult[rowIdx][key] = newValue === '' ? null : newValue;
+        },
+        
+        async saveChanges() {
+            if (!this.hasChanges || this.changedRows.size === 0) return;
+            
+            const changes = [];
+            const pkColumn = this.tableColumns.find(col => col.key === 'PRI');
+            const pkName = pkColumn ? pkColumn.name : 'id';
+            
+            this.changedRows.forEach((_, rowIdx) => {
+                const original = this.originalData[rowIdx];
+                const current = this.queryResult[rowIdx];
+                
+                // 检查是否是新增行（原数据中没有主键）
+                const isNewRow = original[pkName] === null || original[pkName] === undefined || original[pkName] === '';
+                
+                if (isNewRow) {
+                    // 新增行
+                    const insertCols = [];
+                    const insertVals = [];
+                    for (let key of this.resultColumns) {
+                        const val = current[key];
+                        insertCols.push('`' + key + '`');
+                        insertVals.push(val === null ? 'NULL' : "'" + String(val).replace(/'/g, "''") + "'");
+                    }
+                    changes.push({ type: 'insert', sql: `INSERT INTO \`${this.selectedTable}\` (${insertCols.join(', ')}) VALUES (${insertVals.join(', ')})` });
+                } else {
+                    // 更新行
+                    const change = {};
+                    let hasChange = false;
+                    for (let key of this.resultColumns) {
+                        const origVal = original[key];
+                        const currVal = current[key];
+                        if (String(origVal) !== String(currVal)) {
+                            change[key] = { from: origVal, to: currVal };
+                            hasChange = true;
+                        }
+                    }
+                    if (hasChange) {
+                        const whereParts = [];
+                        const updateParts = [];
+                        for (let key of this.resultColumns) {
+                            const val = current[key];
+                            if (key === pkName) {
+                                whereParts.push('`' + key + '` = ' + (val === null ? 'NULL' : "'" + String(val).replace(/'/g, "''") + "'"));
+                            } else if (change[key]) {
+                                updateParts.push('`' + key + '` = ' + (val === null ? 'NULL' : "'" + String(val).replace(/'/g, "''") + "'"));
+                            }
+                        }
+                        if (whereParts.length > 0 && updateParts.length > 0) {
+                            changes.push({ type: 'update', sql: `UPDATE \`${this.selectedTable}\` SET ${updateParts.join(', ')} WHERE ${whereParts.join(' AND ')}` });
+                        }
+                    }
+                }
+            });
+            
+            if (changes.length === 0) {
+                this.hasChanges = false;
+                return;
+            }
+            
+            let msg = '确认保存以下修改？\n\n';
+            changes.forEach((c, i) => {
+                let typeLabel = c.type === 'insert' ? '新增' : '修改';
+                msg += `${i + 1}. ${typeLabel}: ${c.sql}\n`;
+            });
+            
+            if (!confirm(msg)) return;
+            
+            this.executing = true;
+            let successCount = 0;
+            let errorMsg = '';
+            
+            for (let c of changes) {
+                console.log('Executing:', c.sql);
+                
+                try {
+                    const res = await fetch('/api/databases/' + this.selectedDb.id + '/query', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: c.sql })
+                    });
+                    const data = await res.json();
+                    console.log('Result:', data);
+                    if (data.error) {
+                        errorMsg += `\n${c.sql}: ${data.error}`;
+                    } else {
+                        successCount++;
+                    }
+                } catch(e) {
+                    errorMsg += `\n${e.message}`;
+                }
+            }
+            
+            if (errorMsg) {
+                alert('部分保存失败: ' + errorMsg);
+            }
+            
+            if (successCount > 0) {
+                alert(`成功保存 ${successCount} 条修改`);
+                this.hasChanges = false;
+                this.changedRows = new Map();
+                this.originalData = JSON.parse(JSON.stringify(this.queryResult));
+            }
+            
+            this.executing = false;
+        },
+        
+        async testConnection() {
+            this.testing = true;
+            let payload;
+            if (this.editingDb && this.editingDb.id) {
+                payload = { type: 'existing', id: this.editingDb.id };
+            } else {
+                payload = { ...this.formData, port: parseInt(this.formData.port) || 3306 };
+            }
+            try {
+                let url = '/api/databases/test';
+                let res;
+                if (this.editingDb && this.editingDb.id) {
+                    res = await fetch('/api/databases/' + this.editingDb.id + '/test', {
+                        method: 'GET',
+                        headers: { 'Authorization': 'Bearer ' + this.getToken() }
+                    });
+                } else {
+                    res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+                const data = await res.json();
+                if (data.status === 'connected') {
+                    alert('连接成功！');
+                } else {
+                    alert('连接失败: ' + (data.error || '未知错误'));
+                }
+            } catch(e) {
+                alert('测试连接失败: ' + e.message);
+            }
+            this.testing = false;
+        },
+        
+        async saveDatabase() {
+            const token = this.getToken();
+            let url = '/api/databases';
+            let method = 'POST';
+            let isEdit = !!this.editingDb;
+            if (isEdit) {
+                url += '/' + this.editingDb.id;
+                method = 'PUT';
+            }
+            const payload = { 
+                ...this.formData, 
+                port: parseInt(this.formData.port) || 3306,
+                jump_port: parseInt(this.formData.jump_port) || 22,
+                jump_server_id: this.formData.jump_server_id ? parseInt(this.formData.jump_server_id) : 0,
+                proxy_port: parseInt(this.formData.proxy_port) || 7890,
+                proxy_server_id: this.formData.proxy_server_id ? parseInt(this.formData.proxy_server_id) : 0
+            };
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    this.showAddModal = false;
+                    this.editingDb = null;
+                    this.formData = { name: '', type: 'mysql', host: '', port: 3306, database: '', username: '', password: '', group: '', show_all_schemas: false, jump_enabled: false, jump_server_id: '', proxy_enabled: false, proxy_server_id: '' };
+                    await this.loadDatabases();
+                    // 使用保存后返回的数据更新 selectedDb
+                    if (isEdit) {
+                        const savedDb = this.databases.find(d => d.id === data.database.id);
+                        if (savedDb) {
+                            this.selectedDb = savedDb;
+                            await this.loadSchemas();
+                        }
+                    }
+                }
+            } catch(e) { alert(e.message); }
+        },
+        
+        editDatabase(db) {
+            this.editingDb = db;
+            this.formData = { 
+                name: db.name || '', 
+                type: db.type || 'mysql', 
+                host: db.host || '', 
+                port: db.port || 3306, 
+                database: db.database || '', 
+                username: db.username || '', 
+                password: db.password || '', 
+                group: db.group || '',
+                show_all_schemas: !!db.show_all_schemas,
+                jump_enabled: !!db.jump_enabled,
+                jump_server_id: db.jump_server_id || 0,
+                jump_host: db.jump_host || '',
+                jump_port: db.jump_port || 22,
+                jump_user: db.jump_user || '',
+                jump_password: db.jump_password || '',
+                jump_key: db.jump_key || '',
+                proxy_enabled: !!db.proxy_enabled,
+                proxy_server_id: db.proxy_server_id || 0,
+                proxy_type: db.proxy_type || 'socks5',
+                proxy_host: db.proxy_host || '',
+                proxy_port: db.proxy_port || 7890
+            };
+            this.showAddModal = true;
+        },
+        
+        logout() { localStorage.clear(); window.location.href = '/login'; }
+    }
+}
+</script>
+</body>
+</html>

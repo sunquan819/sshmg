@@ -1,0 +1,35 @@
+
+        async editConfigFile(comp) {
+            this.editingConfigComponent = comp;
+            this.configFileContent = '';
+            if (!comp.deployed_servers || !comp.config_file) {
+                this.showToast('组件未部署或未配置配置文件', 'error');
+                return;
+            }
+            const serverId = parseInt(comp.deployed_servers.split(',')[0]);
+            const server = this.servers.find(s => s.id === serverId);
+            if (!server) { this.showToast('未找到服务器', 'error'); return; }
+            try {
+                const res = await fetch('/api/files/' + server.id + '/read?path=' + encodeURIComponent(comp.config_file), { headers: { 'Authorization': 'Bearer ' + this.getToken() } });
+                const data = await res.json();
+                this.configFileContent = res.ok ? (data.content || '') : '# 新建配置文件\n';
+            } catch (e) { this.configFileContent = '# 无法读取配置文件\n'; }
+            this.showConfigModal = true;
+        },
+
+        async saveConfigFile() {
+            const comp = this.editingConfigComponent;
+            if (!comp || !comp.config_file || !comp.deployed_servers) { this.showToast('配置错误', 'error'); return; }
+            const serverId = parseInt(comp.deployed_servers.split(',')[0]);
+            const server = this.servers.find(s => s.id === serverId);
+            if (!server) { this.showToast('未找到服务器', 'error'); return; }
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            const backupPath = comp.config_file + '.backup.' + timestamp;
+            try {
+                await fetch('/api/files/' + server.id + '/copy', { method: 'POST', headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' }, body: JSON.stringify({ source: comp.config_file, dest: backupPath }) });
+                const res = await fetch('/api/files/' + server.id + '/write', { method: 'POST', headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' }, body: JSON.stringify({ path: comp.config_file, content: this.configFileContent }) });
+                const data = await res.json();
+                if (res.ok) { this.showToast('配置已保存，备份: ' + backupPath, 'success'); this.showConfigModal = false; }
+                else { this.showToast('保存失败: ' + (data.error || '未知错误'), 'error'); }
+            } catch (e) { this.showToast('保存失败', 'error'); }
+        }

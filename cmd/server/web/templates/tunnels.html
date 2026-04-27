@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>端口隧道 - 部署管理系统</title>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <script src="/static/js/alpine.min.js" defer></script>
+</head>
+<body class="bg-gray-900 text-white" x-data="tunnelApp()" x-init="init()">
+    <div class="min-h-screen flex flex-col">
+        <header class="bg-gray-800 px-4 py-3 flex justify-between items-center border-b border-gray-700">
+            <div class="flex items-center space-x-4">
+                <a href="/" class="text-gray-400 hover:text-white">🏠主页</a>
+                <h1 class="text-xl font-semibold">🔗 端口隧道 (SOCKS5 代理)</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button @click="loadData()" class="text-gray-400 hover:text-white text-sm">🔄 刷新</button>
+                <button @click="logout()" class="text-gray-400 hover:text-red-400 text-sm">🚪 退出</button>
+            </div>
+        </header>
+
+        <main class="flex-1 p-6 overflow-auto">
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-6">
+                <h3 class="text-lg font-semibold mb-4">创建 SOCKS5 代理隧道</h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">选择服务器</label>
+                        <select x-model="selectedServerId" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white">
+                            <option value="">-- 选择服务器 --</option>
+                            <template x-for="server in servers" :key="server.id">
+                                <option :value="server.id" x-text="server.name + ' (' + server.ip + ')'"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">本地端口 (默认 10800+)</label>
+                        <input type="number" x-model="localPort" placeholder="留空自动分配" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">监听地址</label>
+                        <select x-model="bindAddress" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white">
+                            <option value="127.0.0.1">127.0.0.1 (仅本机)</option>
+                            <option value="0.0.0.0">0.0.0.0 (局域网可访问)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button @click="startTunnel()" :disabled="!selectedServerId || starting" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-4 py-2 rounded transition">
+                            <span x-show="!starting">🚀 启动隧道</span>
+                            <span x-show="starting">⏳ 启动中...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h3 class="text-lg font-semibold mb-4">活动隧道</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-gray-400 border-b border-gray-700">
+                                <th class="pb-2">服务器</th>
+                                <th class="pb-2">本地端口</th>
+                                <th class="pb-2">状态</th>
+                                <th class="pb-2">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="tunnel in tunnels" :key="tunnel.id">
+                                <tr class="border-b border-gray-700">
+                                    <td class="py-3" x-text="tunnel.server_name ? tunnel.server_name + ' (' + tunnel.server_ip + ')' : 'Unknown'"></td>
+                                    <td class="py-3">
+                                        <span class="bg-blue-600 px-2 py-1 rounded text-white font-mono" x-text="tunnel.local_port || '-'"></span>
+                                    </td>
+                                    <td class="py-3">
+                                        <span class="text-green-400" x-text="tunnel.status || '-'"></span>
+                                    </td>
+                                    <td class="py-3">
+                                        <button @click="stopTunnel(tunnel.server_id)" class="text-red-400 hover:text-red-300">🛑 停止</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                    <div x-show="tunnels.length === 0" class="text-center text-gray-500 py-8">
+                        暂无活动的隧道
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700 mt-6">
+                <h3 class="text-lg font-semibold mb-4">使用说明</h3>
+                <div class="text-gray-400 text-sm space-y-2">
+                    <p>1. 选择要建立隧道的服务器，点击"启动隧道"</p>
+                    <p>2. 启动后会分配一个本地 SOCKS5 代理端口 (如 10800)</p>
+                    <p>3. 在浏览器或工具中配置 SOCKS5 代理: <code class="bg-gray-700 px-2 py-0.5 rounded">127.0.0.1:端口</code></p>
+                    <p>4. 所有流量将通过 SSH 隧道转发到目标服务器</p>
+                    <p class="text-yellow-400 mt-4">⚠️ 注意: 需要服务器上已安装并运行 SSH 服务</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    function tunnelApp() {
+        return {
+            servers: [],
+            tunnels: [],
+            selectedServerId: '',
+            localPort: '',
+            bindAddress: '127.0.0.1',
+            starting: false,
+            init() {
+                this.checkAuth();
+                this.loadData();
+            },
+            checkAuth() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlToken = urlParams.get('token');
+                if (urlToken) localStorage.setItem('access_token', urlToken);
+                if (!localStorage.getItem('access_token')) window.location.href = '/login';
+            },
+            getToken() { return localStorage.getItem('access_token'); },
+            logout() { localStorage.clear(); window.location.href = '/login'; },
+            async loadData() {
+                await this.loadServers();
+                await this.loadTunnels();
+            },
+            async loadServers() {
+                try {
+                    const res = await fetch('/api/servers', { headers: { 'Authorization': 'Bearer ' + this.getToken() } });
+                    const data = await res.json();
+                    if (res.ok) this.servers = data.servers || [];
+                } catch (e) { console.error(e); }
+            },
+            async loadTunnels() {
+                try {
+                    const res = await fetch('/api/tunnels', { headers: { 'Authorization': 'Bearer ' + this.getToken() } });
+                    const data = await res.json();
+                    if (res.ok) this.tunnels = data.tunnels || [];
+                } catch (e) { console.error(e); }
+            },
+            getServerName(serverId) {
+                const server = this.servers.find(s => s.id === serverId);
+                return server ? server.name + ' (' + server.ip + ')' : 'Unknown';
+            },
+            async             startTunnel() {
+                if (!this.selectedServerId) return;
+                this.starting = true;
+                try {
+                    const port = this.localPort ? parseInt(this.localPort) : 0;
+                    const res = await fetch('/api/tunnels', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ server_id: parseInt(this.selectedServerId), local_port: port, bind_address: this.bindAddress })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        this.showToast('隧道启动成功！SOCKS5: 127.0.0.1:' + data.local_port, 'success');
+                        this.loadTunnels();
+                        this.localPort = '';
+                    } else {
+                        this.showToast('启动失败: ' + (data.error || '未知错误'), 'error');
+                    }
+                } catch (e) { this.showToast('启动失败: ' + e, 'error'); }
+                this.starting = false;
+            },
+            async stopTunnel(serverId) {
+                if (!confirm('确定要停止此隧道吗？')) return;
+                try {
+                    const res = await fetch('/api/tunnels/' + serverId, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.getToken() } });
+                    if (res.ok) {
+                        this.loadTunnels();
+                        this.showToast('隧道已停止', 'success');
+                    } else {
+                        const data = await res.json();
+                        this.showToast('停止失败: ' + (data.error || '未知错误'), 'error');
+                    }
+                } catch (e) { console.error(e); }
+            },
+            showToast(msg, type = 'success') {
+                const colors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-blue-600' };
+                const toast = document.createElement('div');
+                toast.className = `fixed top-4 right-4 ${colors[type] || colors.success} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
+                toast.textContent = msg;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
+        };
+    }
+    </script>
+</body>
+</html>
