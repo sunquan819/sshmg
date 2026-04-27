@@ -330,21 +330,31 @@ function terminalApp() {
         },
         executeCommand(cmd) {
             let ws = null;
+            let tab = null;
             if (this.activeTabId) {
                 const activeTab = this.tabs.find(t => t.id === this.activeTabId);
                 if (activeTab && activeTab.ws && activeTab.ws.readyState === WebSocket.OPEN) {
                     ws = activeTab.ws;
+                    tab = activeTab;
                 }
             }
             if (!ws) {
-                for (const tab of this.tabs) {
-                    if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
-                        ws = tab.ws;
+                for (const t of this.tabs) {
+                    if (t.ws && t.ws.readyState === WebSocket.OPEN) {
+                        ws = t.ws;
+                        tab = t;
                         break;
                     }
                 }
             }
             if (!ws || ws.readyState !== WebSocket.OPEN) { this.showMessageCenter('请先连接终端', 'error'); return; }
+            if (this.isRmCommand(cmd)) {
+                tab.pendingRmConfirm = true;
+                tab.pendingRmLine = cmd + '\n';
+                tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
+                tab.currentLine = '';
+                return;
+            }
             ws.send(cmd + '\n');
             this.showMessageCenter('已执行: ' + cmd, 'success');
         },
@@ -550,6 +560,13 @@ function terminalApp() {
                         if (navigator.clipboard && navigator.clipboard.readText) {
                             navigator.clipboard.readText().then(function(text) {
                                 if (tab.ws && tab.ws.readyState === WebSocket.OPEN && text) {
+                                    if (self.isRmCommand(text)) {
+                                        tab.pendingRmConfirm = true;
+                                        tab.pendingRmLine = text;
+                                        tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
+                                        tab.currentLine = '';
+                                        return;
+                                    }
                                     tab.ws.send(JSON.stringify({ type: 'input', data: text }));
                                 }
                             }).catch(function() {});
@@ -625,8 +642,65 @@ function terminalApp() {
                 self.updateConnectionStatus('错误', 'text-xs text-red-400');
             };
             
+            tab.currentLine = '';
+            tab.pendingRmConfirm = false;
+            tab.pendingRmLine = '';
+
             tab.terminal.onData(function(data) {
                 if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+                    if (tab.pendingRmConfirm) {
+                        if (data === 'y' || data === 'Y') {
+                            tab.pendingRmConfirm = false;
+                            const line = tab.pendingRmLine;
+                            tab.pendingRmLine = '';
+                            tab.currentLine = '';
+                            tab.ws.send(JSON.stringify({ type: 'input', data: line }));
+                            tab.terminal.write('\r\n');
+                        } else if (data === 'n' || data === 'N' || data === '\r' || data === '\x03' || data === '\x15') {
+                            tab.pendingRmConfirm = false;
+                            tab.pendingRmLine = '';
+                            tab.currentLine = '';
+                            tab.terminal.write('\r\n\x1b[33m已取消\x1b[0m\r\n');
+                            tab.ws.send(JSON.stringify({ type: 'input', data: '\x03' }));
+                        } else {
+                            tab.terminal.write('\x07');
+                        }
+                        return;
+                    }
+                    if (data === '\r' || data === '\n') {
+                        if (self.isRmCommand(tab.currentLine)) {
+                            tab.pendingRmConfirm = true;
+                            tab.pendingRmLine = data;
+                            tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
+                            tab.currentLine = '';
+                            return;
+                        }
+                        tab.currentLine = '';
+                    } else if (data === '\x7f' || data === '\b') {
+                        if (tab.currentLine.length > 0) tab.currentLine = tab.currentLine.slice(0, -1);
+                    } else if (data === '\x03') {
+                        tab.currentLine = '';
+                    } else if (data === '\x15') {
+                        tab.currentLine = '';
+                    } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
+                        tab.currentLine += data;
+                    } else if (data.length > 1 && !data.startsWith('\x1b[')) {
+                        if (data.includes('\n') || data.includes('\r')) {
+                            const lines = data.split(/\r?\n/);
+                            for (const line of lines) {
+                                if (line && self.isRmCommand(line)) {
+                                    tab.pendingRmConfirm = true;
+                                    tab.pendingRmLine = data;
+                                    tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
+                                    tab.currentLine = '';
+                                    return;
+                                }
+                            }
+                            tab.currentLine = '';
+                        } else {
+                            tab.currentLine += data;
+                        }
+                    }
                     tab.ws.send(JSON.stringify({ type: 'input', data: data }));
                 }
             });
@@ -640,6 +714,11 @@ function terminalApp() {
             window.addEventListener('resize', function() { 
                 if (tab.fitAddon) tab.fitAddon.fit(); 
             });
+        },
+        isRmCommand(line) {
+            const trimmed = line.trim();
+            if (!trimmed) return false;
+            return /^\s*rm\b/.test(trimmed) || /[|;&]\s*rm\b/.test(trimmed) || /\brm\s/.test(trimmed);
         },
         updateConnectionStatus(text, className) {
             const statusEl = document.getElementById('connectionStatus');
