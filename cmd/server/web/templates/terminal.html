@@ -548,8 +548,8 @@ function terminalApp() {
                 tab.terminal.onSelectionChange(() => {
                     if (tab.terminal.hasSelection()) {
                         const selection = tab.terminal.getSelection();
-                        if (selection && navigator.clipboard && navigator.clipboard.writeText) {
-                            navigator.clipboard.writeText(selection).catch(function() {});
+                        if (selection) {
+                            self.clipboardCopy(selection);
                         }
                     }
                 });
@@ -557,19 +557,25 @@ function terminalApp() {
                 tab.terminal.attachCustomKeyEventHandler(function(e) {
                     if (e.type === 'keydown' && (e.ctrlKey || e.metaKey) && e.key === 'v') {
                         e.preventDefault();
-                        if (navigator.clipboard && navigator.clipboard.readText) {
-                            navigator.clipboard.readText().then(function(text) {
-                                if (tab.ws && tab.ws.readyState === WebSocket.OPEN && text) {
-                                    if (self.isRmCommand(text)) {
-                                        tab.pendingRmConfirm = true;
-                                        tab.pendingRmLine = text;
-                                        tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
-                                        tab.currentLine = '';
-                                        return;
-                                    }
-                                    tab.ws.send(JSON.stringify({ type: 'input', data: text }));
+                        self.clipboardPaste().then(function(text) {
+                            if (tab.ws && tab.ws.readyState === WebSocket.OPEN && text) {
+                                if (self.isRmCommand(text)) {
+                                    tab.pendingRmConfirm = true;
+                                    tab.pendingRmLine = text;
+                                    tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
+                                    tab.currentLine = '';
+                                    return;
                                 }
-                            }).catch(function() {});
+                                tab.ws.send(JSON.stringify({ type: 'input', data: text }));
+                            }
+                        }).catch(function() {});
+                        return false;
+                    }
+                    if (e.type === 'keydown' && (e.ctrlKey || e.metaKey) && e.key === 'c' && tab.terminal.hasSelection()) {
+                        e.preventDefault();
+                        const selection = tab.terminal.getSelection();
+                        if (selection) {
+                            self.clipboardCopy(selection);
                         }
                         return false;
                     }
@@ -731,6 +737,69 @@ function terminalApp() {
                 }
             } catch(e) {}
             return '';
+        },
+        clipboardCopy(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).catch(() => {
+                    this.fallbackCopy(text);
+                });
+            } else {
+                this.fallbackCopy(text);
+            }
+        },
+        fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.top = '-9999px';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch(e) {}
+            document.body.removeChild(ta);
+        },
+        clipboardPaste() {
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                return navigator.clipboard.readText().catch(() => {
+                    return this.fallbackPaste();
+                });
+            }
+            return this.fallbackPaste();
+        },
+        fallbackPaste() {
+            return new Promise((resolve) => {
+                const ta = document.createElement('textarea');
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                ta.style.top = '-9999px';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                const handler = () => {
+                    const text = ta.value;
+                    document.body.removeChild(ta);
+                    resolve(text || '');
+                };
+                ta.addEventListener('input', handler, { once: true });
+                ta.addEventListener('blur', () => {
+                    setTimeout(() => {
+                        if (ta.parentNode) {
+                            const text = ta.value;
+                            document.body.removeChild(ta);
+                            resolve(text || '');
+                        }
+                    }, 100);
+                }, { once: true });
+                try { document.execCommand('paste'); } catch(e) {}
+                setTimeout(() => {
+                    if (ta.parentNode) {
+                        const text = ta.value;
+                        document.body.removeChild(ta);
+                        resolve(text || '');
+                    }
+                }, 500);
+            });
         },
         updateConnectionStatus(text, className) {
             const statusEl = document.getElementById('connectionStatus');
