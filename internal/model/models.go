@@ -214,3 +214,24 @@ type ProjectComponent struct {
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 }
+
+type TerminalSessionLog struct {
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	ServerID    uint           `gorm:"index" json:"server_id"`
+	ServerName  string         `gorm:"size:100" json:"server_name"`
+	ServerIP    string         `gorm:"size:50" json:"server_ip"`
+	SystemUser  string         `gorm:"size:50" json:"system_user"`
+	SessionType string         `gorm:"size:20;default:'ssh'" json:"session_type"`
+	StartTime   time.Time      `json:"start_time"`
+	EndTime     time.Time      `json:"end_time"`
+	Commands    string         `gorm:"type:text" json:"commands"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type TerminalCommand struct {
+	Timestamp string `json:"timestamp"`
+	Command   string `json:"command"`
+	Output    string `json:"output"`
+}

@@ -38,6 +38,7 @@ func Init(dbPath string) error {
 		&model.ComposeTemplate{},
 		&model.Note{},
 		&model.Command{},
+		&model.TerminalSessionLog{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate database: %w", err)
 	}

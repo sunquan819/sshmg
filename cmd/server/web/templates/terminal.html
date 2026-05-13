@@ -29,6 +29,9 @@
         .xterm-viewport::-webkit-scrollbar-track { background: #1f2937; }
         .xterm-viewport::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
         .xterm-viewport::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        .scrollbar-always::-webkit-scrollbar { height: 8px; }
+        .scrollbar-always::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-always::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; min-height: 8px; }
     </style>
 </head>
 <body class="bg-gray-900 h-screen overflow-hidden" x-data="terminalApp()" x-init="init()">
@@ -61,8 +64,10 @@
                 </template>
             </div>
             <button @click="goHome()" class="text-gray-400 hover:text-white text-sm px-2">🏠主页</button>
+            <a :href="'/terminal-logs?token=' + token" class="text-gray-400 hover:text-white text-sm px-2">📋日志</a>
             <button @click="showNotes = !showNotes" :class="showNotes ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📝笔记</button>
             <button @click="showCommands = !showCommands" :class="showCommands ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">⌨️命令</button>
+            <button @click="toggleSessionHistory()" :class="showSessionHistory ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📜当前历史</button>
             <button @click="logout()" class="text-gray-400 hover:text-red-400 text-sm px-2">🚪退出</button>
             <button @click="toggleFullscreen()" class="text-gray-400 hover:text-white text-sm px-2">全屏</button>
         </div>
@@ -102,8 +107,8 @@
             </div>
         </aside>
         <main class="flex-1 flex flex-col">
-            <div class="bg-gray-800 px-2 py-1 border-b border-gray-700 flex items-center justify-between">
-                <div class="flex items-center space-x-1 overflow-x-auto flex-1" style="max-width: 80%;">
+            <div class="bg-gray-800 px-2 py-1 border-b border-gray-700 flex items-center justify-between overflow-hidden">
+                <div class="flex items-center space-x-1 overflow-x-auto flex-1 scrollbar-always" style="max-width: 80%;">
                     <template x-for="(tab, index) in tabs" :key="tab.id">
                         <div @click="switchTab(tab.id)" 
                              :class="activeTabId === tab.id ? 'bg-gray-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
@@ -113,7 +118,7 @@
                         </div>
                     </template>
                 </div>
-                <div class="flex space-x-2 ml-2">
+                <div class="flex space-x-2 ml-2 flex-shrink-0">
                     <button @click="clearTerminal()" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded">清屏</button>
                     <button @click="reconnect()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded">重连</button>
                 </div>
@@ -122,127 +127,138 @@
                 <div x-show="activeTabId === tab.id" :id="'terminal-' + tab.id" class="flex-1 p-2 bg-gray-900 pr-4" style="height: calc(100vh - 220px);"></div>
             </template>
         </main>
-        <aside class="w-72 bg-gray-800 border-l border-gray-700 flex flex-col">
-            <template x-if="showNotes || showCommands">
-                <div class="flex flex-col h-full">
-                    <div class="p-2 border-b border-gray-700 flex space-x-2">
-                        <button @click="activePanel = 'notes'; selectedNote = null; if(notes.length === 0) loadNotes()" :class="activePanel === 'notes' ? 'bg-blue-600' : 'bg-gray-700'" class="flex-1 text-xs px-2 py-1 rounded">📝 笔记</button>
-                        <button @click="activePanel = 'commands'; if(filteredCommands.length === 0) loadCommands()" :class="activePanel === 'commands' ? 'bg-blue-600' : 'bg-gray-700'" class="flex-1 text-xs px-2 py-1 rounded">⌨️ 命令</button>
+        <aside class="w-72 bg-gray-800 border-l border-gray-700 flex flex-col overflow-hidden">
+            <div class="flex flex-col h-full" x-show="showNotes || showCommands || showSessionHistory" style="display: none;">
+                <div class="p-2 border-b border-gray-700 flex space-x-2">
+                    <button @click="activePanel = 'notes'; selectedNote = null; if(notes.length === 0) loadNotes()" :class="activePanel === 'notes' ? 'bg-blue-600' : 'bg-gray-700'" class="flex-1 text-xs px-2 py-1 rounded">📝 笔记</button>
+                    <button @click="activePanel = 'commands'; if(filteredCommands.length === 0) loadCommands()" :class="activePanel === 'commands' ? 'bg-blue-600' : 'bg-gray-700'" class="flex-1 text-xs px-2 py-1 rounded">⌨️ 命令</button>
+                    <button @click="activePanel = 'history'" :class="activePanel === 'history' ? 'bg-blue-600' : 'bg-gray-700'" class="flex-1 text-xs px-2 py-1 rounded">📜 历史</button>
+                </div>
+                <div class="flex-1 overflow-y-auto p-2">
+                    <div x-show="activePanel === 'history'" class="space-y-2">
+                        <input type="text" x-model="sessionHistorySearch" placeholder="搜索..." class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white">
+                        <div class="text-xs text-gray-400 mb-2">
+                            当前会话命令数: <span x-text="getCurrentSessionHistory().length"></span>
+                        </div>
+                        <template x-for="(cmd, index) in getCurrentSessionHistory()" :key="index">
+                            <div class="bg-gray-900 rounded p-2 mb-2 border border-gray-700">
+                                <div class="text-xs text-gray-500" x-text="cmd.timestamp"></div>
+                                <div class="text-green-400 text-sm font-mono mt-1" x-text="cmd.command"></div>
+                                <div x-show="cmd.output" class="text-gray-400 text-xs font-mono mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap bg-gray-950 p-1 rounded" x-text="cmd.output.substring(0, 1000)"></div>
+                            </div>
+                        </template>
+                        <div x-show="getCurrentSessionHistory().length === 0" class="text-center text-gray-500 text-xs py-4">暂无历史记录</div>
                     </div>
-                    <div class="flex-1 overflow-y-auto p-2">
-                        <div x-show="activePanel === 'notes' && !selectedNote" class="space-y-2">
-                            <button @click="loadNotes()" class="w-full text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">🔄 刷新</button>
-                            <template x-for="note in notes" :key="note.id">
-                                <div @click="selectedNote = note" :class="selectedNote?.id === note.id ? 'border-blue-500 bg-blue-900' : 'border-gray-700'" class="border rounded p-1 cursor-pointer hover:border-gray-500">
-                                    <div class="text-xs font-medium text-white truncate" x-text="note.title"></div>
+                    <div x-show="activePanel === 'notes' && !selectedNote" class="space-y-2">
+                        <button @click="loadNotes()" class="w-full text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">🔄 刷新</button>
+                        <template x-for="note in notes" :key="note.id">
+                            <div @click="selectedNote = note" :class="selectedNote?.id === note.id ? 'border-blue-500 bg-blue-900' : 'border-gray-700'" class="border rounded p-1 cursor-pointer hover:border-gray-500">
+                                <div class="text-xs font-medium text-white truncate" x-text="note.title"></div>
+                            </div>
+                        </template>
+                        <div x-show="notes.length === 0" class="text-center text-gray-500 text-xs py-4">暂无笔记</div>
+                    </div>
+                    <div x-show="activePanel === 'notes' && selectedNote" class="space-y-2">
+                        <div class="flex items-center justify-between mb-2">
+                            <button @click="selectedNote = null" class="text-xs text-gray-400 hover:text-white">← 返回列表</button>
+                            <button @click="copyToClipboard(selectedNote?.content || '')" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">📋 复制</button>
+                        </div>
+                        <div class="bg-gray-900 rounded p-3 text-xs text-white whitespace-pre-wrap overflow-y-auto" style="max-height: calc(100vh - 300px);" x-text="selectedNote?.content || ''"></div>
+                    </div>
+                    <div x-show="activePanel === 'commands'" class="space-y-2">
+                        <div class="flex space-x-1">
+                            <button @click="loadCommands()" class="flex-1 text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">🔄 刷新</button>
+                            <button @click="showCmdModal = true; cmdForm = {id:null,name:'',command:'',category:''}" class="flex-1 text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded">➕ 新建</button>
+                        </div>
+                        <select x-model="cmdCategoryFilter" @change="filterCommands()" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white">
+                            <option value="">全部分类</option>
+                            <template x-for="cat in cmdCategories" :key="cat"><template x-if="cat">
+                                <option :value="cat" x-text="cat"></option>
+                            </template></template>
+                        </select>
+                        <div class="overflow-y-auto" style="max-height: calc(100vh - 320px);">
+                            <template x-for="cmd in filteredCommands" :key="cmd.id">
+                                <div @click="executeCommand(cmd.command)" class="border border-gray-700 rounded p-2 cursor-pointer hover:border-gray-500 mb-1">
+                                    <div class="flex items-center justify-between">
+                                        <div class="text-sm text-white" x-text="cmd.name"></div>
+                                        <div class="flex items-center space-x-1">
+                                            <span class="text-xs text-gray-500" x-text="cmd.category"></span>
+                                            <button @click.stop="editCmd(cmd)" class="text-blue-400 hover:text-blue-300 text-xs">✏️</button>
+                                            <button @click.stop="deleteCmd(cmd.id)" class="text-red-400 hover:text-red-300 text-xs">🗑️</button>
+                                        </div>
+                                    </div>
+                                    <div class="text-xs text-gray-400 mt-1 font-mono truncate" x-text="cmd.command"></div>
                                 </div>
                             </template>
-                            <div x-show="notes.length === 0" class="text-center text-gray-500 text-xs py-4">暂无笔记</div>
-                        </div>
-                        <div x-show="activePanel === 'notes' && selectedNote" class="space-y-2">
-                            <div class="flex items-center justify-between mb-2">
-                                <button @click="selectedNote = null" class="text-xs text-gray-400 hover:text-white">← 返回列表</button>
-                                <button @click="copyToClipboard(selectedNote?.content || '')" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">📋 复制</button>
-                            </div>
-                            <div class="bg-gray-900 rounded p-3 text-xs text-white whitespace-pre-wrap overflow-y-auto" style="max-height: calc(100vh - 300px);" x-text="selectedNote?.content || ''"></div>
-                        </div>
-                        <div x-show="activePanel === 'commands'" class="space-y-2">
-                            <div class="flex space-x-1">
-                                <button @click="loadCommands()" class="flex-1 text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">🔄 刷新</button>
-                                <button @click="showCmdModal = true; cmdForm = {name:'',command:'',category:''}" class="flex-1 text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded">➕ 新建</button>
-                            </div>
-                            <select x-model="cmdCategoryFilter" @change="filterCommands()" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white">
-                                <option value="">全部分类</option>
-                                <template x-for="cat in cmdCategories" :key="cat"><template x-if="cat">
-                                    <option :value="cat" x-text="cat"></option>
-                                </template></template>
-                            </select>
-                            <div class="overflow-y-auto" style="max-height: calc(100vh - 320px);">
-                                <template x-for="cmd in filteredCommands" :key="cmd.id">
-                                    <div @click="executeCommand(cmd.command)" class="border border-gray-700 rounded p-2 cursor-pointer hover:border-gray-500 mb-1">
-                                        <div class="flex items-center justify-between">
-                                            <div class="text-sm text-white" x-text="cmd.name"></div>
-                                            <div class="flex items-center space-x-1">
-                                                <span class="text-xs text-gray-500" x-text="cmd.category"></span>
-                                                <button @click.stop="editCmd(cmd)" class="text-blue-400 hover:text-blue-300 text-xs">✏️</button>
-                                                <button @click.stop="deleteCmd(cmd.id)" class="text-red-400 hover:text-red-300 text-xs">🗑️</button>
-                                            </div>
-                                        </div>
-                                        <div class="text-xs text-gray-400 mt-1 font-mono truncate" x-text="cmd.command"></div>
-                                    </div>
-                                </template>
-                                <div x-show="filteredCommands.length === 0" class="text-center text-gray-500 text-xs py-2">暂无命令</div>
-                            </div>
-                        </div>
-                        <div x-show="showCmdModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                            <div class="bg-gray-800 rounded p-4 w-80 border border-gray-700">
-                                <div class="flex justify-between items-center mb-3">
-                                    <h3 class="text-sm font-semibold" x-text="cmdForm.id ? '编辑命令' : '新建命令'"></h3>
-                                    <button @click="showCmdModal = false" class="text-gray-400 hover:text-white">✕</button>
-                                </div>
-                                <div class="space-y-2">
-                                    <input type="text" x-model="cmdForm.name" placeholder="名称" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white">
-                                    <input type="text" x-model="cmdForm.command" placeholder="命令" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white font-mono">
-                                    <input type="text" x-model="cmdForm.category" placeholder="分类" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white">
-                                </div>
-                                <div class="flex justify-end space-x-2 mt-3">
-                                    <button @click="showCmdModal = false" class="px-2 py-1 text-xs text-gray-400">取消</button>
-                                    <button @click="saveCmd()" class="px-2 py-1 text-xs bg-blue-600 rounded">保存</button>
-                                </div>
-                            </div>
+                            <div x-show="filteredCommands.length === 0" class="text-center text-gray-500 text-xs py-2">暂无命令</div>
                         </div>
                     </div>
                 </div>
-            </template>
-            <template x-if="!(showNotes || showCommands)">
-                <div class="flex flex-col h-full">
-            <div class="p-3 border-b border-gray-700">
-                <div class="flex items-center justify-between mb-2">
-                    <h2 class="text-sm font-semibold text-gray-300">文件管理</h2>
-                    <button @click="refreshAndSyncPath()" class="text-gray-400 hover:text-white text-xl px-2 py-0.5" title="刷新文件列表">🔄</button>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <input type="text" :value="getCurrentPath()" @keyup.enter="navigateToPath($event.target.value)" 
-                           class="flex-1 bg-gray-700 text-white px-2 py-1 rounded text-xs border border-gray-600 focus:border-blue-500 focus:outline-none"
-                           placeholder="/root">
-                    <button @click="loadFiles()" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs">Go</button>
-                </div>
-                <div class="flex space-x-1 mt-2">
-                    <button @click="navigateToPath('/')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs">🏠 根目录</button>
-                    <button @click="goUp()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs">⬆️ 上级</button>
-                </div>
             </div>
-            <div class="flex-1 overflow-y-auto p-2">
-                <template x-for="(file, index) in files" :key="index">
-                    <div class="file-item flex items-center text-sm text-gray-300 rounded"
-                         :class="selectedFile?.path === file.path ? 'active' : ''"
-                         @click="selectFile(file)"
-                         @dblclick="openFile(file)">
-                        <span class="mr-2 text-lg" x-text="getFileIcon(file)"></span>
-                        <span class="flex-1 truncate" x-text="file.name"></span>
-                        <span class="text-xs text-gray-500" x-show="!file.is_dir" x-text="formatSize(file.size)"></span>
+            <div class="flex flex-col h-full" x-show="!(showNotes || showCommands || showSessionHistory)">
+                <div class="p-3 border-b border-gray-700">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-sm font-semibold text-gray-300">文件管理</h2>
+                        <button @click="refreshAndSyncPath()" class="text-gray-400 hover:text-white text-xl px-2 py-0.5" title="刷新文件列表">🔄</button>
                     </div>
-                </template>
-                <div x-show="loading" class="text-center text-gray-500 text-sm py-4">加载中...</div>
-                <div x-show="!loading && files.length === 0" class="text-center text-gray-500 text-sm py-4">空目录</div>
-            </div>
-            <div class="p-3 border-t border-gray-700">
-                <div class="flex space-x-2 mb-2">
-                    <button @click="uploadFile()" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm">⬆️ 上传</button>
-                    <button @click="downloadFile()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">⬇️ 下载</button>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" :value="getCurrentPath()" @keyup.enter="navigateToPath($event.target.value)" 
+                               class="flex-1 bg-gray-700 text-white px-2 py-1 rounded text-xs border border-gray-600 focus:border-blue-500 focus:outline-none"
+                               placeholder="/root">
+                        <button @click="loadFiles()" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs">Go</button>
+                    </div>
+                    <div class="flex space-x-1 mt-2">
+                        <button @click="navigateToPath('/') " class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs">🏠 根目录</button>
+                        <button @click="goUp()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs">⬆️ 上级</button>
+                    </div>
                 </div>
-                <div class="flex space-x-2">
-                    <button @click="newFolder()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm">📁 新建</button>
-                    <button @click="deleteFile()" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm">🗑️ 删除</button>
+                <div class="flex-1 overflow-y-auto p-2">
+                    <template x-for="(file, index) in files" :key="index">
+                        <div class="file-item flex items-center text-sm text-gray-300 rounded"
+                             :class="selectedFile?.path === file.path ? 'active' : ''"
+                             @click="selectFile(file)"
+                             @dblclick="openFile(file)">
+                            <span class="mr-2 text-lg" x-text="getFileIcon(file)"></span>
+                            <span class="flex-1 truncate" x-text="file.name"></span>
+                            <span class="text-xs text-gray-500" x-show="!file.is_dir" x-text="formatSize(file.size)"></span>
+                        </div>
+                    </template>
+                    <div x-show="loading" class="text-center text-gray-500 text-sm py-4">加载中...</div>
+                    <div x-show="!loading && files.length === 0" class="text-center text-gray-500 text-sm py-4">空目录</div>
                 </div>
-                <div class="flex space-x-2 mt-2">
-                    <button @click="editFile()" class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1.5 rounded text-sm">✏️ 编辑</button>
-                    <button @click="viewFileInModal()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">👁️ 预览</button>
+                <div class="p-3 border-t border-gray-700">
+                    <div class="flex space-x-2 mb-2">
+                        <button @click="uploadFile()" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm">⬆️ 上传</button>
+                        <button @click="downloadFile()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">⬇️ 下载</button>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button @click="newFolder()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm">📁 新建</button>
+                        <button @click="deleteFile()" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm">🗑️ 删除</button>
+                    </div>
+                    <div class="flex space-x-2 mt-2">
+                        <button @click="editFile()" class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1.5 rounded text-sm">✏️ 编辑</button>
+                        <button @click="viewFileInModal()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">👁️ 预览</button>
+                    </div>
+                    <input type="file" id="fileInput" @change="handleFileUpload" class="hidden">
                 </div>
-                <input type="file" id="fileInput" @change="handleFileUpload" class="hidden">
             </div>
+            <div x-show="showCmdModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-gray-800 rounded p-4 w-80 border border-gray-700">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-sm font-semibold" x-text="cmdForm.id ? '编辑命令' : '新建命令'"></h3>
+                        <button @click="showCmdModal = false" class="text-gray-400 hover:text-white">✕</button>
+                    </div>
+                    <div class="space-y-2">
+                        <input type="text" x-model="cmdForm.name" placeholder="名称" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white">
+                        <input type="text" x-model="cmdForm.command" placeholder="命令" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white font-mono">
+                        <input type="text" x-model="cmdForm.category" placeholder="分类" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white">
+                    </div>
+                    <div class="flex justify-end space-x-2 mt-3">
+                        <button @click="showCmdModal = false" class="px-2 py-1 text-xs text-gray-400">取消</button>
+                        <button @click="saveCmd()" class="px-2 py-1 text-xs bg-blue-600 rounded">保存</button>
+                    </div>
+                </div>
             </div>
-            </template>
         </aside>
     </div>
 </div>
@@ -282,6 +298,8 @@ function terminalApp() {
         loadingFiles: false,
         showNotes: false,
         showCommands: false,
+        showSessionHistory: false,
+        sessionHistorySearch: '',
         activePanel: 'notes',
         notes: [],
         commands: [],
@@ -620,27 +638,34 @@ function terminalApp() {
                 tab.ws.send(JSON.stringify({ type: 'resize', cols: initCols, rows: initRows }));
                 self.updateConnectionStatus('已连接', 'text-xs text-green-400');
                 self.loadFiles();
+                tab.sessionHistory = [];
+                tab.sessionStartTime = new Date().toISOString();
+                tab.currentCommand = null;
+                tab.outputBuffer = '';
             };
             
             tab.ws.onmessage = async function(event) {
+                let str = '';
                 if (event.data instanceof ArrayBuffer) {
                     const bytes = new Uint8Array(event.data);
-                    let str = '';
                     for (let i = 0; i < bytes.length; i++) {
                         str += String.fromCharCode(bytes[i]);
                     }
-                    tab.terminal.write(str);
                 } else if (event.data instanceof Blob) {
-                    const text = await event.data.text();
-                    tab.terminal.write(text);
+                    str = await event.data.text();
                 } else {
-                    tab.terminal.write(event.data);
+                    str = event.data;
+                }
+                tab.terminal.write(str);
+                if (tab.currentCommand) {
+                    tab.outputBuffer += str;
                 }
             };
             
             tab.ws.onclose = function() {
                 tab.terminal.writeln('\r\n\x1b[31m✗ 连接已断开\x1b[0m\r\n');
                 self.updateConnectionStatus('已断开', 'text-xs text-red-400');
+                self.saveSessionHistory(tab);
             };
             
             tab.ws.onerror = function(event) {
@@ -652,6 +677,7 @@ function terminalApp() {
             tab.currentLineUnknown = false;
             tab.pendingRmConfirm = false;
             tab.pendingRmLine = '';
+            tab.outputBuffer = '';
 
             tab.terminal.onData(function(data) {
                 if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
@@ -678,6 +704,15 @@ function terminalApp() {
                     }
                     if (data === '\r' || data === '\n') {
                         let lineToCheck = tab.currentLineUnknown ? self.getCurrentTerminalLine(tab.terminal) : tab.currentLine;
+                        const cmd = tab.currentLineUnknown ? self.getCurrentTerminalLine(tab.terminal) : tab.currentLine;
+                        if (cmd && cmd.trim() && !cmd.trim().startsWith('#') && tab.sessionHistory) {
+                            tab.currentCommand = {
+                                timestamp: new Date().toLocaleString('zh-CN'),
+                                command: cmd.trim(),
+                                output: ''
+                            };
+                            tab.outputBuffer = '';
+                        }
                         tab.currentLine = '';
                         tab.currentLineUnknown = false;
                         if (self.isRmCommand(lineToCheck)) {
@@ -691,6 +726,12 @@ function terminalApp() {
                     } else if (data === '\x03') {
                         tab.currentLine = '';
                         tab.currentLineUnknown = false;
+                        if (tab.currentCommand && tab.sessionHistory) {
+                            tab.currentCommand.output = tab.outputBuffer;
+                            tab.sessionHistory.push(tab.currentCommand);
+                            tab.currentCommand = null;
+                            tab.outputBuffer = '';
+                        }
                     } else if (data === '\x15') {
                         tab.currentLine = '';
                     } else if (data.startsWith('\x1b[') || data.startsWith('\x1bO')) {
@@ -711,6 +752,16 @@ function terminalApp() {
                         }
                     }
                     tab.ws.send(JSON.stringify({ type: 'input', data: data }));
+                    setTimeout(() => {
+                        if (tab.currentCommand && tab.outputBuffer && !tab.outputBuffer.endsWith('\r\n') && tab.sessionHistory) {
+                            tab.currentCommand.output = tab.outputBuffer;
+                            if (tab.currentCommand.output.length > 0 && tab.outputBuffer.includes('\n') || tab.outputBuffer.includes('\r')) {
+                                tab.sessionHistory.push(tab.currentCommand);
+                                tab.currentCommand = null;
+                                tab.outputBuffer = '';
+                            }
+                        }
+                    }, 100);
                 }
             });
             
@@ -800,6 +851,46 @@ function terminalApp() {
                     }
                 }, 500);
             });
+        },
+        async saveSessionHistory(tab) {
+            if (!tab || !tab.sessionHistory || tab.sessionHistory.length === 0) return;
+            try {
+                const logData = {
+                    server_id: tab.server.id,
+                    server_name: tab.server.name,
+                    server_ip: tab.server.ip,
+                    system_user: tab.server.username,
+                    session_type: 'ssh',
+                    start_time: tab.sessionStartTime,
+                    commands: JSON.stringify(tab.sessionHistory)
+                };
+                await fetch('/api/terminal-logs', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify(logData)
+                });
+            } catch (e) { console.error('保存历史失败:', e); }
+        },
+        toggleSessionHistory() {
+            this.showSessionHistory = !this.showSessionHistory;
+        },
+        getCurrentSessionHistory() {
+            const tab = this.getActiveTab();
+            if (!tab || !tab.sessionHistory) return [];
+            const search = this.sessionHistorySearch.toLowerCase();
+            let history = tab.sessionHistory.map(c => ({
+                timestamp: c.timestamp,
+                command: c.command,
+                output: this.stripAnsi(c.output || '')
+            }));
+            if (!search) return history;
+            return history.filter(c => 
+                c.command.toLowerCase().includes(search) || 
+                c.output.toLowerCase().includes(search)
+            );
+        },
+        stripAnsi(str) {
+            return str.replace(/\x1b\[[0-9;]*m/g, '').replace(/\x1b\][^\x07]*\x07/g, '').replace(/\[[\d;]*[a-zA-Z]/g, '');
         },
         updateConnectionStatus(text, className) {
             const statusEl = document.getElementById('connectionStatus');

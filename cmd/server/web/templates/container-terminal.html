@@ -15,6 +15,9 @@
         .xterm-viewport::-webkit-scrollbar-track { background: #1f2937; }
         .xterm-viewport::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
         .xterm-viewport::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        .scrollbar-always::-webkit-scrollbar { height: 8px; }
+        .scrollbar-always::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-always::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; min-height: 8px; }
     </style>
 </head>
 <body class="bg-gray-900 h-screen overflow-hidden" x-data="containerTerminalApp()" x-init="init()">
@@ -44,6 +47,7 @@
                 </template>
             </div>
             <button @click="goHome()" class="text-gray-400 hover:text-white text-sm px-2">🏠主页</button>
+            <a :href="'/terminal-logs?token=' + token" class="text-gray-400 hover:text-white text-sm px-2">📋日志</a>
             <button @click="logout()" class="text-gray-400 hover:text-red-400 text-sm px-2">🚪退出</button>
             <button @click="toggleFullscreen()" class="text-gray-400 hover:text-white text-sm px-2">全屏</button>
             <button @click="closeTerminal()" class="text-gray-400 hover:text-white text-sm px-2">关闭</button>
@@ -84,9 +88,9 @@
                 <button @click="loadContainers()" class="w-full mt-2 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs flex-shrink-0">🔄 刷新容器</button>
             </div>
         </aside>
-        <main class="flex-1 flex flex-col">
-            <div class="bg-gray-800 px-2 py-1 border-b border-gray-700 flex items-center justify-between">
-                <div class="flex items-center space-x-1 overflow-x-auto flex-1" style="max-width: 80%;">
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <div class="bg-gray-800 px-2 py-1 border-b border-gray-700 flex items-center justify-between overflow-hidden">
+                <div class="flex items-center space-x-1 overflow-x-auto flex-1 scrollbar-always" style="max-width: 80%;">
                     <template x-for="(tab, index) in tabs" :key="tab.id">
                         <div @click="switchTab(tab.id)" 
                              :class="activeTabId === tab.id ? 'bg-gray-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
@@ -96,7 +100,7 @@
                         </div>
                     </template>
                 </div>
-                <div class="flex space-x-2 ml-2">
+                <div class="flex space-x-2 ml-2 flex-shrink-0">
                     <button @click="clearTerminal()" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded">清屏</button>
                     <button @click="reconnect()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded">重连</button>
                 </div>
@@ -105,7 +109,7 @@
                 <div x-show="activeTabId === tab.id" :id="'terminal-' + tab.id" class="flex-1 p-2 bg-gray-900 pr-4" style="height: calc(100vh - 220px);"></div>
             </template>
         </main>
-        <aside class="w-72 bg-gray-800 border-l border-gray-700 flex flex-col">
+        <aside class="w-72 bg-gray-800 border-l border-gray-700 flex flex-col overflow-hidden">
             <div class="p-3 border-b border-gray-700">
                 <div class="flex items-center justify-between mb-2">
                     <h2 class="text-sm font-semibold text-gray-300">文件管理</h2>
@@ -418,27 +422,34 @@ function containerTerminalApp() {
                 tab.terminal.writeln('\x1b[33m 镜像：' + tab.container.image + '\x1b[0m\r\n');
                 tab.terminal.writeln('\r\n\x1b[32m 准备就绪！\x1b[0m\r\n\r\n');
                 self.updateConnectionStatus('已连接', 'text-xs text-green-400');
+                tab.sessionHistory = [];
+                tab.sessionStartTime = new Date().toISOString();
+                tab.currentCommand = null;
+                tab.outputBuffer = '';
             };
             
             tab.ws.onmessage = async function(event) {
+                let str = '';
                 if (event.data instanceof ArrayBuffer) {
                     const bytes = new Uint8Array(event.data);
-                    let str = '';
                     for (let i = 0; i < bytes.length; i++) {
                         str += String.fromCharCode(bytes[i]);
                     }
-                    tab.terminal.write(str);
                 } else if (event.data instanceof Blob) {
-                    const text = await event.data.text();
-                    tab.terminal.write(text);
+                    str = await event.data.text();
                 } else {
-                    tab.terminal.write(event.data);
+                    str = event.data;
+                }
+                tab.terminal.write(str);
+                if (tab.currentCommand) {
+                    tab.outputBuffer += str;
                 }
             };
             
             tab.ws.onclose = function() {
                 tab.terminal.writeln('\r\n\x1b[31m✗ 连接已断开\x1b[0m\r\n');
                 self.updateConnectionStatus('已断开', 'text-xs text-red-400');
+                self.saveContainerSessionHistory(tab);
             };
             
             tab.ws.onerror = function(event) {
@@ -450,6 +461,7 @@ function containerTerminalApp() {
             tab.currentLineUnknown = false;
             tab.pendingRmConfirm = false;
             tab.pendingRmLine = '';
+            tab.outputBuffer = '';
 
             tab.terminal.onData(function(data) { 
                 if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
@@ -476,6 +488,15 @@ function containerTerminalApp() {
                     }
                     if (data === '\r' || data === '\n') {
                         let lineToCheck = tab.currentLineUnknown ? self.getCurrentTerminalLine(tab.terminal) : tab.currentLine;
+                        const cmd = tab.currentLineUnknown ? self.getCurrentTerminalLine(tab.terminal) : tab.currentLine;
+                        if (cmd && cmd.trim() && tab.sessionHistory) {
+                            tab.currentCommand = {
+                                timestamp: new Date().toLocaleString('zh-CN'),
+                                command: cmd.trim(),
+                                output: ''
+                            };
+                            tab.outputBuffer = '';
+                        }
                         tab.currentLine = '';
                         tab.currentLineUnknown = false;
                         if (self.isRmCommand(lineToCheck)) {
@@ -489,6 +510,12 @@ function containerTerminalApp() {
                     } else if (data === '\x03') {
                         tab.currentLine = '';
                         tab.currentLineUnknown = false;
+                        if (tab.currentCommand && tab.sessionHistory) {
+                            tab.currentCommand.output = tab.outputBuffer;
+                            tab.sessionHistory.push(tab.currentCommand);
+                            tab.currentCommand = null;
+                            tab.outputBuffer = '';
+                        }
                     } else if (data === '\x15') {
                         tab.currentLine = '';
                     } else if (data.startsWith('\x1b[') || data.startsWith('\x1bO')) {
@@ -508,7 +535,17 @@ function containerTerminalApp() {
                             tab.currentLineUnknown = true;
                         }
                     }
-                    tab.ws.send(JSON.stringify({ type: 'input', data: data })); 
+                    tab.ws.send(JSON.stringify({ type: 'input', data: data }));
+                    setTimeout(() => {
+                        if (tab.currentCommand && tab.outputBuffer && tab.sessionHistory) {
+                            tab.currentCommand.output = tab.outputBuffer;
+                            if (tab.currentCommand.output.length > 0 && (tab.outputBuffer.includes('\n') || tab.outputBuffer.includes('\r'))) {
+                                tab.sessionHistory.push(tab.currentCommand);
+                                tab.currentCommand = null;
+                                tab.outputBuffer = '';
+                            }
+                        }
+                    }, 100);
                 } 
             });
             
@@ -598,6 +635,25 @@ function containerTerminalApp() {
                     }
                 }, 500);
             });
+        },
+        async saveContainerSessionHistory(tab) {
+            if (!tab || !tab.sessionHistory || tab.sessionHistory.length === 0) return;
+            try {
+                const logData = {
+                    server_id: tab.server.id,
+                    server_name: tab.server.name,
+                    server_ip: tab.server.ip,
+                    system_user: 'container',
+                    session_type: 'container',
+                    start_time: tab.sessionStartTime,
+                    commands: JSON.stringify(tab.sessionHistory)
+                };
+                await fetch('/api/terminal-logs', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify(logData)
+                });
+            } catch (e) { console.error('保存历史失败:', e); }
         },
         updateConnectionStatus(text, className) {
             const statusEl = document.getElementById('connectionStatus');

@@ -192,6 +192,7 @@ func main() {
 	toolHandler := handler.NewToolHandler()
 	tunnelHandler := handler.NewTunnelHandler()
 	commandHandler := handler.NewCommandHandler()
+	terminalLogHandler := handler.NewTerminalLogHandler()
 
 	go handler.InitDefaultProject()
 	go commandHandler.InitDefaultCommands()
@@ -243,9 +244,12 @@ func main() {
 		c.HTML(http.StatusOK, "tools.html", nil)
 	})
 
-	r.GET("/tunnels", func(c *gin.Context) {
-		log.Println("Serving /tunnels page")
+r.GET("/tunnels", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "tunnels.html", nil)
+	})
+
+	r.GET("/terminal-logs", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "terminal-logs.html", nil)
 	})
 
 	api := r.Group("/api")
@@ -425,6 +429,17 @@ func main() {
 				databases.GET("/:id/schemas", databaseHandler.GetSchemas)
 				databases.GET("/:id/tables", databaseHandler.GetTables)
 				databases.GET("/:id/columns", databaseHandler.GetColumns)
+			}
+
+			terminalLogs := auth.Group("/terminal-logs")
+			{
+				terminalLogs.GET("", terminalLogHandler.ListTerminalLogs)
+				terminalLogs.GET("/:id", terminalLogHandler.GetTerminalLog)
+				terminalLogs.POST("", terminalLogHandler.CreateTerminalLog)
+				terminalLogs.DELETE("/:id", terminalLogHandler.DeleteTerminalLog)
+				terminalLogs.DELETE("", terminalLogHandler.DeleteTerminalLogs)
+				terminalLogs.GET("/stats", terminalLogHandler.GetServerStats)
+				terminalLogs.DELETE("/clear", terminalLogHandler.ClearOldLogs)
 			}
 		}
 
