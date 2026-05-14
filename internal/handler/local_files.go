@@ -22,28 +22,46 @@ func NewLocalFilesHandler() *LocalFilesHandler {
 	}
 }
 
+func (h *LocalFilesHandler) checkPath(relativePath string) (string, error) {
+	relativePath = strings.TrimPrefix(relativePath, "/")
+	fullPath := filepath.Join(h.baseDir, relativePath)
+
+	absBase, err := filepath.Abs(h.baseDir)
+	if err != nil {
+		return "", err
+	}
+	absFull, err := filepath.Abs(fullPath)
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.HasPrefix(absFull, absBase) {
+		return "", fmt.Errorf("invalid path")
+	}
+
+	return absFull, nil
+}
+
 func (h *LocalFilesHandler) ListFiles(c *gin.Context) {
 	relativePath := c.Query("path")
 	if relativePath == "" {
 		relativePath = "/"
 	}
 
-	relativePath = strings.TrimPrefix(relativePath, "/")
-	fullPath := filepath.Join(h.baseDir, relativePath)
-
-	if !strings.HasPrefix(fullPath, h.baseDir) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+	absPath, err := h.checkPath(relativePath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	files, err := h.listDirectory(fullPath)
+	files, err := h.listDirectory(absPath)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"path":  "/" + relativePath,
+		"path":  "/" + strings.TrimPrefix(relativePath, "/"),
 		"files": files,
 	})
 }
@@ -66,12 +84,13 @@ func (h *LocalFilesHandler) listDirectory(path string) ([]map[string]interface{}
 
 		fullPath := filepath.Join(path, entry.Name())
 		relPath := strings.TrimPrefix(fullPath, h.baseDir)
+		relPath = strings.ReplaceAll(relPath, "\\", "/")
 
 		file := map[string]interface{}{
-			"name":   entry.Name(),
-			"path":   "/" + relPath,
-			"is_dir": entry.IsDir(),
-			"size":   info.Size(),
+			"name":     entry.Name(),
+			"path":     "/" + relPath,
+			"is_dir":   entry.IsDir(),
+			"size":     info.Size(),
 			"mod_time": info.ModTime().Format("2006-01-02 15:04:05"),
 		}
 		files = append(files, file)
@@ -89,15 +108,13 @@ func (h *LocalFilesHandler) CreateDirectory(c *gin.Context) {
 		return
 	}
 
-	relativePath := strings.TrimPrefix(req.Path, "/")
-	fullPath := filepath.Join(h.baseDir, relativePath)
-
-	if !strings.HasPrefix(fullPath, h.baseDir) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+	absPath, err := h.checkPath(req.Path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := os.MkdirAll(fullPath, 0755); err != nil {
+	if err := os.MkdirAll(absPath, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -110,7 +127,6 @@ func (h *LocalFilesHandler) UploadFile(c *gin.Context) {
 	if relativePath == "" {
 		relativePath = "/"
 	}
-	relativePath = strings.TrimPrefix(relativePath, "/")
 
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -118,24 +134,25 @@ func (h *LocalFilesHandler) UploadFile(c *gin.Context) {
 		return
 	}
 
-	targetDir := filepath.Join(h.baseDir, relativePath)
-	if !strings.HasPrefix(targetDir, h.baseDir) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+	absDir, err := h.checkPath(relativePath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	if err := os.MkdirAll(absDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	targetPath := filepath.Join(targetDir, file.Filename)
+	targetPath := filepath.Join(absDir, file.Filename)
 	if err := c.SaveUploadedFile(file, targetPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	relPath := strings.TrimPrefix(targetPath, h.baseDir)
+	relPath = strings.ReplaceAll(relPath, "\\", "/")
 	c.JSON(http.StatusOK, gin.H{
 		"message":  "file uploaded successfully",
 		"path":     "/" + relPath,
@@ -151,15 +168,13 @@ func (h *LocalFilesHandler) DownloadFile(c *gin.Context) {
 		return
 	}
 
-	relativePath = strings.TrimPrefix(relativePath, "/")
-	fullPath := filepath.Join(h.baseDir, relativePath)
-
-	if !strings.HasPrefix(fullPath, h.baseDir) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+	absPath, err := h.checkPath(relativePath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	info, err := os.Stat(fullPath)
+	info, err := os.Stat(absPath)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
 		return
@@ -170,12 +185,12 @@ func (h *LocalFilesHandler) DownloadFile(c *gin.Context) {
 		return
 	}
 
-	filename := filepath.Base(fullPath)
+	filename := filepath.Base(absPath)
 	encodedFilename := url.QueryEscape(filename)
 	c.Header("Content-Disposition", "attachment; filename="+encodedFilename+"; filename*=UTF-8''"+encodedFilename)
 	c.Header("Content-Type", "application/octet-stream")
 	c.Header("Content-Length", fmt.Sprintf("%d", info.Size()))
-	c.File(fullPath)
+	c.File(absPath)
 }
 
 func (h *LocalFilesHandler) DeleteFile(c *gin.Context) {
@@ -185,20 +200,19 @@ func (h *LocalFilesHandler) DeleteFile(c *gin.Context) {
 		return
 	}
 
-	relativePath = strings.TrimPrefix(relativePath, "/")
-	fullPath := filepath.Join(h.baseDir, relativePath)
-
-	if !strings.HasPrefix(fullPath, h.baseDir) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+	absPath, err := h.checkPath(relativePath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if fullPath == h.baseDir {
+	absBase, _ := filepath.Abs(h.baseDir)
+	if absPath == absBase {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete base directory"})
 		return
 	}
 
-	if err := os.RemoveAll(fullPath); err != nil {
+	if err := os.RemoveAll(absPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -217,28 +231,28 @@ func (h *LocalFilesHandler) RenameFile(c *gin.Context) {
 		return
 	}
 
-	relativePath := strings.TrimPrefix(req.Path, "/")
-	fullPath := filepath.Join(h.baseDir, relativePath)
-
-	if !strings.HasPrefix(fullPath, h.baseDir) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+	absPath, err := h.checkPath(req.Path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	dir := filepath.Dir(fullPath)
+	dir := filepath.Dir(absPath)
 	newPath := filepath.Join(dir, req.Name)
 
-	if !strings.HasPrefix(newPath, h.baseDir) {
+	absBase, _ := filepath.Abs(h.baseDir)
+	if !strings.HasPrefix(newPath, absBase) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid name"})
 		return
 	}
 
-	if err := os.Rename(fullPath, newPath); err != nil {
+	if err := os.Rename(absPath, newPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	relPath := strings.TrimPrefix(newPath, h.baseDir)
+	relPath := strings.TrimPrefix(newPath, absBase)
+	relPath = strings.ReplaceAll(relPath, "\\", "/")
 	c.JSON(http.StatusOK, gin.H{
 		"message": "renamed successfully",
 		"path":    "/" + relPath,
@@ -256,18 +270,19 @@ func (h *LocalFilesHandler) MoveFile(c *gin.Context) {
 		return
 	}
 
-	srcPath := strings.TrimPrefix(req.Src, "/")
-	dstPath := strings.TrimPrefix(req.Dst, "/")
-
-	fullSrc := filepath.Join(h.baseDir, srcPath)
-	fullDst := filepath.Join(h.baseDir, dstPath)
-
-	if !strings.HasPrefix(fullSrc, h.baseDir) || !strings.HasPrefix(fullDst, h.baseDir) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+	absSrc, err := h.checkPath(req.Src)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := os.Rename(fullSrc, fullDst); err != nil {
+	absDst, err := h.checkPath(req.Dst)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := os.Rename(absSrc, absDst); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -286,18 +301,19 @@ func (h *LocalFilesHandler) CopyFile(c *gin.Context) {
 		return
 	}
 
-	srcPath := strings.TrimPrefix(req.Src, "/")
-	dstPath := strings.TrimPrefix(req.Dst, "/")
-
-	fullSrc := filepath.Join(h.baseDir, srcPath)
-	fullDst := filepath.Join(h.baseDir, dstPath)
-
-	if !strings.HasPrefix(fullSrc, h.baseDir) || !strings.HasPrefix(fullDst, h.baseDir) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+	absSrc, err := h.checkPath(req.Src)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	srcInfo, err := os.Stat(fullSrc)
+	absDst, err := h.checkPath(req.Dst)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	srcInfo, err := os.Stat(absSrc)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "source not found"})
 		return
@@ -308,19 +324,19 @@ func (h *LocalFilesHandler) CopyFile(c *gin.Context) {
 		return
 	}
 
-	srcFile, err := os.Open(fullSrc)
+	srcFile, err := os.Open(absSrc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer srcFile.Close()
 
-	if err := os.MkdirAll(filepath.Dir(fullDst), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(absDst), 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	dstFile, err := os.Create(fullDst)
+	dstFile, err := os.Create(absDst)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -342,15 +358,13 @@ func (h *LocalFilesHandler) ReadFile(c *gin.Context) {
 		return
 	}
 
-	relativePath = strings.TrimPrefix(relativePath, "/")
-	fullPath := filepath.Join(h.baseDir, relativePath)
-
-	if !strings.HasPrefix(fullPath, h.baseDir) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+	absPath, err := h.checkPath(relativePath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	info, err := os.Stat(fullPath)
+	info, err := os.Stat(absPath)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
 		return
@@ -366,14 +380,15 @@ func (h *LocalFilesHandler) ReadFile(c *gin.Context) {
 		return
 	}
 
-	content, err := os.ReadFile(fullPath)
+	content, err := os.ReadFile(absPath)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	relPath := strings.ReplaceAll(strings.TrimPrefix(absPath, h.baseDir), "\\", "/")
 	c.JSON(http.StatusOK, gin.H{
-		"path":    "/" + relativePath,
+		"path":    "/" + relPath,
 		"content": string(content),
 		"size":    info.Size(),
 	})
@@ -390,20 +405,18 @@ func (h *LocalFilesHandler) WriteFile(c *gin.Context) {
 		return
 	}
 
-	relativePath := strings.TrimPrefix(req.Path, "/")
-	fullPath := filepath.Join(h.baseDir, relativePath)
-
-	if !strings.HasPrefix(fullPath, h.baseDir) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+	absPath, err := h.checkPath(req.Path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := os.WriteFile(fullPath, []byte(req.Content), 0644); err != nil {
+	if err := os.WriteFile(absPath, []byte(req.Content), 0644); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -418,22 +431,21 @@ func (h *LocalFilesHandler) GetFileInfo(c *gin.Context) {
 		return
 	}
 
-	relativePath = strings.TrimPrefix(relativePath, "/")
-	fullPath := filepath.Join(h.baseDir, relativePath)
-
-	if !strings.HasPrefix(fullPath, h.baseDir) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+	absPath, err := h.checkPath(relativePath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	info, err := os.Stat(fullPath)
+	info, err := os.Stat(absPath)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
 		return
 	}
 
+	relPath := strings.ReplaceAll(strings.TrimPrefix(absPath, h.baseDir), "\\", "/")
 	c.JSON(http.StatusOK, gin.H{
-		"path":     "/" + relativePath,
+		"path":     "/" + relPath,
 		"name":     info.Name(),
 		"is_dir":   info.IsDir(),
 		"size":     info.Size(),

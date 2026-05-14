@@ -9,12 +9,18 @@
     <link rel="stylesheet" href="/static/css/xterm.css" />
     <script src="/static/js/xterm.min.js"></script>
     <script src="/static/js/xterm-addon-fit.min.js"></script>
+    <style>
+        .nav-scrollbar::-webkit-scrollbar { width: 6px; }
+        .nav-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .nav-scrollbar::-webkit-scrollbar-thumb { background: #6b7280; border-radius: 3px; }
+        .nav-scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+    </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen" x-data="app()" x-init="init()" onload="checkAuth()">
 <div class="flex h-screen overflow-hidden">
 <aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
     <div class="p-4 border-b border-gray-200 dark:border-gray-700"><h1 class="text-xl font-bold text-gray-900 dark:text-white">部署管理系统 <span class="text-xs text-gray-400">v1.0.2</span></h1></div>
-    <nav class="p-4 space-y-2 flex-1">
+    <nav class="p-4 space-y-2 flex-1 overflow-y-auto nav-scrollbar">
         <a href="#" @click.prevent="activeTab='servers'" :class="activeTab==='servers'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-4 py-2 rounded-lg transition">🖥️ 服务器</a>
         <a :href="'/infrastructure?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">⚙️ 基础设施</a>
         <a href="#" @click.prevent="activeTab='services'" :class="activeTab==='services'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-4 py-2 rounded-lg transition">🚀 服务部署</a>
