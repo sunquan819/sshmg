@@ -65,9 +65,10 @@
             </div>
             <button @click="goHome()" class="text-gray-400 hover:text-white text-sm px-2">🏠主页</button>
             <a :href="'/terminal-logs?token=' + token" class="text-gray-400 hover:text-white text-sm px-2">📋日志</a>
-            <button @click="showNotes = !showNotes" :class="showNotes ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📝笔记</button>
-            <button @click="showCommands = !showCommands" :class="showCommands ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">⌨️命令</button>
-            <button @click="toggleSessionHistory()" :class="showSessionHistory ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📜当前历史</button>
+            <button @click="showNotes = false; showCommands = false; showSessionHistory = false" :class="!showNotes && !showCommands && !showSessionHistory ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📁文件</button>
+            <button @click="showNotes = true; showCommands = false; showSessionHistory = false; activePanel = 'notes'" :class="showNotes && activePanel === 'notes' ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📝笔记</button>
+            <button @click="showCommands = true; showNotes = false; showSessionHistory = false; activePanel = 'commands'" :class="showCommands && activePanel === 'commands' ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">⌨️命令</button>
+            <button @click="showSessionHistory = true; showNotes = false; showCommands = false; activePanel = 'history'" :class="showSessionHistory && activePanel === 'history' ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📜当前历史</button>
             <button @click="logout()" class="text-gray-400 hover:text-red-400 text-sm px-2">🚪退出</button>
             <button @click="toggleFullscreen()" class="text-gray-400 hover:text-white text-sm px-2">全屏</button>
         </div>
@@ -150,7 +151,10 @@
                         <div x-show="getCurrentSessionHistory().length === 0" class="text-center text-gray-500 text-xs py-4">暂无历史记录</div>
                     </div>
                     <div x-show="activePanel === 'notes' && !selectedNote" class="space-y-2">
-                        <button @click="loadNotes()" class="w-full text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">🔄 刷新</button>
+                        <div class="flex space-x-1">
+                            <button @click="loadNotes()" class="flex-1 text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">🔄 刷新</button>
+                            <button @click="showNoteModal = true; noteForm = {id:null,title:'',content:'',category:''}" class="flex-1 text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded">➕ 新建</button>
+                        </div>
                         <template x-for="note in notes" :key="note.id">
                             <div @click="selectedNote = note" :class="selectedNote?.id === note.id ? 'border-blue-500 bg-blue-900' : 'border-gray-700'" class="border rounded p-1 cursor-pointer hover:border-gray-500">
                                 <div class="text-xs font-medium text-white truncate" x-text="note.title"></div>
@@ -259,6 +263,23 @@
                     </div>
                 </div>
             </div>
+            <div x-show="showNoteModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-gray-800 rounded p-4 w-80 border border-gray-700">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-sm font-semibold" x-text="noteForm.id ? '编辑笔记' : '新建笔记'"></h3>
+                        <button @click="showNoteModal = false" class="text-gray-400 hover:text-white">✕</button>
+                    </div>
+                    <div class="space-y-2">
+                        <input type="text" x-model="noteForm.title" placeholder="标题" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white">
+                        <textarea x-model="noteForm.content" placeholder="内容" rows="5" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white resize-none"></textarea>
+                        <input type="text" x-model="noteForm.category" placeholder="分类" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white">
+                    </div>
+                    <div class="flex justify-end space-x-2 mt-3">
+                        <button @click="showNoteModal = false" class="px-2 py-1 text-xs text-gray-400">取消</button>
+                        <button @click="saveNote()" class="px-2 py-1 text-xs bg-blue-600 rounded">保存</button>
+                    </div>
+                </div>
+            </div>
         </aside>
     </div>
 </div>
@@ -309,6 +330,8 @@ function terminalApp() {
         selectedNote: null,
         showCmdModal: false,
         cmdForm: {id: null, name: '', command: '', category: ''},
+        showNoteModal: false,
+        noteForm: {id: null, title: '', content: '', category: ''},
         showMessage(msg, type = 'info', duration = 3000) {
             this.showMessageCenter(msg, type, duration);
         },
@@ -327,6 +350,30 @@ function terminalApp() {
                 const data = await res.json();
                 if (res.ok) this.notes = data.notes || [];
             } catch (e) { console.error(e); }
+        },
+        async saveNote() {
+            if (!this.noteForm.title) {
+                this.showMessage('请输入标题', 'error');
+                return;
+            }
+            try {
+                const url = this.noteForm.id ? '/api/notes/' + this.noteForm.id : '/api/notes';
+                const method = this.noteForm.id ? 'PUT' : 'POST';
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.noteForm)
+                });
+                if (res.ok) {
+                    this.showNoteModal = false;
+                    this.loadNotes();
+                    this.showMessage('保存成功', 'success');
+                } else {
+                    this.showMessage('保存失败', 'error');
+                }
+            } catch (e) {
+                this.showMessage('保存失败', 'error');
+            }
         },
         async loadCommands() {
             try {
@@ -640,7 +687,7 @@ function terminalApp() {
                 self.loadFiles();
                 tab.sessionHistory = [];
                 tab.sessionStartTime = new Date().toISOString();
-                tab.currentCommand = null;
+                tab.pendingCommand = null;
                 tab.outputBuffer = '';
             };
             
@@ -657,7 +704,7 @@ function terminalApp() {
                     str = event.data;
                 }
                 tab.terminal.write(str);
-                if (tab.currentCommand) {
+                if (tab.pendingCommand) {
                     tab.outputBuffer += str;
                 }
             };
@@ -678,6 +725,8 @@ function terminalApp() {
             tab.pendingRmConfirm = false;
             tab.pendingRmLine = '';
             tab.outputBuffer = '';
+            tab.pendingCommand = null;
+            tab.outputTimeout = null;
 
             tab.terminal.onData(function(data) {
                 if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
@@ -705,13 +754,22 @@ function terminalApp() {
                     if (data === '\r' || data === '\n') {
                         let lineToCheck = tab.currentLineUnknown ? self.getCurrentTerminalLine(tab.terminal) : tab.currentLine;
                         const cmd = tab.currentLineUnknown ? self.getCurrentTerminalLine(tab.terminal) : tab.currentLine;
-                        if (cmd && cmd.trim() && !cmd.trim().startsWith('#') && tab.sessionHistory) {
-                            tab.currentCommand = {
+                        if (cmd && cmd.trim() && tab.sessionHistory) {
+                            tab.pendingCommand = {
                                 timestamp: new Date().toLocaleString('zh-CN'),
                                 command: cmd.trim(),
                                 output: ''
                             };
                             tab.outputBuffer = '';
+                            if (tab.outputTimeout) clearTimeout(tab.outputTimeout);
+                            tab.outputTimeout = setTimeout(() => {
+                                if (tab.pendingCommand && tab.sessionHistory) {
+                                    tab.pendingCommand.output = self.stripAnsi(tab.outputBuffer);
+                                    tab.sessionHistory.push(tab.pendingCommand);
+                                    tab.pendingCommand = null;
+                                    tab.outputBuffer = '';
+                                }
+                            }, 800);
                         }
                         tab.currentLine = '';
                         tab.currentLineUnknown = false;
@@ -726,12 +784,6 @@ function terminalApp() {
                     } else if (data === '\x03') {
                         tab.currentLine = '';
                         tab.currentLineUnknown = false;
-                        if (tab.currentCommand && tab.sessionHistory) {
-                            tab.currentCommand.output = tab.outputBuffer;
-                            tab.sessionHistory.push(tab.currentCommand);
-                            tab.currentCommand = null;
-                            tab.outputBuffer = '';
-                        }
                     } else if (data === '\x15') {
                         tab.currentLine = '';
                     } else if (data.startsWith('\x1b[') || data.startsWith('\x1bO')) {
@@ -752,16 +804,6 @@ function terminalApp() {
                         }
                     }
                     tab.ws.send(JSON.stringify({ type: 'input', data: data }));
-                    setTimeout(() => {
-                        if (tab.currentCommand && tab.outputBuffer && !tab.outputBuffer.endsWith('\r\n') && tab.sessionHistory) {
-                            tab.currentCommand.output = tab.outputBuffer;
-                            if (tab.currentCommand.output.length > 0 && tab.outputBuffer.includes('\n') || tab.outputBuffer.includes('\r')) {
-                                tab.sessionHistory.push(tab.currentCommand);
-                                tab.currentCommand = null;
-                                tab.outputBuffer = '';
-                            }
-                        }
-                    }, 100);
                 }
             });
             
@@ -864,15 +906,15 @@ function terminalApp() {
                     start_time: tab.sessionStartTime,
                     commands: JSON.stringify(tab.sessionHistory)
                 };
-                await fetch('/api/terminal-logs', {
+                const res = await fetch('/api/terminal-logs', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
                     body: JSON.stringify(logData)
                 });
+                if (res.ok) {
+                    console.log('终端日志已保存');
+                }
             } catch (e) { console.error('保存历史失败:', e); }
-        },
-        toggleSessionHistory() {
-            this.showSessionHistory = !this.showSessionHistory;
         },
         getCurrentSessionHistory() {
             const tab = this.getActiveTab();
@@ -1059,8 +1101,15 @@ function terminalApp() {
             }
         },
         getToken() { return localStorage.getItem('access_token'); },
-        goHome() { window.location.href = '/?token=' + this.getToken(); },
-        logout() { localStorage.removeItem('access_token'); window.location.href = '/login'; },
+        goHome() {
+            this.tabs.forEach(tab => this.saveSessionHistory(tab));
+            window.location.href = '/?token=' + this.getToken();
+        },
+        logout() {
+            this.tabs.forEach(tab => this.saveSessionHistory(tab));
+            localStorage.removeItem('access_token');
+            window.location.href = '/login';
+        },
         async checkRdpAgent() {
             try {
                 const res = await fetch('http://localhost:8765/health');
