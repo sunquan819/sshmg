@@ -193,6 +193,7 @@ func main() {
 	tunnelHandler := handler.NewTunnelHandler()
 	commandHandler := handler.NewCommandHandler()
 	terminalLogHandler := handler.NewTerminalLogHandler()
+	localFilesHandler := handler.NewLocalFilesHandler()
 
 	go handler.InitDefaultProject()
 	go commandHandler.InitDefaultCommands()
@@ -250,6 +251,10 @@ r.GET("/tunnels", func(c *gin.Context) {
 
 	r.GET("/terminal-logs", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "terminal-logs.html", nil)
+	})
+
+	r.GET("/files", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "files.html", nil)
 	})
 
 	api := r.Group("/api")
@@ -441,6 +446,8 @@ r.GET("/tunnels", func(c *gin.Context) {
 				terminalLogs.GET("/stats", terminalLogHandler.GetServerStats)
 				terminalLogs.DELETE("/clear", terminalLogHandler.ClearOldLogs)
 			}
+
+			handler.RegisterLocalFilesRoutes(auth, localFilesHandler)
 		}
 
 		// WebSocket ????????auth ?????????handler ?????????token

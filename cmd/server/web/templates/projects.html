@@ -250,15 +250,17 @@
                     </div>
                 </div>
                 <div x-show="editingComponent">
-                    <label class="block text-sm text-gray-400 mb-1">安装包（可多选）</label>
-                    <div class="flex items-center space-x-2">
+                    <label class="block text-sm text-gray-400 mb-1">安装包</label>
+                    <div class="flex items-center space-x-2 mb-2">
                         <input type="file" id="packageFile" multiple class="text-sm text-gray-400">
-                        <button @click="uploadPackages()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-sm whitespace-nowrap">上传</button>
+                        <button @click="uploadPackages()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-sm whitespace-nowrap">⬆️ 上传</button>
+                        <button @click="showFileSelectorModal = true; loadAvailableFiles()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm whitespace-nowrap">📁 选择文件</button>
                     </div>
-                    <div x-show="editingComponent?.install_pkg" class="mt-1">
+                    <div x-show="editingComponent?.install_pkg" class="mt-1 border border-gray-600 rounded p-2">
                         <template x-for="pkg in getPackages()" :key="pkg">
-                            <div class="flex items-center text-xs text-gray-500">
-                                <span x-text="pkg" class="mr-2"></span>
+                            <div class="flex items-center text-xs text-gray-300 py-1">
+                                <span class="mr-2">📦</span>
+                                <span x-text="pkg" class="mr-2 flex-1 truncate"></span>
                                 <button @click="deletePackage(pkg)" class="text-red-400 hover:text-red-300" title="删除">✕</button>
                             </div>
                         </template>
@@ -414,6 +416,45 @@
     <div x-show="showMessage" class="fixed top-4 right-4 px-4 py-2 rounded text-white z-50"
          :class="messageType === 'error' ? 'bg-red-600' : 'bg-green-600'" style="display: none;" x-text="message"></div>
 
+    <div x-show="showFileSelectorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">从文件管理选择安装包</h3>
+                <button @click="showFileSelectorModal = false" class="text-gray-500 hover:text-white">&times;</button>
+            </div>
+            <div class="flex items-center space-x-2 mb-4">
+                <span class="text-sm text-gray-400">目录:</span>
+                <select x-model="fileSelectorPath" @change="loadAvailableFiles()" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white">
+                    <option value="/">根目录</option>
+                    <option value="/packages">packages</option>
+                    <template x-for="dir in availableDirectories" :key="dir.path">
+                        <option :value="dir.path" x-text="dir.path"></option>
+                    </template>
+                </select>
+            </div>
+            <div class="flex-1 overflow-y-auto border border-gray-600 rounded p-2 mb-4">
+                <template x-for="file in availableFiles" :key="file.path">
+                    <div @click="toggleFileSelection(file)"
+                         :class="selectedFilesToAdd.includes(file.path) ? 'bg-blue-900 border-blue-500' : 'hover:bg-gray-700'"
+                         class="flex items-center p-2 rounded cursor-pointer border border-gray-600 mb-1">
+                        <span class="mr-2" x-text="file.is_dir ? '📁' : '📄'"></span>
+                        <span class="flex-1 text-sm truncate" x-text="file.name"></span>
+                        <span class="text-xs text-gray-500 mr-2" x-show="!file.is_dir" x-text="formatFileSize(file.size)"></span>
+                        <span x-show="selectedFilesToAdd.includes(file.path)" class="text-blue-400">✓</span>
+                    </div>
+                </template>
+                <div x-show="availableFiles.length === 0" class="text-center text-gray-500 py-4">空目录</div>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-400">已选择 <span x-text="selectedFilesToAdd.length"></span> 个文件</span>
+                <div class="flex space-x-3">
+                    <button @click="showFileSelectorModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
+                    <button @click="addSelectedFiles()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700" :disabled="selectedFilesToAdd.length === 0">添加</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <script>
 function projectApp() {
     return {
@@ -460,6 +501,11 @@ function projectApp() {
         selectedActionServers: [],
         showDeployConfirmModal: false,
         deployConfirmServers: [],
+        showFileSelectorModal: false,
+        fileSelectorPath: '/packages',
+        availableFiles: [],
+        availableDirectories: [],
+        selectedFilesToAdd: [],
 
         init() {
             const params = new URLSearchParams(window.location.search);
@@ -1127,6 +1173,62 @@ function projectApp() {
             this.deployingComponent = comp;
             this.deployLogContent = comp.deploy_log || '暂无日志';
             this.showDeployLogModal = true;
+        },
+
+        async loadAvailableFiles() {
+            try {
+                const res = await fetch('/api/local-files?path=' + encodeURIComponent(this.fileSelectorPath), {
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    this.availableFiles = (data.files || []).filter(f => !f.is_dir);
+                    this.availableDirectories = (data.files || []).filter(f => f.is_dir);
+                } else {
+                    this.showToast('加载文件列表失败', 'error');
+                }
+            } catch (e) {
+                this.showToast('加载文件列表失败', 'error');
+            }
+        },
+
+        toggleFileSelection(file) {
+            if (file.is_dir) {
+                this.fileSelectorPath = file.path;
+                this.loadAvailableFiles();
+                return;
+            }
+            const idx = this.selectedFilesToAdd.indexOf(file.path);
+            if (idx >= 0) {
+                this.selectedFilesToAdd.splice(idx, 1);
+            } else {
+                this.selectedFilesToAdd.push(file.path);
+            }
+        },
+
+        addSelectedFiles() {
+            if (this.selectedFilesToAdd.length === 0) return;
+            const filenames = this.selectedFilesToAdd.map(p => p.split('/').pop());
+            if (this.editingComponent.install_pkg) {
+                const existing = this.editingComponent.install_pkg.split(',').filter(f => f);
+                filenames.forEach(f => {
+                    if (!existing.includes(f)) existing.push(f);
+                });
+                this.editingComponent.install_pkg = existing.join(',');
+            } else {
+                this.editingComponent.install_pkg = filenames.join(',');
+            }
+            this.selectedFilesToAdd = [];
+            this.showFileSelectorModal = false;
+            this.showToast('已添加 ' + filenames.length + ' 个文件', 'success');
+        },
+
+        formatFileSize(bytes) {
+            if (!bytes) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let i = 0, size = bytes;
+            while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
+            return size.toFixed(1) + ' ' + units[i];
         }
     }
 }
