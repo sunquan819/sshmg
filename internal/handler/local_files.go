@@ -13,33 +13,43 @@ import (
 )
 
 type LocalFilesHandler struct {
-	baseDir string
+	baseDir  string
+	absBase  string
 }
 
 func NewLocalFilesHandler() *LocalFilesHandler {
+	absBase, err := filepath.Abs("./artifacts")
+	if err != nil {
+		absBase = "./artifacts"
+	}
 	return &LocalFilesHandler{
 		baseDir: "./artifacts",
+		absBase: absBase,
 	}
 }
 
 func (h *LocalFilesHandler) checkPath(relativePath string) (string, error) {
 	relativePath = strings.TrimPrefix(relativePath, "/")
-	fullPath := filepath.Join(h.baseDir, relativePath)
-
-	absBase, err := filepath.Abs(h.baseDir)
-	if err != nil {
-		return "", err
-	}
+	relativePath = strings.ReplaceAll(relativePath, "\\", "/")
+	
+	fullPath := filepath.Join(h.absBase, relativePath)
 	absFull, err := filepath.Abs(fullPath)
 	if err != nil {
 		return "", err
 	}
 
-	if !strings.HasPrefix(absFull, absBase) {
+	if !strings.HasPrefix(absFull, h.absBase) {
 		return "", fmt.Errorf("invalid path")
 	}
 
 	return absFull, nil
+}
+
+func (h *LocalFilesHandler) toRelPath(absPath string) string {
+	relPath := strings.TrimPrefix(absPath, h.absBase)
+	relPath = strings.ReplaceAll(relPath, "\\", "/")
+	relPath = strings.TrimPrefix(relPath, "/")
+	return "/" + relPath
 }
 
 func (h *LocalFilesHandler) ListFiles(c *gin.Context) {
@@ -83,12 +93,11 @@ func (h *LocalFilesHandler) listDirectory(path string) ([]map[string]interface{}
 		}
 
 		fullPath := filepath.Join(path, entry.Name())
-		relPath := strings.TrimPrefix(fullPath, h.baseDir)
-		relPath = strings.ReplaceAll(relPath, "\\", "/")
+		relPath := h.toRelPath(fullPath)
 
 		file := map[string]interface{}{
 			"name":     entry.Name(),
-			"path":     "/" + relPath,
+			"path":     relPath,
 			"is_dir":   entry.IsDir(),
 			"size":     info.Size(),
 			"mod_time": info.ModTime().Format("2006-01-02 15:04:05"),
@@ -151,11 +160,10 @@ func (h *LocalFilesHandler) UploadFile(c *gin.Context) {
 		return
 	}
 
-	relPath := strings.TrimPrefix(targetPath, h.baseDir)
-	relPath = strings.ReplaceAll(relPath, "\\", "/")
+	relPath := h.toRelPath(targetPath)
 	c.JSON(http.StatusOK, gin.H{
 		"message":  "file uploaded successfully",
-		"path":     "/" + relPath,
+		"path":     relPath,
 		"filename": file.Filename,
 		"size":     file.Size,
 	})
@@ -206,8 +214,7 @@ func (h *LocalFilesHandler) DeleteFile(c *gin.Context) {
 		return
 	}
 
-	absBase, _ := filepath.Abs(h.baseDir)
-	if absPath == absBase {
+	if absPath == h.absBase {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete base directory"})
 		return
 	}
@@ -240,8 +247,7 @@ func (h *LocalFilesHandler) RenameFile(c *gin.Context) {
 	dir := filepath.Dir(absPath)
 	newPath := filepath.Join(dir, req.Name)
 
-	absBase, _ := filepath.Abs(h.baseDir)
-	if !strings.HasPrefix(newPath, absBase) {
+	if !strings.HasPrefix(newPath, h.absBase) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid name"})
 		return
 	}
@@ -251,11 +257,9 @@ func (h *LocalFilesHandler) RenameFile(c *gin.Context) {
 		return
 	}
 
-	relPath := strings.TrimPrefix(newPath, absBase)
-	relPath = strings.ReplaceAll(relPath, "\\", "/")
 	c.JSON(http.StatusOK, gin.H{
 		"message": "renamed successfully",
-		"path":    "/" + relPath,
+		"path":    h.toRelPath(newPath),
 	})
 }
 
@@ -386,9 +390,8 @@ func (h *LocalFilesHandler) ReadFile(c *gin.Context) {
 		return
 	}
 
-	relPath := strings.ReplaceAll(strings.TrimPrefix(absPath, h.baseDir), "\\", "/")
 	c.JSON(http.StatusOK, gin.H{
-		"path":    "/" + relPath,
+		"path":    h.toRelPath(absPath),
 		"content": string(content),
 		"size":    info.Size(),
 	})
@@ -443,9 +446,8 @@ func (h *LocalFilesHandler) GetFileInfo(c *gin.Context) {
 		return
 	}
 
-	relPath := strings.ReplaceAll(strings.TrimPrefix(absPath, h.baseDir), "\\", "/")
 	c.JSON(http.StatusOK, gin.H{
-		"path":     "/" + relPath,
+		"path":     h.toRelPath(absPath),
 		"name":     info.Name(),
 		"is_dir":   info.IsDir(),
 		"size":     info.Size(),

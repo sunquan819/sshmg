@@ -22,7 +22,7 @@
                 <h1 class="text-xl font-semibold">📁 文件管理</h1>
             </div>
             <div class="flex items-center space-x-2">
-                <button @click="showUploadModal = true" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm">⬆️ 上传文件</button>
+                <button @click="showUploadModal = true; uploadTargetPath = currentPath" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm">⬆️ 上传文件</button>
                 <button @click="showNewFolderModal = true" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm">📁 新建目录</button>
                 <button @click="logout()" class="text-gray-400 hover:text-red-400">🚪退出</button>
             </div>
@@ -258,16 +258,12 @@ function filesApp() {
 
         async loadDirectories() {
             try {
-                const res = await fetch('/api/local-files?path=/packages', {
+                const res = await fetch('/api/local-files?path=/', {
                     headers: { 'Authorization': 'Bearer ' + this.getToken() }
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    this.directories = [{ path: '/packages', name: 'packages' }];
-                    const pkgDirs = (data.files || []).filter(f => f.is_dir);
-                    pkgDirs.forEach(d => {
-                        this.directories.push({ path: d.path, name: 'packages/' + d.name });
-                    });
+                    this.directories = (data.files || []).filter(f => f.is_dir);
                 }
             } catch (e) {}
         },

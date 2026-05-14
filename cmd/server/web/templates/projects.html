@@ -254,13 +254,13 @@
                     <div class="flex items-center space-x-2 mb-2">
                         <input type="file" id="packageFile" multiple class="text-sm text-gray-400">
                         <button @click="uploadPackages()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-sm whitespace-nowrap">⬆️ 上传</button>
-                        <button @click="showFileSelectorModal = true; loadAvailableFiles()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm whitespace-nowrap">📁 选择文件</button>
+                        <button @click="showFileSelectorModal = true; fileSelectorPath = '/'; loadAvailableFiles(); loadRootDirectories()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm whitespace-nowrap">📁 选择文件</button>
                     </div>
                     <div x-show="editingComponent?.install_pkg" class="mt-1 border border-gray-600 rounded p-2">
                         <template x-for="pkg in getPackages()" :key="pkg">
                             <div class="flex items-center text-xs text-gray-300 py-1">
                                 <span class="mr-2">📦</span>
-                                <span x-text="pkg" class="mr-2 flex-1 truncate"></span>
+                                <span x-text="pkg.split('/').pop()" class="mr-2 flex-1 truncate" :title="pkg"></span>
                                 <button @click="deletePackage(pkg)" class="text-red-400 hover:text-red-300" title="删除">✕</button>
                             </div>
                         </template>
@@ -413,6 +413,17 @@
         </div>
     </div>
 
+    <div x-show="showDeleteConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" style="display: none; z-index: 100;">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm border border-gray-700">
+            <h3 class="text-lg font-semibold mb-2">确认删除</h3>
+            <p class="text-gray-400 text-sm mb-6" x-text="deleteConfirmMessage"></p>
+            <div class="flex justify-end space-x-3">
+                <button @click="showDeleteConfirmModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
+                <button @click="confirmDeletePackage()" class="px-4 py-2 bg-red-600 rounded hover:bg-red-700">删除</button>
+            </div>
+        </div>
+    </div>
+
     <div x-show="showMessage" class="fixed top-4 right-4 px-4 py-2 rounded text-white z-50"
          :class="messageType === 'error' ? 'bg-red-600' : 'bg-green-600'" style="display: none;" x-text="message"></div>
 
@@ -426,11 +437,11 @@
                 <span class="text-sm text-gray-400">目录:</span>
                 <select x-model="fileSelectorPath" @change="loadAvailableFiles()" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white">
                     <option value="/">根目录</option>
-                    <option value="/packages">packages</option>
-                    <template x-for="dir in availableDirectories" :key="dir.path">
-                        <option :value="dir.path" x-text="dir.path"></option>
+                    <template x-for="dir in rootDirectories" :key="dir.path">
+                        <option :value="dir.path" x-text="'/' + dir.name"></option>
                     </template>
                 </select>
+                <button @click="goUpFileSelector()" :disabled="fileSelectorPath === '/'" class="text-gray-400 hover:text-white px-2 py-1 text-sm">⬆️</button>
             </div>
             <div class="flex-1 overflow-y-auto border border-gray-600 rounded p-2 mb-4">
                 <template x-for="file in availableFiles" :key="file.path">
@@ -449,7 +460,7 @@
                 <span class="text-sm text-gray-400">已选择 <span x-text="selectedFilesToAdd.length"></span> 个文件</span>
                 <div class="flex space-x-3">
                     <button @click="showFileSelectorModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                    <button @click="addSelectedFiles()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700" :disabled="selectedFilesToAdd.length === 0">添加</button>
+                    <button @click="addSelectedFiles()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">添加</button>
                 </div>
             </div>
         </div>
@@ -499,12 +510,15 @@ function projectApp() {
         actionType: '',
         actionServers: [],
         selectedActionServers: [],
-        showDeployConfirmModal: false,
+        showDeleteConfirmModal: false,
+        deleteConfirmMessage: '',
+        pendingDeleteFile: null,
         deployConfirmServers: [],
         showFileSelectorModal: false,
-        fileSelectorPath: '/packages',
+        fileSelectorPath: '/',
         availableFiles: [],
         availableDirectories: [],
+        rootDirectories: [],
         selectedFilesToAdd: [],
 
         init() {
@@ -637,6 +651,7 @@ function projectApp() {
                 start_cmd: comp.start_cmd || '',
                 stop_cmd: comp.stop_cmd || '',
                 config_file: comp.config_file || '',
+                install_pkg: comp.install_pkg || '',
                 server_ids: serverIds
             };
             this.showAddComponentModal = true;
@@ -645,7 +660,7 @@ function projectApp() {
         closeComponentModal() {
             this.showAddComponentModal = false;
             this.editingComponent = null;
-            this.newComponent = { name: '', type: 'database', version: '', deploy_dir: '', status_cmd: '', access_user: '', access_password: '', access_url: '', install_cmd: '', start_cmd: '', stop_cmd: '', server_ids: [] };
+            this.newComponent = { name: '', type: 'database', version: '', deploy_dir: '', status_cmd: '', access_user: '', access_password: '', access_url: '', install_cmd: '', start_cmd: '', stop_cmd: '', install_pkg: '', server_ids: [] };
         },
 
         async saveComponent() {
@@ -659,6 +674,10 @@ function projectApp() {
                 if (this.editingComponent) {
                     url = '/api/projects/components/' + this.editingComponent.id;
                     method = 'PUT';
+                }
+                const body = { ...this.newComponent, project_id: this.selectedProject.id };
+                if (this.editingComponent) {
+                    body.install_pkg = this.newComponent.install_pkg || '';
                 }
                 console.log('Saving to:', url, this.newComponent);
                 const res = await fetch(url, {
@@ -819,11 +838,24 @@ function projectApp() {
 
         async deletePackage(filename) {
             if (!this.editingComponent) return;
-            if (!filename) {
-                if (!confirm('确定要删除所有安装包吗？')) return;
+            this.pendingDeleteFile = filename;
+            this.deleteConfirmMessage = filename ? '确定要删除 "' + filename.split('/').pop() + '" 吗？' : '确定要删除所有安装包吗？';
+            this.showDeleteConfirmModal = true;
+        },
+
+        async confirmDeletePackage() {
+            const filename = this.pendingDeleteFile;
+            if (!this.editingComponent) { this.showDeleteConfirmModal = false; return; }
+            this.showDeleteConfirmModal = false;
+
+            // 乐观更新：立即从 UI 移除
+            const pkgList = this.getPackages();
+            if (filename) {
+                this.editingComponent.install_pkg = pkgList.filter(p => p !== filename).join(',');
             } else {
-                if (!confirm('确定要删除 ' + filename + ' 吗？')) return;
+                this.editingComponent.install_pkg = '';
             }
+            this.newComponent.install_pkg = this.editingComponent.install_pkg;
 
             try {
                 const url = '/api/projects/components/' + this.editingComponent.id + '/package' +
@@ -832,20 +864,18 @@ function projectApp() {
                     method: 'DELETE',
                     headers: { 'Authorization': 'Bearer ' + this.getToken() }
                 });
-                if (res.ok) {
-                    this.showToast('删除成功', 'success');
-                    await this.loadProjects();
-                    const updatedProject = this.projects.find(p => p.id === this.selectedProject.id);
-                    if (updatedProject) {
-                        const comp = updatedProject.components.find(c => c.id === this.editingComponent.id);
-                        if (comp) {
-                            this.editingComponent.install_pkg = comp.install_pkg;
-                        }
-                    }
-                } else {
+                if (!res.ok) {
                     this.showToast('删除失败', 'error');
+                    // 恢复
+                    await this.loadProjects();
+                    this.selectProject(this.projects.find(p => p.id === this.selectedProject.id));
+                } else {
+                    this.showToast('已删除', 'success');
                 }
-            } catch (e) { this.showToast('删除失败', 'error'); }
+            } catch (e) {
+                this.showToast('删除失败', 'error');
+            }
+            this.pendingDeleteFile = null;
         },
 
         async showComponentStatus(comp) {
@@ -1175,6 +1205,18 @@ function projectApp() {
             this.showDeployLogModal = true;
         },
 
+        async loadRootDirectories() {
+            try {
+                const res = await fetch('/api/local-files?path=/', {
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    this.rootDirectories = (data.files || []).filter(f => f.is_dir);
+                }
+            } catch (e) {}
+        },
+
         async loadAvailableFiles() {
             try {
                 const res = await fetch('/api/local-files?path=' + encodeURIComponent(this.fileSelectorPath), {
@@ -1192,35 +1234,51 @@ function projectApp() {
             }
         },
 
+        goUpFileSelector() {
+            if (this.fileSelectorPath === '/') return;
+            const parts = this.fileSelectorPath.split('/').filter(p => p);
+            parts.pop();
+            this.fileSelectorPath = '/' + parts.join('/') || '/';
+            this.loadAvailableFiles();
+        },
+
         toggleFileSelection(file) {
             if (file.is_dir) {
                 this.fileSelectorPath = file.path;
                 this.loadAvailableFiles();
                 return;
             }
-            const idx = this.selectedFilesToAdd.indexOf(file.path);
+            const arr = [...this.selectedFilesToAdd];
+            const idx = arr.indexOf(file.path);
             if (idx >= 0) {
-                this.selectedFilesToAdd.splice(idx, 1);
+                arr.splice(idx, 1);
             } else {
-                this.selectedFilesToAdd.push(file.path);
+                arr.push(file.path);
             }
+            this.selectedFilesToAdd = arr;
         },
 
         addSelectedFiles() {
-            if (this.selectedFilesToAdd.length === 0) return;
-            const filenames = this.selectedFilesToAdd.map(p => p.split('/').pop());
-            if (this.editingComponent.install_pkg) {
-                const existing = this.editingComponent.install_pkg.split(',').filter(f => f);
-                filenames.forEach(f => {
-                    if (!existing.includes(f)) existing.push(f);
-                });
-                this.editingComponent.install_pkg = existing.join(',');
-            } else {
-                this.editingComponent.install_pkg = filenames.join(',');
+            try {
+                if (this.selectedFilesToAdd.length === 0) return;
+                if (!this.editingComponent) { this.showToast('请先编辑组件', 'error'); return; }
+                const paths = this.selectedFilesToAdd;
+                if (this.editingComponent.install_pkg) {
+                    const existing = this.editingComponent.install_pkg.split(',').filter(f => f);
+                    paths.forEach(p => {
+                        if (!existing.includes(p)) existing.push(p);
+                    });
+                    this.editingComponent.install_pkg = existing.join(',');
+                } else {
+                    this.editingComponent.install_pkg = paths.join(',');
+                }
+                this.newComponent.install_pkg = this.editingComponent.install_pkg;
+                this.selectedFilesToAdd = [];
+                this.showFileSelectorModal = false;
+                this.showToast('已添加 ' + paths.length + ' 个文件', 'success');
+            } catch (e) {
+                this.showToast('操作失败: ' + e.message, 'error');
             }
-            this.selectedFilesToAdd = [];
-            this.showFileSelectorModal = false;
-            this.showToast('已添加 ' + filenames.length + ' 个文件', 'success');
         },
 
         formatFileSize(bytes) {

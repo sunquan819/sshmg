@@ -361,6 +361,7 @@ r.GET("/tunnels", func(c *gin.Context) {
 				projects.DELETE("/components/:id", projectHandler.DeleteComponent)
 				projects.POST("/components/:id/deploy", projectHandler.DeployComponent)
 				projects.POST("/components/:id/package", projectHandler.UploadPackage)
+				projects.POST("/components/:id/package/copy", projectHandler.CopyPackageFile)
 				projects.DELETE("/components/:id/package", projectHandler.DeletePackage)
 				projects.POST("/components/:id/action", projectHandler.ComponentAction)
 				projects.GET("/components/:id/log", projectHandler.GetDeployLog)

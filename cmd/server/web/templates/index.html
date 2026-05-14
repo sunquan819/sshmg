@@ -28,7 +28,7 @@
         <a href="#" @click.prevent="activeTab='crons'" :class="activeTab==='crons'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-4 py-2 rounded-lg transition">⏰ 计划任务</a>
         <a :href="'/containers?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🐳 容器管理</a>
         <a :href="'/database?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🗄️ 数据库管理</a>
-        <a :href="'/projects?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📂 项目部署</a>
+        <a :href="'/projects?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🏗️ 项目部署</a>
         <a :href="'/notes?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📝 笔记管理</a>
         <a :href="'/tools?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🔧 常用工具</a>
         <a href="#" @click.prevent="activeTab='commands'; loadCommands()" :class="activeTab==='commands'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-4 py-2 rounded-lg transition">⌨️ 常用命令</a>

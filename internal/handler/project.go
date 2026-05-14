@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -134,6 +135,7 @@ type UpdateComponentRequest struct {
 	StartCmd       string `json:"start_cmd"`
 	StopCmd        string `json:"stop_cmd"`
 	ConfigFile     string `json:"config_file"`
+	InstallPkg     string `json:"install_pkg"`
 	ServerIDs      any    `json:"server_ids"`
 	Status         string `json:"status"`
 }
@@ -249,6 +251,8 @@ func (h *ProjectHandler) UpdateComponent(c *gin.Context) {
 		component.ServerIDs = string(data)
 	}
 
+	component.InstallPkg = req.InstallPkg
+
 	if err := database.DB.Save(&component).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -359,10 +363,23 @@ func (h *ProjectHandler) DeployComponent(c *gin.Context) {
 				if f == "" {
 					continue
 				}
-				localPath := "./artifacts/packages/component_" + strconv.Itoa(int(component.ID)) + "/" + f
-				remotePath := component.DeployDir + "/" + f
 
-				logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 上传安装包: " + f + " -> " + remotePath + "\n"
+				var localPath string
+				remoteFilename := filepath.Base(f)
+
+				// 判断是否是完整路径（包含分隔符）
+				if strings.Contains(f, "/") || strings.Contains(f, "\\") {
+					// 完整路径：直接拼接 artifacts 目录
+					f = strings.TrimPrefix(f, "/")
+					localPath = filepath.Join("./artifacts", f)
+				} else {
+					// 传统格式：只有文件名，从组件目录找
+					localPath = "./artifacts/packages/component_" + strconv.Itoa(int(component.ID)) + "/" + f
+				}
+
+				remotePath := component.DeployDir + "/" + remoteFilename
+
+				logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 上传安装包: " + remoteFilename + " -> " + remotePath + "\n"
 
 				if _, err := os.Stat(localPath); err == nil {
 					err := service.SSHSvc.UploadFile(&server, localPath, remotePath)
@@ -461,41 +478,73 @@ func (h *ProjectHandler) DeletePackage(c *gin.Context) {
 	targetFile := c.Query("file")
 
 	if targetFile != "" {
-		// 删除指定文件
-		uploadPath := "./artifacts/packages/" + targetFile
-		if err := os.Remove(uploadPath); err != nil {
-			log.Printf("Failed to delete package file %s: %v", targetFile, err)
-		}
-
-		// 从列表中移除
+		// 仅从列表中移除引用，不删原文件
 		files := strings.Split(component.InstallPkg, ",")
 		var remaining []string
+		originalFile := c.Query("file")
 		for _, f := range files {
 			f = strings.TrimSpace(f)
-			if f != "" && f != targetFile {
+			if f != "" && f != originalFile {
 				remaining = append(remaining, f)
 			}
 		}
 		component.InstallPkg = strings.Join(remaining, ",")
 	} else {
-		// 删除所有文件
-		files := strings.Split(component.InstallPkg, ",")
-		for _, f := range files {
-			f = strings.TrimSpace(f)
-			if f == "" {
-				continue
-			}
-			uploadPath := fmt.Sprintf("./artifacts/packages/component_%d/%s", component.ID, f)
-			if err := os.Remove(uploadPath); err != nil {
-				log.Printf("Failed to delete package file %s: %v", f, err)
-			}
-		}
 		component.InstallPkg = ""
 	}
 
 	database.DB.Save(&component)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Package deleted"})
+}
+
+func (h *ProjectHandler) CopyPackageFile(c *gin.Context) {
+	componentID := c.Param("id")
+	var component model.ProjectComponent
+	if err := database.DB.First(&component, componentID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Component not found"})
+		return
+	}
+
+	var req struct {
+		FilePath string `json:"file_path" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	srcPath := strings.TrimPrefix(req.FilePath, "/")
+	srcFull := filepath.Join("./artifacts", srcPath)
+	srcFull = filepath.Clean(srcFull)
+
+	if _, err := os.Stat(srcFull); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Source file not found"})
+		return
+	}
+
+	filename := filepath.Base(srcFull)
+	componentDir := fmt.Sprintf("./artifacts/packages/component_%d", component.ID)
+	dstPath := filepath.Join(componentDir, filename)
+
+	if err := os.MkdirAll(componentDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create directory"})
+		return
+	}
+
+	srcData, err := os.ReadFile(srcFull)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read source file"})
+		return
+	}
+
+	if err := os.WriteFile(dstPath, srcData, 0644); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to copy file"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "File copied successfully", "filename": filename})
 }
 
 func (h *ProjectHandler) UploadPackage(c *gin.Context) {
