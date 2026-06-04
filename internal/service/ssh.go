@@ -101,6 +101,34 @@ func (s *SSHService) getPerServerMutex(serverID uint) *sync.Mutex {
 	return pm
 }
 
+// probeSessionOK 探测 cached client 是否真活着:开短 session 立即关
+// 用 goroutine + 5s timeout 防止 SSH 半死状态时 NewSession 永远阻塞
+func probeSessionOK(c *ssh.Client) bool {
+	type result struct{ ok bool }
+	ch := make(chan result, 1)
+	go func() {
+		native, err := c.GetNativeClient()
+		if err != nil {
+			ch <- result{false}
+			return
+		}
+		sess, err := native.NewSession()
+		if err != nil {
+			ch <- result{false}
+			return
+		}
+		sess.Close()
+		ch <- result{true}
+	}()
+	select {
+	case r := <-ch:
+		return r.ok
+	case <-time.After(5 * time.Second):
+		log.Printf("[SSHSvc] probeSessionOK timeout, cached client 实际已死")
+		return false
+	}
+}
+
 // cleanPerServerMutex 当 RemoveClient 时,清掉对应 server 的 mutex 释放 map
 func (s *SSHService) cleanPerServerMutex(serverID uint) {
 	s.perSrvMu.Lock()
@@ -148,10 +176,18 @@ func (s *SSHService) GetClient(server *model.Server) (*ssh.Client, error) {
 	s.mu.RUnlock()
 
 	if exists && client.IsConnected() {
-		s.mu.Lock()
-		s.lastUsed[server.ID] = time.Now()
-		s.mu.Unlock()
-		return client, nil
+		// 二次验证:开一个短 session 立即关掉,确保 cached client 真活着
+		// 避免 SSH server 重启/断网后 IsConnected 还返 true 的情况
+		// (IsConnected 只看 c.client != nil,不测实际连通性)
+		if probeSessionOK(client) {
+			s.mu.Lock()
+			s.lastUsed[server.ID] = time.Now()
+			s.mu.Unlock()
+			return client, nil
+		}
+		// cached client 实际已死,清掉重连
+		log.Printf("[SSHSvc] cached client server_id=%d 探活失败,清掉重建", server.ID)
+		s.RemoveClient(server.ID)
 	}
 
 	s.mu.Lock()
@@ -164,6 +200,12 @@ func (s *SSHService) GetClient(server *model.Server) (*ssh.Client, error) {
 	client.JumpUser = server.JumpUser
 	client.JumpPassword = server.JumpPassword
 	client.JumpKey = server.JumpKey
+	// Proxy 字段:WebSSH / 部署 / 批量执行 全都依赖 GetClient,必须在这里设
+	// (之前各 handler 各自设,容易漏;现在统一在这里)
+	client.ProxyEnabled = server.ProxyEnabled
+	client.ProxyType = server.ProxyType
+	client.ProxyHost = server.ProxyHost
+	client.ProxyPort = server.ProxyPort
 
 	if server.JumpServerID > 0 {
 		chain, err := s.BuildJumpChain(server)
@@ -178,10 +220,10 @@ func (s *SSHService) GetClient(server *model.Server) (*ssh.Client, error) {
 		return nil, err
 	}
 
-	s.mu.Lock()
+	// 注意:line 193 已经 s.mu.Lock() + defer s.mu.Unlock(),
+	// 这里不能再 s.mu.Lock() — Go mutex 不可重入,会死锁
 	s.clients[server.ID] = client
 	s.lastUsed[server.ID] = time.Now()
-	s.mu.Unlock()
 	return client, nil
 }
 

@@ -102,13 +102,16 @@ func (h *TerminalHandler) Connect(c *gin.Context) {
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
+		log.Printf("[Terminal] WS upgrade failed: %v", err)
 		return
 	}
+	log.Printf("[Terminal] WS upgrade OK, server=%s (%s:%d), calling GetClient...", server.Name, server.IP, server.Port)
 
 	// 复用 SSHSvc 缓存的 SSH 客户端(同 server 多个 tab 共享一个物理连接)
 	// 不再用 sshPkg.NewClient + Connect 自建连接,避免 N tab = N 个 SSH 物理连接
 	sshClient, err := service.SSHSvc.GetClient(&server)
 	if err != nil {
+		log.Printf("[Terminal] GetClient failed: %v", err)
 		conn.WriteMessage(websocket.TextMessage, []byte("SSH连接失败: "+err.Error()+"\r\n"))
 		conn.Close()
 		return
@@ -118,18 +121,22 @@ func (h *TerminalHandler) Connect(c *gin.Context) {
 	// 获取原生 SSH 客户端
 	nativeClient, err := sshClient.GetNativeClient()
 	if err != nil {
+		log.Printf("[Terminal] GetNativeClient failed: %v", err)
 		conn.WriteMessage(websocket.TextMessage, []byte("获取SSH客户端失败: "+err.Error()+"\r\n"))
 		conn.Close()
 		return
 	}
+	log.Printf("[Terminal] got native client, calling NewSession...")
 
 	// 创建 SSH 会话
 	session, err := nativeClient.NewSession()
 	if err != nil {
+		log.Printf("[Terminal] NewSession failed: %v", err)
 		conn.WriteMessage(websocket.TextMessage, []byte("创建会话失败: "+err.Error()+"\r\n"))
 		conn.Close()
 		return
 	}
+	log.Printf("[Terminal] got SSH session, requesting PTY...")
 
 	// 设置 PTY
 	if err := session.RequestPty("xterm-256color", cols, rows, ssh.TerminalModes{
@@ -137,14 +144,17 @@ func (h *TerminalHandler) Connect(c *gin.Context) {
 		ssh.TTY_OP_ISPEED: 14400,
 		ssh.TTY_OP_OSPEED: 14400,
 	}); err != nil {
+		log.Printf("[Terminal] RequestPty failed: %v", err)
 		conn.WriteMessage(websocket.TextMessage, []byte("请求PTY失败: "+err.Error()+"\r\n"))
 		conn.Close()
 		return
 	}
+	log.Printf("[Terminal] PTY OK, getting pipes...")
 
 	// 获取 stdin
 	stdin, err := session.StdinPipe()
 	if err != nil {
+		log.Printf("[Terminal] StdinPipe failed: %v", err)
 		conn.WriteMessage(websocket.TextMessage, []byte("Failed to get stdin: "+err.Error()))
 		conn.Close()
 		return
@@ -153,6 +163,7 @@ func (h *TerminalHandler) Connect(c *gin.Context) {
 	// 获取 stdout
 	stdout, err := session.StdoutPipe()
 	if err != nil {
+		log.Printf("[Terminal] StdoutPipe failed: %v", err)
 		conn.WriteMessage(websocket.TextMessage, []byte("Failed to get stdout: "+err.Error()))
 		conn.Close()
 		return
@@ -161,19 +172,24 @@ func (h *TerminalHandler) Connect(c *gin.Context) {
 	// 获取 stderr
 	stderr, err := session.StderrPipe()
 	if err != nil {
+		log.Printf("[Terminal] StderrPipe failed: %v", err)
 		conn.WriteMessage(websocket.TextMessage, []byte("Failed to get stderr: "+err.Error()))
 		conn.Close()
 		return
 	}
+	log.Printf("[Terminal] pipes OK, starting shell...")
 
-	// 启动 shell，优先使用 bash
+	// 启动 shell
+	// 注意:不能 session.Shell() 之后又 session.Run("bash ...") —
+	// 一个 SSH session 只能有一个进程在跑,Run 会等 bash 退出,
+	// bash 等 stdin EOF → 死锁 → 用户看到光标闪没 prompt
 	if err := session.Shell(); err != nil {
+		log.Printf("[Terminal] Shell failed: %v", err)
 		conn.WriteMessage(websocket.TextMessage, []byte("Failed to start shell: "+err.Error()))
 		conn.Close()
 		return
 	}
-	// 尝试切换到 bash
-	session.Run("bash --login 2>/dev/null || bash 2>/dev/null || true")
+	log.Printf("[Terminal] shell started OK, session ready")
 
 	sessionID := newTerminalSessionID(id)
 	// 拷贝 server 给 closure 持有,避免 &server 在 Connect 返回后被覆盖
@@ -259,34 +275,12 @@ func (h *TerminalHandler) handleWSRead(session *TerminalSession, sessionID strin
 		sessionMu.Unlock()
 	}()
 
-	// ping/pong 心跳:服务端每 30s 发 ping,客户端 pong 时会触发 SetPongHandler
-	// 续命 read deadline
-	const (
-		pongWait     = 60 * time.Second
-		pingPeriod   = 30 * time.Second
-		writeWait    = 10 * time.Second
-		maxMessageSize int64 = 32 * 1024
-	)
-	session.WS.SetReadLimit(maxMessageSize)
-	_ = session.WS.SetReadDeadline(time.Now().Add(pongWait))
-	session.WS.SetPongHandler(func(string) error {
-		_ = session.WS.SetReadDeadline(time.Now().Add(pongWait))
-		return nil
-	})
-
-	pingTicker := time.NewTicker(pingPeriod)
-	defer pingTicker.Stop()
-	go func() {
-		for range pingTicker.C {
-			session.mu.Lock()
-			_ = session.WS.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := session.WS.WriteMessage(websocket.PingMessage, nil); err != nil {
-				session.mu.Unlock()
-				return
-			}
-			session.mu.Unlock()
-		}
-	}()
+	// WebSocket 心跳说明:
+	// ping/pong + read deadline 在 2026-06-04 引入后,在终端场景下导致"光标闪"问题
+	// (SetReadLimit 32KB 砍掉前端某些消息,或 SetPongHandler 在某些客户端/网络下
+	// 不能正确续命,导致连接异常断开)
+	// 这里改回不设 read limit / deadline,牺牲一定的僵尸连接检测能力换稳定性
+	// 真要心跳,以后单独做"应用层 ping 消息"而不是 WS 协议层 ping
 
 	for {
 		_, message, err := session.WS.ReadMessage()

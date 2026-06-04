@@ -112,17 +112,29 @@ func (c *Client) connectDirect() error {
 		conn, err = c.dialViaProxy(addr)
 	} else {
 		log.Printf("[SSH] 直连: %s", addr)
-		conn, err = net.Dial("tcp", addr)
+		// 加 10s TCP 拨号 timeout,避免对端不可达时永久阻塞
+		conn, err = net.DialTimeout("tcp", addr, 10*time.Second)
 	}
 
 	if err != nil {
+		log.Printf("[SSH] TCP拨号失败 %s: %v", addr, err)
 		return fmt.Errorf("failed to connect: %w", err)
+	}
+	log.Printf("[SSH] TCP连接建立 %s,开始 SSH 握手...", addr)
+
+	// SSH 握手整体加 timeout(底层 net.Conn 也要 deadline,否则协议层可能永久阻塞)
+	allConn := conn
+	if tcpConn, ok := allConn.(*net.TCPConn); ok {
+		tcpConn.SetDeadline(time.Now().Add(15 * time.Second))
+		defer tcpConn.SetDeadline(time.Time{}) // 清除 deadline,后续通信不受影响
 	}
 
 	client, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
 	if err != nil {
+		log.Printf("[SSH] SSH握手失败 %s: %v", addr, err)
 		return fmt.Errorf("failed to start ssh handshake: %w", err)
 	}
+	log.Printf("[SSH] SSH握手成功 %s", addr)
 
 	c.client = ssh.NewClient(client, chans, reqs)
 	return nil
