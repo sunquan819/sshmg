@@ -670,6 +670,20 @@ function projectApp() {
             this.selectedProject = project;
         },
 
+        // 重新拉项目列表并保持当前选中项目不变(避免没 await 导致 UI 拿旧数据)
+        async reloadAndReselectProject() {
+            await this.loadProjects();
+            if (this.selectedProject) {
+                const refreshed = this.projects.find(p => p.id === this.selectedProject.id);
+                if (refreshed) {
+                    this.selectProject(refreshed);
+                } else {
+                    // 当前选中的项目被删了,清空选择
+                    this.selectedProject = null;
+                }
+            }
+        },
+
         async createProject() {
             if (!this.newProject.name) {
                 this.showToast('请输入项目名称', 'error');
@@ -684,7 +698,7 @@ function projectApp() {
                 if (res.ok) {
                     this.showAddProjectModal = false;
                     this.newProject = { name: '', description: '' };
-                    this.loadProjects();
+                    await this.reloadAndReselectProject();
                     this.showToast('项目创建成功', 'success');
                 }
             } catch (e) { this.showToast('创建失败', 'error'); }
@@ -716,7 +730,7 @@ function projectApp() {
                     });
                     if (res.ok) {
                         this.closeProjectModal();
-                        this.loadProjects();
+                        await this.reloadAndReselectProject();
                         this.showToast('项目保存成功', 'success');
                     } else {
                         this.showToast('保存失败', 'error');
@@ -729,7 +743,7 @@ function projectApp() {
                     });
                     if (res.ok) {
                         this.closeProjectModal();
-                        this.loadProjects();
+                        await this.reloadAndReselectProject();
                         this.showToast('项目创建成功', 'success');
                     } else {
                         this.showToast('创建失败', 'error');
@@ -859,8 +873,7 @@ function projectApp() {
                     headers: { 'Authorization': 'Bearer ' + this.getToken() }
                 });
                 if (res.ok) {
-                    this.loadProjects();
-                    this.selectProject(this.projects.find(p => p.id === this.selectedProject.id));
+                    await this.reloadAndReselectProject();
                     this.showToast('删除成功', 'success');
                 }
             } catch (e) { this.showToast('删除失败', 'error'); }
@@ -1087,8 +1100,7 @@ function projectApp() {
             document.getElementById('packageFile').value = '';
             this.uploadProgress = 0;
 
-            this.loadProjects();
-            this.selectProject(this.projects.find(p => p.id === this.selectedProject.id));
+            await this.reloadAndReselectProject();
         },
 
         async deletePackage(filename) {
