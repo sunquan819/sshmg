@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -12,20 +13,72 @@ import (
 )
 
 type SSHService struct {
-	clients  map[uint]*ssh.Client
-	mu       sync.RWMutex
-	sem      chan struct{}            // 全局并发限制,防止一键刷新/批量执行时把目标机器打爆
-	perSrv   map[uint]*sync.Mutex     // 每 server 一个 mutex,同 server SSH 串行执行
-	perSrvMu sync.Mutex
+	clients   map[uint]*ssh.Client
+	lastUsed  map[uint]time.Time // 每个 client 上次使用时间,用于 idle TTL 清理
+	mu        sync.RWMutex
+	sem       chan struct{}            // 全局并发限制,防止一键刷新/批量执行时把目标机器打爆
+	perSrv    map[uint]*sync.Mutex     // 每 server 一个 mutex,同 server SSH 串行执行
+	perSrvMu  sync.Mutex
+	stopIdle  chan struct{} // 控制 idle cleanup goroutine
 }
 
 // 默认全局 SSH 并发上限(同时跑的 SSH 操作数),可通过 SetMaxConcurrency 调整
 const defaultSSHMaxConcurrency = 20
 
 var SSHSvc = &SSHService{
-	clients: make(map[uint]*ssh.Client),
-	sem:     make(chan struct{}, defaultSSHMaxConcurrency),
-	perSrv:  make(map[uint]*sync.Mutex),
+	clients:  make(map[uint]*ssh.Client),
+	lastUsed: make(map[uint]time.Time),
+	sem:      make(chan struct{}, defaultSSHMaxConcurrency),
+	perSrv:   make(map[uint]*sync.Mutex),
+	stopIdle: make(chan struct{}),
+}
+
+// 启动后台 goroutine 定期清理 idle SSH 连接,防止脏缓存
+func init() {
+	go SSHSvc.idleCleanupLoop()
+}
+
+// 清理 idle 连接配置
+const (
+	sshIdleTTL      = 5 * time.Minute
+	sshIdleInterval = 1 * time.Minute
+)
+
+// idleCleanupLoop 每分钟扫描一次,关闭 idle 超时的 SSH 连接
+// 关闭前先尝试 per-server mutex(若锁成功说明没人用,可以安全关)
+func (s *SSHService) idleCleanupLoop() {
+	t := time.NewTicker(sshIdleInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-s.stopIdle:
+			return
+		case <-t.C:
+			cutoff := time.Now().Add(-sshIdleTTL)
+			s.mu.Lock()
+			for id, last := range s.lastUsed {
+				if last.Before(cutoff) {
+					if client, ok := s.clients[id]; ok {
+						// 尝试 per-server mutex,锁成功 = 没人用,安全关
+						if pm, ok := s.getPerServerMutexNoLock(id); ok && pm.TryLock() {
+							client.Close()
+							delete(s.clients, id)
+							delete(s.lastUsed, id)
+							pm.Unlock()
+							log.Printf("[SSHSvc] idle cleanup: closed SSH client server_id=%d", id)
+						}
+					}
+				}
+			}
+			s.mu.Unlock()
+		}
+	}
+}
+
+// getPerServerMutexNoLock 不加 s.perSrvMu 直接读 map(仅 idle 清理用)
+func (s *SSHService) getPerServerMutexNoLock(serverID uint) (*sync.Mutex, bool) {
+	pm, ok := s.perSrv[serverID]
+	return pm, ok
 }
 
 // SetMaxConcurrency 调整全局 SSH 并发上限(从配置读取)
@@ -95,6 +148,9 @@ func (s *SSHService) GetClient(server *model.Server) (*ssh.Client, error) {
 	s.mu.RUnlock()
 
 	if exists && client.IsConnected() {
+		s.mu.Lock()
+		s.lastUsed[server.ID] = time.Now()
+		s.mu.Unlock()
 		return client, nil
 	}
 
@@ -122,7 +178,10 @@ func (s *SSHService) GetClient(server *model.Server) (*ssh.Client, error) {
 		return nil, err
 	}
 
+	s.mu.Lock()
 	s.clients[server.ID] = client
+	s.lastUsed[server.ID] = time.Now()
+	s.mu.Unlock()
 	return client, nil
 }
 
@@ -132,6 +191,7 @@ func (s *SSHService) RemoveClient(serverID uint) {
 		client.Close()
 		delete(s.clients, serverID)
 	}
+	delete(s.lastUsed, serverID)
 	s.mu.Unlock()
 
 	s.cleanPerServerMutex(serverID)
@@ -173,6 +233,10 @@ func (s *SSHService) RunCommand(server *model.Server, cmd string, timeout time.D
 	if err != nil {
 		return nil, err
 	}
+	// 刷新 lastUsed(防止 idle cleanup 误关刚用过的连接)
+	s.mu.Lock()
+	s.lastUsed[server.ID] = time.Now()
+	s.mu.Unlock()
 
 	result, err := client.Execute(cmd, timeout)
 	if err != nil {

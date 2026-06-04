@@ -259,6 +259,35 @@ func (h *TerminalHandler) handleWSRead(session *TerminalSession, sessionID strin
 		sessionMu.Unlock()
 	}()
 
+	// ping/pong 心跳:服务端每 30s 发 ping,客户端 pong 时会触发 SetPongHandler
+	// 续命 read deadline
+	const (
+		pongWait     = 60 * time.Second
+		pingPeriod   = 30 * time.Second
+		writeWait    = 10 * time.Second
+		maxMessageSize int64 = 32 * 1024
+	)
+	session.WS.SetReadLimit(maxMessageSize)
+	_ = session.WS.SetReadDeadline(time.Now().Add(pongWait))
+	session.WS.SetPongHandler(func(string) error {
+		_ = session.WS.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
+	pingTicker := time.NewTicker(pingPeriod)
+	defer pingTicker.Stop()
+	go func() {
+		for range pingTicker.C {
+			session.mu.Lock()
+			_ = session.WS.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := session.WS.WriteMessage(websocket.PingMessage, nil); err != nil {
+				session.mu.Unlock()
+				return
+			}
+			session.mu.Unlock()
+		}
+	}()
+
 	for {
 		_, message, err := session.WS.ReadMessage()
 		if err != nil {
