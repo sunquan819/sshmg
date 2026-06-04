@@ -16,6 +16,7 @@ type Config struct {
 	JWT      JWTConfig      `yaml:"jwt"`
 	Log      LogConfig      `yaml:"log"`
 	Admin    AdminConfig    `yaml:"admin"`
+	Deploy   DeployConfig   `yaml:"deploy"`
 }
 
 type ServerConfig struct {
@@ -41,6 +42,39 @@ type LogConfig struct {
 type AdminConfig struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
+}
+
+type DeployConfig struct {
+	// 部署日志保留最近几次(默认 5)
+	LogKeepLast int `yaml:"log_keep_last"`
+	// 部署日志字节上限(默认 1MB)
+	LogMaxBytes int `yaml:"log_max_bytes"`
+	// 部署日志块分隔符(默认 "====== 开始更新部署 ======")
+	LogSeparator string `yaml:"log_separator"`
+}
+
+// DeployLogKeepLast 返回保留最近几次,带默认值
+func (d DeployConfig) EffectiveLogKeepLast() int {
+	if d.LogKeepLast <= 0 {
+		return 5
+	}
+	return d.LogKeepLast
+}
+
+// DeployLogMaxBytes 返回字节上限,带默认值
+func (d DeployConfig) EffectiveLogMaxBytes() int {
+	if d.LogMaxBytes <= 0 {
+		return 1 * 1024 * 1024
+	}
+	return d.LogMaxBytes
+}
+
+// DeployLogSeparator 返回分隔符,带默认值
+func (d DeployConfig) EffectiveLogSeparator() string {
+	if d.LogSeparator == "" {
+		return "====== 开始更新部署 ======"
+	}
+	return d.LogSeparator
 }
 
 var GlobalConfig *Config

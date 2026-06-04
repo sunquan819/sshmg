@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"deploy-manager/internal/config"
 	"deploy-manager/internal/database"
 	"deploy-manager/internal/model"
 	"deploy-manager/internal/service"
@@ -427,28 +428,33 @@ type DeployUpdateRequest struct {
 //   6. 跑 StartCmd
 //   7. 跑 StatusCmd 验证启动结果
 
-// 部署日志裁剪配置:保留最近 N 次部署 + 字节上限
-const (
-	deployLogKeepLast = 5                // 保留最近 5 次部署
-	deployLogMaxBytes = 1 * 1024 * 1024  // 最多 1MB
-	deployLogSep      = "====== 开始更新部署 ======" // 部署块分隔符
-)
+// 部署日志裁剪配置:从 config.GlobalConfig.Deploy 读取,带默认值
 
 // truncateDeployLog 把 append 后的全量日志裁剪成"最近 N 次 + 字节上限"
+// 配置项来自 config.yaml 的 deploy 块(可空,空时用默认值)
 func truncateDeployLog(full string) string {
-	// 1. 按部署块分隔符切分
-	parts := strings.Split(full, deployLogSep)
-	// parts[0] 是第一段的头部(可能为空),parts[1..] 是每次部署的正文(以分隔符开头)
-	// 保留最后 deployLogKeepLast 段
-	if len(parts) > deployLogKeepLast+1 {
-		parts = parts[len(parts)-deployLogKeepLast-1:]
+	keepLast := 5
+	maxBytes := 1 * 1024 * 1024
+	sep := "====== 开始更新部署 ======"
+	if config.GlobalConfig != nil {
+		keepLast = config.GlobalConfig.Deploy.EffectiveLogKeepLast()
+		maxBytes = config.GlobalConfig.Deploy.EffectiveLogMaxBytes()
+		sep = config.GlobalConfig.Deploy.EffectiveLogSeparator()
 	}
-	kept := strings.Join(parts, deployLogSep)
+
+	// 1. 按部署块分隔符切分
+	parts := strings.Split(full, sep)
+	// parts[0] 是第一段的头部(可能为空),parts[1..] 是每次部署的正文(以分隔符开头)
+	// 保留最后 keepLast 段
+	if len(parts) > keepLast+1 {
+		parts = parts[len(parts)-keepLast-1:]
+	}
+	kept := strings.Join(parts, sep)
 
 	// 2. 字节上限(只在超过时截断)
-	if len(kept) > deployLogMaxBytes {
+	if len(kept) > maxBytes {
 		// 保留尾部 maxBytes 字节,前面加截断标记
-		truncated := "...(已截断更早的部署日志)...\n" + kept[len(kept)-(deployLogMaxBytes-100):]
+		truncated := "...(已截断更早的部署日志)...\n" + kept[len(kept)-(maxBytes-100):]
 		return truncated
 	}
 	return kept
