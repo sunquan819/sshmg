@@ -27,8 +27,9 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	// 缓冲区从 1KB 提到 32KB,避免 cat 大文件 / vim 编辑时频繁 WriteMessage 卡顿
+	ReadBufferSize:  32 * 1024,
+	WriteBufferSize: 32 * 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
@@ -104,36 +105,15 @@ func (h *TerminalHandler) Connect(c *gin.Context) {
 		return
 	}
 
-	// 创建 SSH 客户端
-	sshClient := sshPkg.NewClient(server.IP, server.Port, server.Username, server.Password, server.SSHKey)
-	sshClient.JumpEnabled = server.JumpEnabled
-	sshClient.JumpHost = server.JumpIP
-	sshClient.JumpPort = server.JumpPort
-	sshClient.JumpUser = server.JumpUser
-	sshClient.JumpPassword = server.JumpPassword
-	sshClient.JumpKey = server.JumpKey
-	sshClient.ProxyEnabled = server.ProxyEnabled
-	sshClient.ProxyType = server.ProxyType
-	sshClient.ProxyHost = server.ProxyHost
-	sshClient.ProxyPort = server.ProxyPort
-
-	if server.JumpServerID > 0 {
-		chain, err := service.SSHSvc.BuildJumpChain(&server)
-		if err != nil {
-			conn.WriteMessage(websocket.TextMessage, []byte("SSH连接失败: 构建跳板机链失败: "+err.Error()+"\r\n"))
-			conn.Close()
-			return
-		}
-		sshClient.JumpChain = chain
-		sshClient.JumpEnabled = true
-		log.Printf("[Terminal] 使用多级跳板机, ChainLen=%d, 目标服务器: %s:%d user=%s hasPwd=%v", len(chain), server.IP, server.Port, server.Username, server.Password != "")
-	}
-
-	if err := sshClient.Connect(); err != nil {
+	// 复用 SSHSvc 缓存的 SSH 客户端(同 server 多个 tab 共享一个物理连接)
+	// 不再用 sshPkg.NewClient + Connect 自建连接,避免 N tab = N 个 SSH 物理连接
+	sshClient, err := service.SSHSvc.GetClient(&server)
+	if err != nil {
 		conn.WriteMessage(websocket.TextMessage, []byte("SSH连接失败: "+err.Error()+"\r\n"))
 		conn.Close()
 		return
 	}
+	log.Printf("[Terminal] 复用SSH客户端 server=%s (%s:%d)", server.Name, server.IP, server.Port)
 
 	// 获取原生 SSH 客户端
 	nativeClient, err := sshClient.GetNativeClient()
@@ -206,8 +186,9 @@ func (h *TerminalHandler) Connect(c *gin.Context) {
 		Server:  &serverCopy,
 		Session: session,
 		SSHClose: func() {
-			// 关闭底层 SSH 客户端连接(每个 WebSSH 是独立 client,不走 SSHSvc 缓存)
-			sshClient.Close()
+			// SSH 客户端来自 SSHSvc 缓存,不能关(其他 tab 还要用),
+			// 这里只做"啥也不做"占位,真实关闭由 SSHSvc 缓存的 idle TTL/P2.2 处理
+			_ = sshClient
 		},
 	}
 
@@ -541,18 +522,8 @@ func (h *TerminalHandler) ConnectContainerTerminal(c *gin.Context) {
 		return
 	}
 
-	sshClient := sshPkg.NewClient(server.IP, server.Port, server.Username, server.Password, server.SSHKey)
-	sshClient.JumpEnabled = server.JumpEnabled
-	sshClient.JumpHost = server.JumpIP
-	sshClient.JumpPort = server.JumpPort
-	sshClient.JumpUser = server.JumpUser
-	sshClient.JumpPassword = server.JumpPassword
-	sshClient.JumpKey = server.JumpKey
-	sshClient.ProxyEnabled = server.ProxyEnabled
-	sshClient.ProxyType = server.ProxyType
-	sshClient.ProxyHost = server.ProxyHost
-	sshClient.ProxyPort = server.ProxyPort
-	if err := sshClient.Connect(); err != nil {
+	sshClient, err := service.SSHSvc.GetClient(&server)
+	if err != nil {
 		conn.WriteMessage(websocket.TextMessage, []byte("SSH连接失败: "+err.Error()+"\r\n"))
 		conn.Close()
 		return
@@ -620,7 +591,8 @@ func (h *TerminalHandler) ConnectContainerTerminal(c *gin.Context) {
 		Server:  &serverCopy,
 		Session: session,
 		SSHClose: func() {
-			sshClient.Close()
+			// SSH 客户端来自 SSHSvc 缓存,不能关(其他 tab 还要用)
+			_ = sshClient
 		},
 	}
 

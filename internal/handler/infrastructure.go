@@ -15,7 +15,6 @@ import (
 	"deploy-manager/internal/database"
 	"deploy-manager/internal/service"
 	"deploy-manager/internal/model"
-	sshPkg "deploy-manager/pkg/ssh"
 
 	"github.com/gin-gonic/gin"
 )
@@ -352,7 +351,8 @@ func (h *InfrastructureHandler) runAnsible(scenario model.InfrastructureScenario
 	database.DB.Where("id IN ?", serverIDs).Find(&servers)
 
 	var wg sync.WaitGroup
-	resultChan := make(chan string, len(servers))
+	// resultChan 缓冲区固定,不再跟 server 数线性增长(防止 1000 server 时 1000 buffer OOM)
+	resultChan := make(chan string, 100)
 
 	successCount := 0
 	failCount := 0
@@ -383,67 +383,21 @@ func (h *InfrastructureHandler) runAnsible(scenario model.InfrastructureScenario
 			result.WriteString(fmt.Sprintf("    用户名: %s\n", s.Username))
 			result.WriteString("===========================================\n")
 
-			sshClient := sshPkg.NewClient(s.IP, s.Port, s.Username, s.Password, s.SSHKey)
-			sshClient.JumpEnabled = s.JumpEnabled
-			sshClient.JumpHost = s.JumpIP
-			sshClient.JumpPort = s.JumpPort
-			sshClient.JumpUser = s.JumpUser
-			sshClient.JumpPassword = s.JumpPassword
-			sshClient.JumpKey = s.JumpKey
-			sshClient.ProxyEnabled = s.ProxyEnabled
-			sshClient.ProxyType = s.ProxyType
-			sshClient.ProxyHost = s.ProxyHost
-			sshClient.ProxyPort = s.ProxyPort
-
-			var connectErr error
-			for retry := 0; retry < 3; retry++ {
-				if err := sshClient.Connect(); err == nil {
-					connectErr = nil
-					break
-				} else {
-					connectErr = err
-					if retry < 2 {
-						result.WriteString(fmt.Sprintf("⚠️ SSH 连接失败，%d 秒后重试...\n", (retry+1)*5))
-						time.Sleep(time.Duration(retry+1) * 5 * time.Second)
-					}
-				}
-			}
-			if connectErr != nil {
-				result.WriteString(fmt.Sprintf("❌ SSH 连接失败: %s\n", connectErr.Error()))
+			if _, err := service.SSHSvc.GetClient(&s); err != nil {
+				result.WriteString(fmt.Sprintf("❌ SSH 连接失败: %s\n", err.Error()))
 				failCount++
 				resultChan <- result.String()
 				return
 			}
 
 			remoteDir := "$HOME/infrastructure_" + strconv.FormatUint(uint64(executionID), 10)
-			execRes, _ := sshClient.Execute("mkdir -p "+remoteDir, 10*time.Second)
-			if execRes != nil && execRes.ExitCode != 0 {
-				result.WriteString(fmt.Sprintf("⚠️ 创建目录失败: %s\n", execRes.Output))
+			// 走 SSHSvc.RunCommand 自动获得:信号量限流 + per-server 串行
+			mkRes, _ := service.SSHSvc.RunCommand(&s, "mkdir -p "+remoteDir, 10*time.Second)
+			if mkRes != nil && mkRes.ExitCode != 0 {
+				result.WriteString(fmt.Sprintf("⚠️ 创建目录失败: %s\n", mkRes.Output))
 			}
 
-			shouldReconnect := false
-			for i, fname := range allFiles {
-				if i > 0 {
-					sshClient.Close()
-					sshClient = sshPkg.NewClient(s.IP, s.Port, s.Username, s.Password, s.SSHKey)
-					sshClient.JumpEnabled = s.JumpEnabled
-					sshClient.JumpHost = s.JumpIP
-					sshClient.JumpPort = s.JumpPort
-					sshClient.JumpUser = s.JumpUser
-					sshClient.JumpPassword = s.JumpPassword
-					sshClient.JumpKey = s.JumpKey
-					sshClient.ProxyEnabled = s.ProxyEnabled
-					sshClient.ProxyType = s.ProxyType
-					sshClient.ProxyHost = s.ProxyHost
-					sshClient.ProxyPort = s.ProxyPort
-					if err := sshClient.Connect(); err != nil {
-						result.WriteString(fmt.Sprintf("⚠️ SSH重连失败: %s\n", err.Error()))
-						failCount++
-						resultChan <- result.String()
-						return
-					}
-				}
-
+			for _, fname := range allFiles {
 				localPath := filepath.Join(uploadDir, "scripts", fname)
 				if _, err := os.Stat(localPath); os.IsNotExist(err) {
 					localPath = filepath.Join(uploadDir, "packages", fname)
@@ -452,117 +406,27 @@ func (h *InfrastructureHandler) runAnsible(scenario model.InfrastructureScenario
 				result.WriteString(fmt.Sprintf("📂 远程目录: %s\n", remoteDir))
 				data, err := os.ReadFile(localPath)
 				if err != nil {
-					result.WriteString(fmt.Sprintf("⚠️ 文件不存在 %s: %s (尝试路径: %s)\n", fname, localPath, localPath))
-					shouldReconnect = true
+					result.WriteString(fmt.Sprintf("⚠️ 文件不存在 %s: %s\n", fname, localPath))
 					continue
 				}
-
 				result.WriteString(fmt.Sprintf("📤 上传文件: %s (大小: %d bytes)\n", fname, len(data)))
 
 				remoteFile := remoteDir + "/" + fname
-				nativeClient, err := sshClient.GetNativeClient()
-				if err != nil {
-					result.WriteString(fmt.Sprintf("❌ 获取SSH客户端失败: %s\n", err.Error()))
-					shouldReconnect = true
-					continue
-				}
-				session, err := nativeClient.NewSession()
-				if err != nil {
-					result.WriteString(fmt.Sprintf("❌ 创建会话失败 %s: %s\n", fname, err.Error()))
-					shouldReconnect = true
-					continue
-				}
-
-				stdin, err := session.StdinPipe()
-				if err != nil {
-					session.Close()
-					result.WriteString(fmt.Sprintf("❌ 获取stdin失败 %s: %s\n", fname, err.Error()))
-					shouldReconnect = true
-					continue
-				}
-
-				err = session.Start(fmt.Sprintf("cat > %q", remoteFile))
-				if err != nil {
-					session.Close()
-					result.WriteString(fmt.Sprintf("❌ 启动命令失败 %s: %s\n", fname, err.Error()))
-					shouldReconnect = true
-					continue
-				}
-
-				_, err = stdin.Write(data)
-				if err != nil {
-					stdin.Close()
-					session.Close()
-					result.WriteString(fmt.Sprintf("❌ 写入失败 %s: %s\n", fname, err.Error()))
-					shouldReconnect = true
-					continue
-				}
-				stdin.Close()
-
-				err = session.Wait()
-				session.Close()
-				if err != nil {
+				// 用 SSHSvc.UploadFile 走 SFTP,不再手撸 stdin/cat
+				if err := service.SSHSvc.UploadFile(&s, localPath, remoteFile); err != nil {
 					result.WriteString(fmt.Sprintf("❌ 上传失败 %s: %s\n", fname, err.Error()))
-					shouldReconnect = true
 					continue
 				}
-
-				execRes, _ := sshClient.Execute("ls -la "+remoteFile, 10*time.Second)
 				result.WriteString(fmt.Sprintf("✅ 上传完成: %s\n", fname))
-				if execRes != nil && execRes.Output != "" {
-					result.WriteString(fmt.Sprintf("   验证: %s\n", execRes.Output))
-				}
-			}
-
-			if shouldReconnect {
-				sshClient.Close()
-				sshClient = sshPkg.NewClient(s.IP, s.Port, s.Username, s.Password, s.SSHKey)
-				sshClient.JumpEnabled = s.JumpEnabled
-				sshClient.JumpHost = s.JumpIP
-				sshClient.JumpPort = s.JumpPort
-				sshClient.JumpUser = s.JumpUser
-				sshClient.JumpPassword = s.JumpPassword
-				sshClient.JumpKey = s.JumpKey
-				sshClient.ProxyEnabled = s.ProxyEnabled
-				sshClient.ProxyType = s.ProxyType
-				sshClient.ProxyHost = s.ProxyHost
-				sshClient.ProxyPort = s.ProxyPort
-				if err := sshClient.Connect(); err != nil {
-					result.WriteString(fmt.Sprintf("⚠️ SSH重连失败: %s\n", err.Error()))
-					failCount++
-					resultChan <- result.String()
-					return
-				}
-			}
-
-			sshClient.Close()
-			time.Sleep(500 * time.Millisecond)
-			sshClient = sshPkg.NewClient(s.IP, s.Port, s.Username, s.Password, s.SSHKey)
-			sshClient.JumpEnabled = s.JumpEnabled
-			sshClient.JumpHost = s.JumpIP
-			sshClient.JumpPort = s.JumpPort
-			sshClient.JumpUser = s.JumpUser
-			sshClient.JumpPassword = s.JumpPassword
-			sshClient.JumpKey = s.JumpKey
-			sshClient.ProxyEnabled = s.ProxyEnabled
-			sshClient.ProxyType = s.ProxyType
-			sshClient.ProxyHost = s.ProxyHost
-			sshClient.ProxyPort = s.ProxyPort
-			if err := sshClient.Connect(); err != nil {
-				result.WriteString(fmt.Sprintf("❌ SSH 重连失败: %s\n", err.Error()))
-				failCount++
-				resultChan <- result.String()
-				return
 			}
 
 			result.WriteString("▶ 执行命令...\n\n")
-
 			execCmd := scenario.Playbook
 			if len(allFiles) > 0 {
 				execCmd = "cd " + remoteDir + " && " + scenario.Playbook
 			}
 
-			execResult, err := sshClient.Execute(execCmd, 300*time.Second)
+			execResult, err := service.SSHSvc.RunCommand(&s, execCmd, 300*time.Second)
 			if err != nil {
 				result.WriteString(fmt.Sprintf("❌ 执行失败: %s\n", err.Error()))
 				if execResult != nil {
@@ -575,7 +439,6 @@ func (h *InfrastructureHandler) runAnsible(scenario model.InfrastructureScenario
 				successCount++
 			}
 
-			sshClient.Close()
 			resultChan <- result.String()
 		}(server)
 	}

@@ -12,12 +12,47 @@ import (
 )
 
 type SSHService struct {
-	clients map[uint]*ssh.Client
-	mu      sync.RWMutex
+	clients  map[uint]*ssh.Client
+	mu       sync.RWMutex
+	sem      chan struct{}            // 全局并发限制,防止一键刷新/批量执行时把目标机器打爆
+	perSrv   map[uint]*sync.Mutex     // 每 server 一个 mutex,同 server SSH 串行执行
+	perSrvMu sync.Mutex
 }
+
+// 默认全局 SSH 并发上限(同时跑的 SSH 操作数),可通过 SetMaxConcurrency 调整
+const defaultSSHMaxConcurrency = 20
 
 var SSHSvc = &SSHService{
 	clients: make(map[uint]*ssh.Client),
+	sem:     make(chan struct{}, defaultSSHMaxConcurrency),
+	perSrv:  make(map[uint]*sync.Mutex),
+}
+
+// SetMaxConcurrency 调整全局 SSH 并发上限(从配置读取)
+func (s *SSHService) SetMaxConcurrency(n int) {
+	if n <= 0 {
+		n = defaultSSHMaxConcurrency
+	}
+	s.sem = make(chan struct{}, n)
+}
+
+// getPerServerMutex 取出(或创建)对应 server 的串行 mutex
+func (s *SSHService) getPerServerMutex(serverID uint) *sync.Mutex {
+	s.perSrvMu.Lock()
+	defer s.perSrvMu.Unlock()
+	if pm, ok := s.perSrv[serverID]; ok {
+		return pm
+	}
+	pm := &sync.Mutex{}
+	s.perSrv[serverID] = pm
+	return pm
+}
+
+// cleanPerServerMutex 当 RemoveClient 时,清掉对应 server 的 mutex 释放 map
+func (s *SSHService) cleanPerServerMutex(serverID uint) {
+	s.perSrvMu.Lock()
+	delete(s.perSrv, serverID)
+	s.perSrvMu.Unlock()
 }
 
 func (s *SSHService) BuildJumpChain(server *model.Server) ([]ssh.JumpServer, error) {
@@ -93,12 +128,13 @@ func (s *SSHService) GetClient(server *model.Server) (*ssh.Client, error) {
 
 func (s *SSHService) RemoveClient(serverID uint) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if client, exists := s.clients[serverID]; exists {
 		client.Close()
 		delete(s.clients, serverID)
 	}
+	s.mu.Unlock()
+
+	s.cleanPerServerMutex(serverID)
 }
 
 func (s *SSHService) ExecuteCommand(server *model.Server, cmd string, timeout time.Duration) (string, error) {
@@ -122,7 +158,17 @@ func (s *SSHService) ExecuteCommand(server *model.Server, cmd string, timeout ti
 // RunCommand 在已缓存的 SSH 客户端上跑命令，复用连接。
 // 返回完整 SessionResult（带 exit code），错误时清缓存让下次重建。
 // 多组件/多动作共享同一台服务器时，建议用这个方法而不是自己 NewClient。
+//
+// 信号量 + per-server mutex 双层保护：
+//   1. 全局 sem:限制同时跑的 SSH 操作数(默认 20),防止一键刷新触发几百并发打爆目标机器
+//   2. per-server mutex:同 server 的 SSH 串行,避免"check-running + 部署 + 日志"并发写 channel 错乱
 func (s *SSHService) RunCommand(server *model.Server, cmd string, timeout time.Duration) (*ssh.SessionResult, error) {
+	s.sem <- struct{}{}
+	pm := s.getPerServerMutex(server.ID)
+	pm.Lock()
+	defer pm.Unlock()
+	defer func() { <-s.sem }()
+
 	client, err := s.GetClient(server)
 	if err != nil {
 		return nil, err
