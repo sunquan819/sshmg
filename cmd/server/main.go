@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"deploy-manager/internal/config"
 	"deploy-manager/internal/database"
@@ -130,6 +131,19 @@ func main() {
 
 	tmpl := template.Must(template.ParseFS(webAssets, "web/templates/*.html"))
 	r.SetHTMLTemplate(tmpl)
+
+	// HTML 页面和静态资源都加 no-cache 头，避免 embed 模板改了之后浏览器还显示旧版
+	r.Use(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/static/") ||
+			c.Request.URL.Path == "/" ||
+			strings.HasSuffix(c.Request.URL.Path, ".html") ||
+			!strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+			c.Header("Pragma", "no-cache")
+			c.Header("Expires", "0")
+		}
+		c.Next()
+	})
 
 	r.GET("/static/*filepath", func(c *gin.Context) {
 		filePath := c.Param("filepath")
@@ -360,10 +374,13 @@ r.GET("/tunnels", func(c *gin.Context) {
 				projects.PUT("/components/:id", projectHandler.UpdateComponent)
 				projects.DELETE("/components/:id", projectHandler.DeleteComponent)
 				projects.POST("/components/:id/deploy", projectHandler.DeployComponent)
+				projects.POST("/components/:id/deploy-update", projectHandler.DeployUpdate)
+				projects.GET("/components/:id/check-running", projectHandler.CheckRunning)
 				projects.POST("/components/:id/package", projectHandler.UploadPackage)
 				projects.POST("/components/:id/package/copy", projectHandler.CopyPackageFile)
 				projects.DELETE("/components/:id/package", projectHandler.DeletePackage)
 				projects.POST("/components/:id/action", projectHandler.ComponentAction)
+				projects.POST("/components/:id/fetch-version", projectHandler.FetchVersion)
 				projects.GET("/components/:id/log", projectHandler.GetDeployLog)
 			}
 

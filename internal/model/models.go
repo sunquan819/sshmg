@@ -199,6 +199,7 @@ type ProjectComponent struct {
 	DeployDir       string         `gorm:"size:500" json:"deploy_dir"`
 	StatusCmd       string         `gorm:"size:500" json:"status_cmd"`
 	LogCmd          string         `gorm:"size:500" json:"log_cmd"`
+	VersionCmd      string         `gorm:"size:500" json:"version_cmd"`
 	AccessUser      string         `gorm:"size:100" json:"access_user"`
 	AccessPassword  string         `gorm:"size:100" json:"access_password"`
 	AccessURL       string         `gorm:"size:500" json:"access_url"`
@@ -209,6 +210,7 @@ type ProjectComponent struct {
 	Status          string         `gorm:"size:20;default:'not_deployed'" json:"status"`
 	ServerIDs       string         `gorm:"type:text" json:"server_ids"`
 	DeployedServers string         `gorm:"type:text" json:"deployed_servers"`
+	VersionsPerServer string        `gorm:"type:text" json:"versions_per_server"` // JSON: {"server_id": "version", ...}
 	DeployLog       string         `gorm:"type:text" json:"deploy_log"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`

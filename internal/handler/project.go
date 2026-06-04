@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"deploy-manager/internal/database"
@@ -26,6 +27,22 @@ func (h *ProjectHandler) ListProjects(c *gin.Context) {
 	if err := database.DB.Preload("Components").Order("created_at DESC").Find(&projects).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	// 懒修复历史脏数据：DeployedServers 跟 ServerIDs 不一致时，直接同步为 ServerIDs
+	// 用户的期望:DeployedServers 完全跟用户配置的 ServerIDs 保持一致
+	for i := range projects {
+		for j := range projects[i].Components {
+			c := &projects[i].Components[j]
+			if c.ServerIDs == "" {
+				continue
+			}
+			expected := serverIDsToCSV(c.ServerIDs)
+			if c.DeployedServers != expected {
+				c.DeployedServers = expected
+				database.DB.Model(&model.ProjectComponent{}).Where("id = ?", c.ID).Update("deployed_servers", expected)
+				log.Printf("[ListProjects] lazy-fix component id=%d deployed_servers=%s", c.ID, expected)
+			}
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"projects": projects})
 }
@@ -109,6 +126,7 @@ type CreateComponentRequest struct {
 	DeployDir      string `json:"deploy_dir"`
 	StatusCmd      string `json:"status_cmd"`
 	LogCmd         string `json:"log_cmd"`
+	VersionCmd     string `json:"version_cmd"`
 	AccessUser     string `json:"access_user"`
 	AccessPassword string `json:"access_password"`
 	AccessURL      string `json:"access_url"`
@@ -128,6 +146,7 @@ type UpdateComponentRequest struct {
 	DeployDir      string `json:"deploy_dir"`
 	StatusCmd      string `json:"status_cmd"`
 	LogCmd         string `json:"log_cmd"`
+	VersionCmd     string `json:"version_cmd"`
 	AccessUser     string `json:"access_user"`
 	AccessPassword string `json:"access_password"`
 	AccessURL      string `json:"access_url"`
@@ -165,6 +184,7 @@ func (h *ProjectHandler) CreateComponent(c *gin.Context) {
 		DeployDir:      req.DeployDir,
 		StatusCmd:      req.StatusCmd,
 		LogCmd:         req.LogCmd,
+		VersionCmd:     req.VersionCmd,
 		AccessUser:     req.AccessUser,
 		AccessPassword: req.AccessPassword,
 		AccessURL:      req.AccessURL,
@@ -201,64 +221,130 @@ func (h *ProjectHandler) UpdateComponent(c *gin.Context) {
 
 	log.Printf("[UpdateComponent] id=%s, req.LogCmd=%s, current.LogCmd=%s", id, req.LogCmd, component.LogCmd)
 
+	// 用 map 显式列出要更新的字段，避免 db.Save 在某些场景下把未在 req 里出现的
+	// 字段（特别是 DeployedServers 这种状态字段）当成零值/旧值清掉
+	updates := map[string]interface{}{}
+
 	if req.Name != "" {
-		component.Name = req.Name
+		updates["name"] = req.Name
 	}
 	if req.Type != "" {
-		component.Type = req.Type
+		updates["type"] = req.Type
 	}
 	if req.Description != "" {
-		component.Description = req.Description
+		updates["description"] = req.Description
 	}
 	if req.Version != "" {
-		component.Version = req.Version
+		updates["version"] = req.Version
 	}
 	if req.DeployDir != "" {
-		component.DeployDir = req.DeployDir
+		updates["deploy_dir"] = req.DeployDir
 	}
 	if req.StatusCmd != "" {
-		component.StatusCmd = req.StatusCmd
+		updates["status_cmd"] = req.StatusCmd
 	}
 	if req.LogCmd != "" {
-		component.LogCmd = req.LogCmd
+		updates["log_cmd"] = req.LogCmd
 	}
+	// VersionCmd 允许空字符串清空
+	updates["version_cmd"] = req.VersionCmd
 	if req.AccessUser != "" {
-		component.AccessUser = req.AccessUser
+		updates["access_user"] = req.AccessUser
 	}
 	if req.AccessPassword != "" {
-		component.AccessPassword = req.AccessPassword
+		updates["access_password"] = req.AccessPassword
 	}
 	if req.AccessURL != "" {
-		component.AccessURL = req.AccessURL
+		updates["access_url"] = req.AccessURL
 	}
 	if req.InstallCmd != "" {
-		component.InstallCmd = req.InstallCmd
+		updates["install_cmd"] = req.InstallCmd
 	}
 	if req.StartCmd != "" {
-		component.StartCmd = req.StartCmd
+		updates["start_cmd"] = req.StartCmd
 	}
 	if req.StopCmd != "" {
-		component.StopCmd = req.StopCmd
+		updates["stop_cmd"] = req.StopCmd
 	}
 	if req.ConfigFile != "" {
-		component.ConfigFile = req.ConfigFile
+		updates["config_file"] = req.ConfigFile
 	}
-	if req.Status != "" {
-		component.Status = req.Status
-	}
+	// InstallPkg 允许空
+	updates["install_pkg"] = req.InstallPkg
+
 	if req.ServerIDs != nil {
 		data, _ := json.Marshal(req.ServerIDs)
-		component.ServerIDs = string(data)
+		updates["server_ids"] = string(data)
+
+		// DeployedServers 直接同步为 server_ids：
+		// 编辑时改了 server_ids,DeployedServers 跟着变,跟用户配置保持一致
+		// 部署成功后,DeployComponent / DeployUpdate 会用"实际成功的 server id"覆盖
+		updates["deployed_servers"] = serverIDsToCSV(string(data))
 	}
 
-	component.InstallPkg = req.InstallPkg
+	if req.Status != "" {
+		updates["status"] = req.Status
+		switch req.Status {
+		case "deployed", "partial":
+			// 手动标记为已部署/部分部署时，如果 DeployedServers 为空，
+			// 从配置的 server_ids 复制过来，让"部署服务器"列能直接看到目标
+			if component.DeployedServers == "" {
+				// 优先用本次请求里要设置的 server_ids
+				serverIDsJSON := component.ServerIDs
+				if req.ServerIDs != nil {
+					data, _ := json.Marshal(req.ServerIDs)
+					serverIDsJSON = string(data)
+				}
+				if serverIDsJSON != "" {
+					updates["deployed_servers"] = serverIDsToCSV(serverIDsJSON)
+				}
+			}
+		case "not_deployed", "failed":
+			// 改回未部署/失败时清空 DeployedServers
+			updates["deployed_servers"] = ""
+		}
+	}
 
-	if err := database.DB.Save(&component).Error; err != nil {
+	if len(updates) == 0 {
+		// 没东西要改，直接返回当前值
+		c.JSON(http.StatusOK, gin.H{"component": component})
+		return
+	}
+
+	if err := database.DB.Model(&component).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	// 重新读回，保证返回给前端的是 DB 里的最新值
+	database.DB.First(&component, id)
 	c.JSON(http.StatusOK, gin.H{"component": component})
+}
+
+// serverIDsToCSV 把 JSON 数组字符串（[1,2,3] 或 ["1","2"]）转成 CSV 字符串（"1,2,3"）
+// server_id 可能是数字也可能是字符串（前端 JSON.parse 后 ID 可能是数字也可能是字符串），
+// 这里都兼容。
+func serverIDsToCSV(serverIDsJSON string) string {
+	var raw []interface{}
+	if err := json.Unmarshal([]byte(serverIDsJSON), &raw); err != nil {
+		return ""
+	}
+	parts := make([]string, 0, len(raw))
+	for _, v := range raw {
+		switch val := v.(type) {
+		case float64:
+			parts = append(parts, strconv.FormatUint(uint64(val), 10))
+		case int:
+			parts = append(parts, strconv.Itoa(val))
+		case int64:
+			parts = append(parts, strconv.FormatInt(val, 10))
+		case string:
+			if parsed, err := strconv.ParseUint(val, 10, 32); err == nil {
+				parts = append(parts, strconv.FormatUint(parsed, 10))
+			}
+		}
+	}
+	return strings.Join(parts, ",")
 }
 
 func (h *ProjectHandler) DeleteComponent(c *gin.Context) {
@@ -323,14 +409,9 @@ func (h *ProjectHandler) DeployComponent(c *gin.Context) {
 		return
 	}
 
-	// 存储所有部署的服务器ID
-	component.Status = "deployed"
-	component.DeployedServers = strconv.Itoa(int(serverIDs[0]))
-	if len(serverIDs) > 1 {
-		for i := 1; i < len(serverIDs); i++ {
-			component.DeployedServers += "," + strconv.Itoa(int(serverIDs[i]))
-		}
-	}
+	// 提前查一次 Project，后面解析本地安装包路径要用
+	var project model.Project
+	_ = database.DB.First(&project, component.ProjectID).Error
 
 	logTime := time.Now().Format("2006-01-02 15:04:05")
 	var logContent string
@@ -339,8 +420,16 @@ func (h *ProjectHandler) DeployComponent(c *gin.Context) {
 	logContent += "[" + logTime + "] 类型: " + component.Type + "\n"
 	logContent += "[" + logTime + "] 版本: " + component.Version + "\n"
 
+	// 部署到所有服务器，跟踪每台服务器的成功/失败
+	succeededIDs := make([]uint, 0, len(servers))
+	failedCount := 0
+
 	// 部署到所有服务器
 	for idx, server := range servers {
+		// 跟踪本服务器部署是否成功
+		serverOK := true
+		var serverErr string
+
 		logContent += "\n[" + time.Now().Format("2006-01-02 15:04:05") + "] ====== 服务器 " + strconv.Itoa(idx+1) + "/" + strconv.Itoa(len(servers)) + ": " + server.Name + " (" + server.IP + ") ======\n"
 		logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 连接: " + server.IP + ":" + strconv.Itoa(server.Port) + "\n"
 		logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 部署目录: " + component.DeployDir + "\n"
@@ -349,23 +438,29 @@ func (h *ProjectHandler) DeployComponent(c *gin.Context) {
 		if component.DeployDir != "" {
 			err := service.SSHSvc.RemoteMkdir(&server, component.DeployDir)
 			if err != nil {
-				logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 错误: 创建目录失败 - " + err.Error() + "\n"
+				serverOK = false
+				serverErr = "创建目录失败: " + err.Error()
+				logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 错误: " + serverErr + "\n"
 			} else {
 				logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 目录创建成功\n"
 			}
 		}
 
-		// 2. 上传安装包
-		if component.InstallPkg != "" {
-			files := strings.Split(component.InstallPkg, ",")
-			for _, f := range files {
-				f = strings.TrimSpace(f)
-				if f == "" {
-					continue
-				}
+		// 2. 上传安装包（如果有安装包且目录创建成功才上传，避免无谓错误）
+		if serverOK {
+			if component.InstallPkg != "" {
+				files := strings.Split(component.InstallPkg, ",")
+				hasFiles := false
+				allUploaded := true
+				for _, f := range files {
+					f = strings.TrimSpace(f)
+					if f == "" {
+						continue
+					}
+					hasFiles = true
 
-				var localPath string
-				remoteFilename := filepath.Base(f)
+					var localPath string
+					remoteFilename := filepath.Base(f)
 
 				// 判断是否是完整路径（包含分隔符）
 				if strings.Contains(f, "/") || strings.Contains(f, "\\") {
@@ -373,31 +468,41 @@ func (h *ProjectHandler) DeployComponent(c *gin.Context) {
 					f = strings.TrimPrefix(f, "/")
 					localPath = filepath.Join("./artifacts", f)
 				} else {
-					// 传统格式：只有文件名，从组件目录找
-					localPath = "./artifacts/packages/component_" + strconv.Itoa(int(component.ID)) + "/" + f
-				}
-
-				remotePath := component.DeployDir + "/" + remoteFilename
-
-				logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 上传安装包: " + remoteFilename + " -> " + remotePath + "\n"
-
-				if _, err := os.Stat(localPath); err == nil {
-					err := service.SSHSvc.UploadFile(&server, localPath, remotePath)
-					if err != nil {
-						logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 错误: 上传失败 - " + err.Error() + "\n"
-					} else {
-						logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 上传成功\n"
+					// 传统格式：只有文件名，优先从项目目录找，兼容老的 component_<id> 目录
+					localPath = componentPackagePath(&project, &component, f)
+					if _, err := os.Stat(localPath); err != nil {
+						localPath = "./artifacts/packages/component_" + strconv.Itoa(int(component.ID)) + "/" + f
 					}
-				} else {
-					logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 跳过: 本地文件不存在 - " + localPath + "\n"
 				}
+
+					remotePath := component.DeployDir + "/" + remoteFilename
+
+					logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 上传安装包: " + remoteFilename + " -> " + remotePath + "\n"
+
+					if _, err := os.Stat(localPath); err == nil {
+						err := service.SSHSvc.UploadFile(&server, localPath, remotePath)
+						if err != nil {
+							allUploaded = false
+							logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 错误: 上传失败 - " + err.Error() + "\n"
+						} else {
+							logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 上传成功\n"
+						}
+					} else {
+						logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 跳过: 本地文件不存在 - " + localPath + "\n"
+						allUploaded = false
+					}
+				}
+				if hasFiles && !allUploaded {
+					serverOK = false
+					serverErr = "部分或全部安装包上传失败"
+				}
+			} else {
+				logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 无安装包需要上传\n"
 			}
-		} else {
-			logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 无安装包需要上传\n"
 		}
 
-		// 3. 执行安装命令
-		if component.InstallCmd != "" {
+		// 3. 执行安装命令（不阻塞部署成功判定，只记录）
+		if serverOK && component.InstallCmd != "" {
 			cmd := "cd " + component.DeployDir + " && " + component.InstallCmd
 			logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 执行安装命令: " + component.InstallCmd + "\n"
 			output, err := service.SSHSvc.ExecuteCommand(&server, cmd, 300*time.Second)
@@ -408,8 +513,8 @@ func (h *ProjectHandler) DeployComponent(c *gin.Context) {
 			}
 		}
 
-		// 4. 启动服务
-		if component.StartCmd != "" {
+		// 4. 启动服务（不阻塞部署成功判定，只记录）
+		if serverOK && component.StartCmd != "" {
 			cmd := "cd " + component.DeployDir + " && " + component.StartCmd
 			logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 启动服务: " + component.StartCmd + "\n"
 			output, err := service.SSHSvc.ExecuteCommand(&server, cmd, 60*time.Second)
@@ -420,8 +525,8 @@ func (h *ProjectHandler) DeployComponent(c *gin.Context) {
 			}
 		}
 
-		// 5. 检查服务状态
-		if component.StatusCmd != "" {
+		// 5. 检查服务状态（不阻塞部署成功判定，只记录）
+		if serverOK && component.StatusCmd != "" {
 			cmd := "cd " + component.DeployDir + " && " + component.StatusCmd
 			logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 检查服务状态...\n"
 			output, err := service.SSHSvc.ExecuteCommand(&server, cmd, 30*time.Second)
@@ -432,24 +537,245 @@ func (h *ProjectHandler) DeployComponent(c *gin.Context) {
 			}
 		}
 
-		logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 服务器 " + server.Name + " 部署完成\n"
+		if serverOK {
+			succeededIDs = append(succeededIDs, server.ID)
+			logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 服务器 " + server.Name + " 部署完成 ✓\n"
+		} else {
+			failedCount++
+			logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 服务器 " + server.Name + " 部署失败 ✗ (" + serverErr + ")\n"
+		}
 	}
 
-	logContent += "\n[" + time.Now().Format("2006-01-02 15:04:05") + "] ====== 全部部署完成 ======\n"
+	logContent += "\n[" + time.Now().Format("2006-01-02 15:04:05") + "] ====== 部署汇总 ======\n"
+	logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 成功: " + strconv.Itoa(len(succeededIDs)) + "/" + strconv.Itoa(len(servers)) + " 台\n"
+	if failedCount > 0 {
+		logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 失败: " + strconv.Itoa(failedCount) + " 台\n"
+	}
 
-	// 追加到现有日志
+	// 决定组件状态：所有都成功 -> deployed；部分成功 -> partial；全失败 -> failed
+	switch {
+	case len(succeededIDs) == len(servers):
+		component.Status = "deployed"
+		logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 组件状态: 已部署\n"
+	case len(succeededIDs) == 0:
+		component.Status = "failed"
+		logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 组件状态: 部署失败\n"
+	default:
+		component.Status = "partial"
+		logContent += "[" + time.Now().Format("2006-01-02 15:04:05") + "] 组件状态: 部分部署\n"
+	}
+
+	// DeployedServers 不在这里覆盖：保持跟用户配置的 server_ids 一致
+	// 部署结果通过 status（deployed/partial/failed）和 deploy_log 体现
+	// 这样编辑→部署→编辑 流程中,DeployedServers 不会被部署结果意外改掉
+
+	logContent += "\n[" + time.Now().Format("2006-01-02 15:04:05") + "] ====== 部署流程结束 ======\n"
+
+	// 追加到现有日志,然后裁剪(保留最近 5 次 + 1MB 上限)
 	if component.DeployLog != "" {
-		component.DeployLog = logContent + "\n" + component.DeployLog
+		component.DeployLog = truncateDeployLog(logContent + "\n" + component.DeployLog)
 	} else {
-		component.DeployLog = logContent
+		component.DeployLog = truncateDeployLog(logContent)
 	}
 
-	if err := database.DB.Save(&component).Error; err != nil {
+	// 显式 Updates(map) 模式列出所有要更新的字段,避免 db.Save 在某些 GORM 版本下
+	// 误把非零字段当成零值而漏写
+	if err := database.DB.Model(&model.ProjectComponent{}).Where("id = ?", component.ID).Updates(map[string]interface{}{
+		"status":           component.Status,
+		"deployed_servers": component.DeployedServers,
+		"deploy_log":       component.DeployLog,
+	}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Deployment completed", "component": component})
+}
+
+type FetchVersionRequest struct {
+	ServerIDs any `json:"server_ids"`
+}
+
+func (h *ProjectHandler) FetchVersion(c *gin.Context) {
+	id := c.Param("id")
+	var component model.ProjectComponent
+	if err := database.DB.First(&component, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Component not found"})
+		return
+	}
+
+	if component.VersionCmd == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "未配置获取版本命令（VersionCmd）"})
+		return
+	}
+
+	var req FetchVersionRequest
+	_ = c.ShouldBindJSON(&req) // body 可选
+
+	// 决定目标服务器：请求中的 server_ids > DeployedServers > server_ids
+	var serverIDs []uint
+	if req.ServerIDs != nil {
+		switch v := req.ServerIDs.(type) {
+		case []interface{}:
+			for _, id := range v {
+				switch idVal := id.(type) {
+				case float64:
+					serverIDs = append(serverIDs, uint(idVal))
+				case int:
+					serverIDs = append(serverIDs, uint(idVal))
+				case string:
+					if parsed, err := strconv.ParseUint(idVal, 10, 32); err == nil {
+						serverIDs = append(serverIDs, uint(parsed))
+					}
+				}
+			}
+		case []uint:
+			serverIDs = v
+		}
+	}
+	if len(serverIDs) == 0 && component.DeployedServers != "" {
+		for _, sid := range strings.Split(component.DeployedServers, ",") {
+			sid = strings.TrimSpace(sid)
+			if sid == "" {
+				continue
+			}
+			if parsed, err := strconv.ParseUint(sid, 10, 32); err == nil {
+				serverIDs = append(serverIDs, uint(parsed))
+			}
+		}
+	}
+	if len(serverIDs) == 0 && component.ServerIDs != "" {
+		var configured []uint
+		if err := json.Unmarshal([]byte(component.ServerIDs), &configured); err == nil {
+			serverIDs = append(serverIDs, configured...)
+		}
+	}
+
+	if len(serverIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "没有可用的目标服务器，请先选择或部署"})
+		return
+	}
+
+	var servers []model.Server
+	if err := database.DB.Find(&servers, serverIDs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Servers not found"})
+		return
+	}
+	if len(servers) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Servers not found"})
+		return
+	}
+
+	// 在每台服务器上跑 VersionCmd
+	// 用 service.SSHSvc.RunCommand 复用 SSH 连接缓存：同台服务器在多组件并发刷新时
+	// 只建一次连接，而不是每个组件都重连。
+	type serverResult struct {
+		ServerID uint   `json:"server_id"`
+		ServerIP string `json:"server_ip"`
+		Output   string `json:"output"`
+		Version  string `json:"version"` // 解析后的版本（首行非空）
+		Err      string `json:"error,omitempty"`
+	}
+	results := make([]serverResult, 0, len(servers))
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for _, s := range servers {
+		wg.Add(1)
+		go func(srv model.Server) {
+			defer wg.Done()
+
+			execCmd := component.VersionCmd
+			if component.DeployDir != "" {
+				execCmd = "cd " + component.DeployDir + " && " + component.VersionCmd
+			}
+			result, err := service.SSHSvc.RunCommand(&srv, execCmd, 30*time.Second)
+
+			out := ""
+			if result != nil {
+				out = strings.TrimSpace(result.Output)
+			}
+
+			// RunCommand 出错时通常表示连接已失效；保留 output 方便排错
+			if err != nil {
+				mu.Lock()
+				results = append(results, serverResult{ServerID: srv.ID, ServerIP: srv.IP, Output: out, Err: err.Error()})
+				mu.Unlock()
+				return
+			}
+			// exit code 非 0 也算失败
+			if result != nil && result.ExitCode != 0 {
+				msg := fmt.Sprintf("exit code %d", result.ExitCode)
+				if result.Error != "" {
+					msg = result.Error
+				}
+				mu.Lock()
+				results = append(results, serverResult{ServerID: srv.ID, ServerIP: srv.IP, Output: out, Err: msg})
+				mu.Unlock()
+				return
+			}
+
+			// 解析版本号：首行非空内容
+			ver := ""
+			if out != "" {
+				firstLine := strings.SplitN(out, "\n", 2)[0]
+				ver = strings.TrimSpace(firstLine)
+			}
+			mu.Lock()
+			results = append(results, serverResult{ServerID: srv.ID, ServerIP: srv.IP, Output: out, Version: ver})
+			mu.Unlock()
+		}(s)
+	}
+	wg.Wait()
+
+	// 整理结果：每台 server 自己的版本、主版本(取第一台成功的)
+	version := ""
+	successCount := 0
+	var allOutput strings.Builder
+	versionsMap := make(map[string]string, len(results))
+	for _, r := range results {
+		if r.Err == "" {
+			successCount++
+			if version == "" && r.Version != "" {
+				version = r.Version
+			}
+			if r.Version != "" {
+				versionsMap[strconv.Itoa(int(r.ServerID))] = r.Version
+			}
+		}
+		allOutput.WriteString(fmt.Sprintf("[%s] 版本: %s\n", r.ServerIP, r.Version))
+		if r.Output != "" && r.Output != r.Version {
+			allOutput.WriteString(fmt.Sprintf("    完整输出: %s\n", r.Output))
+		}
+		if r.Err != "" {
+			allOutput.WriteString(fmt.Sprintf("[%s] 错误: %s\n", r.ServerIP, r.Err))
+		}
+	}
+
+	// 序列化每台 server 的版本到 JSON
+	versionsJSON, _ := json.Marshal(versionsMap)
+
+	// 版本是从命令获取的——获取多少就是多少，直接写回 DB
+	if version != "" {
+		if err := database.DB.Model(&model.ProjectComponent{}).Where("id = ?", component.ID).Updates(map[string]interface{}{
+			"version":             version,
+			"versions_per_server": string(versionsJSON),
+		}).Error; err != nil {
+			log.Printf("[FetchVersion] update version failed: %v", err)
+		} else {
+			component.Version = version
+			component.VersionsPerServer = string(versionsJSON)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"version":       version,
+		"output":        allOutput.String(),
+		"results":       results,
+		"success_count": successCount,
+		"server_count":  len(servers),
+		"component":     component,
+	})
 }
 
 func (h *ProjectHandler) GetDeployLog(c *gin.Context) {
@@ -506,6 +832,12 @@ func (h *ProjectHandler) CopyPackageFile(c *gin.Context) {
 		return
 	}
 
+	var project model.Project
+	if err := database.DB.First(&project, component.ProjectID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Project not found"})
+		return
+	}
+
 	var req struct {
 		FilePath string `json:"file_path" binding:"required"`
 	}
@@ -525,7 +857,7 @@ func (h *ProjectHandler) CopyPackageFile(c *gin.Context) {
 	}
 
 	filename := filepath.Base(srcFull)
-	componentDir := fmt.Sprintf("./artifacts/packages/component_%d", component.ID)
+	componentDir := projectPackageDir(&project, &component)
 	dstPath := filepath.Join(componentDir, filename)
 
 	if err := os.MkdirAll(componentDir, 0755); err != nil {
@@ -555,6 +887,12 @@ func (h *ProjectHandler) UploadPackage(c *gin.Context) {
 		return
 	}
 
+	var project model.Project
+	if err := database.DB.First(&project, component.ProjectID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Project not found"})
+		return
+	}
+
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
@@ -562,19 +900,25 @@ func (h *ProjectHandler) UploadPackage(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// 使用原始文件名，保存在组件对应的文件夹中
-	filename := header.Filename
-	componentDir := fmt.Sprintf("./artifacts/packages/component_%d", component.ID)
-	uploadPath := componentDir + "/" + filename
-
-	// 如果文件已存在，删除旧文件
-	if _, err := os.Stat(uploadPath); err == nil {
-		os.Remove(uploadPath)
+	// 清理文件名：去掉路径分隔符和上级目录引用，防止路径穿越
+	rawName := filepath.Base(strings.ReplaceAll(header.Filename, "\\", "/"))
+	filename := sanitizeFilename(rawName)
+	if filename == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid filename"})
+		return
 	}
+
+	componentDir := projectPackageDir(&project, &component)
+	uploadPath := componentDir + "/" + filename
 
 	if err := os.MkdirAll(componentDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create directory"})
 		return
+	}
+
+	// 如果文件已存在，删除旧文件
+	if _, err := os.Stat(uploadPath); err == nil {
+		os.Remove(uploadPath)
 	}
 
 	dst, err := os.Create(uploadPath)
@@ -582,21 +926,68 @@ func (h *ProjectHandler) UploadPackage(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create file"})
 		return
 	}
-	defer dst.Close()
 
 	if _, err := io.Copy(dst, file); err != nil {
+		dst.Close()
+		os.Remove(uploadPath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return
 	}
+	dst.Close()
 
+	// 追加到组件的安装包列表，避免重复
+	newPkg := filename
 	if component.InstallPkg != "" {
-		component.InstallPkg += "," + filename
-	} else {
-		component.InstallPkg = filename
+		existing := strings.Split(component.InstallPkg, ",")
+		dup := false
+		for _, p := range existing {
+			if strings.TrimSpace(p) == filename {
+				dup = true
+				break
+			}
+		}
+		if dup {
+			c.JSON(http.StatusOK, gin.H{"filename": filename, "path": uploadPath, "duplicate": true})
+			return
+		}
+		newPkg = component.InstallPkg + "," + filename
 	}
+	component.InstallPkg = newPkg
 	database.DB.Save(&component)
 
 	c.JSON(http.StatusOK, gin.H{"filename": filename, "path": uploadPath})
+}
+
+// sanitizeFilename 去除文件名中的危险字符，只保留安全字符
+func sanitizeFilename(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" || name == "." || name == ".." {
+		return ""
+	}
+	invalid := []string{"\\", "/", ":", "*", "?", "\"", "<", ">", "|", "\x00"}
+	for _, ch := range invalid {
+		name = strings.ReplaceAll(name, ch, "_")
+	}
+	name = strings.Trim(name, ". ")
+	if len(name) > 200 {
+		name = name[:200]
+	}
+	return name
+}
+
+// projectPackageDir 生成项目对应的安装包目录：./artifacts/packages/<project_name>/
+// 项目名做安全清理后作为顶层目录
+func projectPackageDir(project *model.Project, component *model.ProjectComponent) string {
+	projectDir := sanitizeFilename(project.Name)
+	if projectDir == "" {
+		projectDir = fmt.Sprintf("project_%d", project.ID)
+	}
+	return fmt.Sprintf("./artifacts/packages/%s", projectDir)
+}
+
+// componentPackagePath 返回组件安装包目录下某文件的本地完整路径
+func componentPackagePath(project *model.Project, component *model.ProjectComponent, filename string) string {
+	return filepath.Join(projectPackageDir(project, component), filename)
 }
 
 func InitDefaultProject() {

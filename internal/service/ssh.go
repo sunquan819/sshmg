@@ -119,6 +119,22 @@ func (s *SSHService) ExecuteCommand(server *model.Server, cmd string, timeout ti
 	return result.Output, nil
 }
 
+// RunCommand 在已缓存的 SSH 客户端上跑命令，复用连接。
+// 返回完整 SessionResult（带 exit code），错误时清缓存让下次重建。
+// 多组件/多动作共享同一台服务器时，建议用这个方法而不是自己 NewClient。
+func (s *SSHService) RunCommand(server *model.Server, cmd string, timeout time.Duration) (*ssh.SessionResult, error) {
+	client, err := s.GetClient(server)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := client.Execute(cmd, timeout)
+	if err != nil {
+		s.RemoveClient(server.ID)
+	}
+	return result, err
+}
+
 func (s *SSHService) TestConnection(server *model.Server) error {
 	if server.Username == "" && server.ServerType == "proxy" {
 		return nil

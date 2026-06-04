@@ -54,10 +54,15 @@
                         <h3 class="text-xl font-semibold" x-text="selectedProject?.name"></h3>
                         <div class="flex space-x-2">
                             <input type="file" id="importProjectCSVFile" @change="importProjectCSV($event)" accept=".csv" class="hidden">
-                            <button @click="document.getElementById('importProjectCSVFile').click()" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm">📤 导入CSV</button>
-                            <button @click="exportProjectCSV()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm">📥 导出CSV</button>
-                            <button @click="showAddComponentModal=true" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm">➕ 添加组件</button>
+                            <button @click="document.getElementById('importProjectCSVFile').click()" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm whitespace-nowrap">导入 CSV</button>
+                            <button @click="exportProjectCSV()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm whitespace-nowrap">导出 CSV</button>
+                            <button @click="refreshAllVersions()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm whitespace-nowrap" title="并发执行所有配置了「获取版本命令」的组件,自动写入版本号到 DB">
+                                <span x-show="!refreshingAllVersions">刷新所有版本</span>
+                                <span x-show="refreshingAllVersions">刷新中...</span>
+                            </button>
+                            <button @click="showAddComponentModal=true" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm whitespace-nowrap">添加组件</button>
                         </div>
+                    </div>
                     </div>
 
                     <div class="overflow-x-auto">
@@ -81,7 +86,22 @@
                                     <tr class="border-b border-gray-700 hover:bg-gray-700">
                                         <td class="py-3" x-text="comp.name"></td>
                                         <td class="py-3" x-text="comp.type"></td>
-                                        <td class="py-3" x-text="comp.version || '-'"></td>
+                                        <td class="py-3 text-xs">
+                                            <template x-if="comp.versions_per_server">
+                                                <div class="space-y-0.5">
+                                                    <template x-for="(ver, sid) in JSON.parse(comp.versions_per_server || '{}')" :key="sid">
+                                                        <div class="flex items-center space-x-1">
+                                                            <span class="text-cyan-300" x-text="getServerIP(String(sid)) || sid"></span>
+                                                            <span class="text-gray-500">·</span>
+                                                            <span class="text-gray-200" x-text="ver"></span>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template x-if="!comp.versions_per_server">
+                                                <span x-text="comp.version || '-'"></span>
+                                            </template>
+                                        </td>
                                         <td class="py-3">
                                             <select @change="updateComponentStatus(comp, $event.target.value)"
                                                     class="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm"
@@ -118,6 +138,7 @@
                                                 <button @click="componentAction(comp, 'log')" class="text-blue-400 hover:text-blue-300 text-2xl px-1" title="查看日志">📋</button>
                                                 <button @click="componentAction(comp, 'start')" class="text-green-400 hover:text-green-300 text-2xl px-1" title="启动">▶</button>
                                                 <button @click="componentAction(comp, 'stop')" class="text-yellow-400 hover:text-yellow-300 text-2xl px-1" title="停止">⏹</button>
+                                                <button @click="quickFetchVersion(comp)" class="text-cyan-400 hover:text-cyan-300 px-1 inline-flex items-center justify-center text-2xl" style="width:1.75rem;height:1.75rem" title="获取版本（在已部署/配置的服务器上执行 VersionCmd，自动写入 DB）">⟳</button>
                                             </div>
                                         </td>
                                         <td class="py-3">
@@ -186,8 +207,12 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm text-gray-400 mb-1">版本</label>
-                        <input type="text" x-model="newComponent.version" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: 15, 3.4">
+                        <label class="block text-sm text-gray-400 mb-1">获取版本命令</label>
+                        <input type="text" x-model="newComponent.version_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: cat VERSION  或  java -version 2>&1 | head -1">
+                        <p class="text-xs text-gray-500 mt-1">命令会在已部署或已配置的服务器上执行,取首行非空输出作为版本号,自动写入 DB。组件需先保存,否则没有可用的服务器。</p>
+                        <p class="text-xs text-gray-400 mt-1" x-show="newComponent.version || editingComponent?.version">
+                            当前版本: <span class="text-cyan-400" x-text="newComponent.version || editingComponent?.version || '-'"></span>
+                        </p>
                     </div>
                 </div>
                 <div>
@@ -240,14 +265,30 @@
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">目标服务器（多选）</label>
+                    <div class="flex items-center space-x-2 mb-2">
+                        <select x-model="serverGroupFilter" class="flex-1 px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                            <option value="">所有分组</option>
+                            <template x-for="g in getServerGroups()" :key="g">
+                                <option :value="g" x-text="g || '(未分组)'"></option>
+                            </template>
+                        </select>
+                        <input type="text" x-model="serverKeywordFilter" placeholder="搜索名称/IP" class="flex-1 px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                        <button type="button" @click="selectAllFilteredServers()" class="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm whitespace-nowrap">全选</button>
+                        <button type="button" @click="clearAllServerSelection()" class="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm whitespace-nowrap">清空</button>
+                    </div>
                     <div class="max-h-32 overflow-y-auto border border-gray-600 rounded p-2">
-                        <template x-for="server in servers" :key="server.id">
+                        <template x-for="server in getFilteredServers()" :key="server.id">
                             <label class="flex items-center space-x-2 text-sm text-gray-300 py-1 cursor-pointer">
                                 <input type="checkbox" :value="server.id" x-model="newComponent.server_ids" class="w-4 h-4">
-                                <span x-text="server.name + ' (' + server.ip + ')'"></span>
+                                <span class="flex-1">
+                                    <span x-text="server.name + ' (' + server.ip + ')'"></span>
+                                    <span x-show="server.group" class="ml-2 text-xs text-blue-400" x-text="'[' + server.group + ']'"></span>
+                                </span>
                             </label>
                         </template>
+                        <div x-show="getFilteredServers().length === 0" class="text-xs text-gray-500 py-2 text-center">无匹配服务器</div>
                     </div>
+                    <div class="text-xs text-gray-500 mt-1" x-text="'已选 ' + (newComponent.server_ids || []).length + ' / 共 ' + servers.length + ' 台'"></div>
                 </div>
                 <div x-show="editingComponent">
                     <label class="block text-sm text-gray-400 mb-1">安装包</label>
@@ -306,6 +347,65 @@
         </div>
     </div>
 
+    <div x-show="showUpdateConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto border border-yellow-600">
+            <h3 class="text-lg font-semibold mb-4 flex items-center">
+                <span class="mr-2" :class="updateConfirmInfo?.anyRunning ? 'text-yellow-400' : 'text-gray-400'">
+                    <span x-text="updateConfirmInfo?.anyRunning ? '⚠️' : 'ℹ️'"></span>
+                </span>
+                <span x-text="updateConfirmInfo?.anyRunning ? '检测到服务正在运行' : '运行状态检测'"></span>
+            </h3>
+
+            <!-- 检测到运行:显示更新流程说明 -->
+            <div x-show="updateConfirmInfo?.anyRunning" class="space-y-3 text-sm text-gray-300 mb-4">
+                <p>
+                    有 <span class="text-yellow-400 font-semibold" x-text="updateConfirmInfo?.runningCount"></span> 台服务器上的
+                    <span class="text-cyan-400" x-text="deployingComponent?.name"></span>
+                    服务正在运行。
+                </p>
+                <p class="text-gray-400">是否走更新流程？流程如下：</p>
+                <ol class="list-decimal list-inside space-y-1 text-gray-300 pl-2">
+                    <li><span class="text-blue-400">停止服务</span> — 跑 StopCmd</li>
+                    <li><span class="text-blue-400">备份当前包</span> — 复制为 <code class="bg-gray-900 px-1 rounded text-xs">.bak.YYYYMMDD-HHMMSS</code> 后缀</li>
+                    <li><span class="text-blue-400">上传新包</span></li>
+                    <li><span class="text-blue-400">启动服务</span> — 跑 StartCmd</li>
+                </ol>
+            </div>
+
+            <!-- 未检测到运行:提示直接部署 -->
+            <div x-show="!updateConfirmInfo?.anyRunning" class="space-y-3 text-sm text-gray-300 mb-4">
+                <p>
+                    未检测到 <span class="text-cyan-400" x-text="deployingComponent?.name"></span> 的运行进程。
+                </p>
+                <p class="text-gray-400">点击「继续部署」会按标准流程上传新包并启动服务。</p>
+            </div>
+
+            <!-- 诊断信息(总是显示) -->
+            <div class="bg-gray-900 rounded p-3 text-xs font-mono text-gray-400 mb-4" x-show="updateConfirmInfo?.check">
+                <div class="text-gray-500 mb-1">诊断信息：</div>
+                <div>检测方法: <span class="text-cyan-300" x-text="updateConfirmInfo?.check?.used_fallback ? 'pgrep fallback' : '用户 StatusCmd'"></span></div>
+                <div>关键字: <span class="text-cyan-300" x-text="updateConfirmInfo?.check?.fallback_keyword || '-'"></span></div>
+                <div>running_count: <span class="text-cyan-300" x-text="updateConfirmInfo?.check?.running_count || 0"></span> / <span x-text="updateConfirmInfo?.check?.server_count || 0"></span></div>
+                <template x-for="r in (updateConfirmInfo?.check?.results || [])" :key="r.server_id">
+                    <div class="mt-2 border-t border-gray-700 pt-1">
+                        <div>服务器 <span class="text-cyan-300" x-text="r.server_ip"></span>:
+                            <span :class="r.running ? 'text-green-400' : 'text-red-400'" x-text="r.running ? '✓ 在运行' : '✗ 未运行'"></span>
+                        </div>
+                        <div class="text-gray-500 whitespace-pre-wrap truncate" x-text="r.output || '（无输出）'" :title="r.output"></div>
+                    </div>
+                </template>
+            </div>
+
+            <p class="text-gray-500 text-xs mb-4">如果选择「取消」，将不会进行任何部署操作。</p>
+
+            <div class="flex justify-end space-x-3">
+                <button @click="cancelUpdateMode()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
+                <button x-show="updateConfirmInfo?.anyRunning" @click="proceedWithDeploy()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">确定，走更新流程</button>
+                <button x-show="!updateConfirmInfo?.anyRunning" @click="proceedWithDeploy()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700">继续标准部署</button>
+            </div>
+        </div>
+    </div>
+
     <div x-show="showDeployModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
         <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg">
             <h3 class="text-lg font-semibold mb-4">部署组件: <span x-text="deployingComponent?.name"></span></h3>
@@ -353,21 +453,20 @@
         <div class="bg-gray-800 rounded-lg p-6 w-4/5 h-4/5 flex flex-col">
             <div class="flex items-center justify-between mb-2 pb-2 border-b border-gray-700">
                 <h3 class="text-lg font-semibold">
-                    <span x-text="actionType === 'log' ? '日志：' + (actionComponent?.name || '') + ' - ' + (logServerName || '') : '操作结果：' + (deployingComponent?.name || '')"></span>
+                    <span x-text="actionType === 'log' ? '日志：' + (actionComponent?.name || '') + ' - ' + (logServerName || '') : (actionType === 'version' ? '版本结果：' : '操作结果：') + (deployingComponent?.name || '')"></span>
                 </h3>
-                <button @click="showStatusModal = false" class="text-gray-500 hover:text-white">&times;</button>
+                <button @click="closeStatusModal()" class="text-gray-500 hover:text-white">&times;</button>
             </div>
             <div class="flex items-center space-x-2 mb-4">
-                <button @click="loadComponentLog('50')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">50行</button>
-                <button @click="loadComponentLog('100')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">100行</button>
-                <button @click="loadComponentLog('500')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">500行</button>
-                <button @click="loadComponentLog('1000')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">1000行</button>
-                <button @click="loadComponentLog(logTail, false)" class="px-3 py-1 bg-green-500 text-white rounded text-sm">刷新最新</button>
-                <button @click="loadComponentLog(logTail, true)" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">更多</button>
+                <button @click="loadComponentLog(logTail, false)" class="px-3 py-1 bg-green-500 text-white rounded text-sm">最新</button>
+                <button @click="loadComponentLog(logTail, true)" :disabled="logLoading" class="px-3 py-1 bg-blue-500 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span x-show="!logLoading">更多（再加载 <span x-text="logTail"></span> 行老日志）</span>
+                    <span x-show="logLoading">加载中...</span>
+                </button>
             </div>
-            <div class="flex-1 bg-gray-900 p-4 rounded text-sm text-gray-300 whitespace-pre-wrap font-mono overflow-y-auto" x-text="(actionType === 'log' ? logOutput : statusOutput) || '无输出'"></div>
+            <div id="statusOutputArea" class="flex-1 bg-gray-900 p-4 rounded text-sm text-gray-300 whitespace-pre-wrap font-mono overflow-y-auto" x-text="(actionType === 'log' ? logOutput : statusOutput) || '无输出'"></div>
             <div class="flex justify-end mt-4 pt-2 border-t border-gray-700">
-                <button @click="showStatusModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">关闭</button>
+                <button @click="closeStatusModal()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">关闭</button>
             </div>
         </div>
     </div>
@@ -477,11 +576,15 @@ function projectApp() {
         editingProject: null,
         showAddComponentModal: false,
         showDeployModal: false,
+        showDeployConfirmModal: false,
+        deployConfirmServers: [],
+        showUpdateConfirmModal: false,
+        updateConfirmInfo: null,    // { runningCount, serverIds }
         showMessage: false,
         message: '',
         messageType: 'success',
         newProject: { name: '', description: '' },
-        newComponent: { name: '', type: 'database', version: '', deploy_dir: '', status_cmd: '', log_cmd: '', access_user: '', access_password: '', access_url: '', install_cmd: '', start_cmd: '', stop_cmd: '', config_file: '' },
+        newComponent: { name: '', type: 'database', version: '', deploy_dir: '', status_cmd: '', log_cmd: '', version_cmd: '', access_user: '', access_password: '', access_url: '', install_cmd: '', start_cmd: '', stop_cmd: '', config_file: '' },
         editingComponent: null,
         deployingComponent: null,
         selectedServers: [],
@@ -496,6 +599,7 @@ function projectApp() {
         logTail: '100',
         logOffset: 0,
         logServerName: '',
+        logLoading: false,
         statusOutput: '',
         showConfigModal: false,
         configFileContent: '',
@@ -520,6 +624,10 @@ function projectApp() {
         availableDirectories: [],
         rootDirectories: [],
         selectedFilesToAdd: [],
+        serverGroupFilter: '',
+        serverKeywordFilter: '',
+        fetchingVersion: false,
+        refreshingAllVersions: false,
 
         init() {
             const params = new URLSearchParams(window.location.search);
@@ -644,6 +752,7 @@ function projectApp() {
                 deploy_dir: comp.deploy_dir || '',
                 status_cmd: comp.status_cmd || '',
                 log_cmd: comp.log_cmd || '',
+                version_cmd: comp.version_cmd || '',
                 access_user: comp.access_user || '',
                 access_password: comp.access_password || '',
                 access_url: comp.access_url || '',
@@ -660,7 +769,10 @@ function projectApp() {
         closeComponentModal() {
             this.showAddComponentModal = false;
             this.editingComponent = null;
-            this.newComponent = { name: '', type: 'database', version: '', deploy_dir: '', status_cmd: '', access_user: '', access_password: '', access_url: '', install_cmd: '', start_cmd: '', stop_cmd: '', install_pkg: '', server_ids: [] };
+            this.newComponent = { name: '', type: 'database', version: '', deploy_dir: '', status_cmd: '', log_cmd: '', version_cmd: '', access_user: '', access_password: '', access_url: '', install_cmd: '', start_cmd: '', stop_cmd: '', config_file: '', install_pkg: '', server_ids: [] };
+            this.serverGroupFilter = '';
+            this.serverKeywordFilter = '';
+            this.fetchingVersion = false;
         },
 
         async saveComponent() {
@@ -688,9 +800,12 @@ function projectApp() {
                 const data = await res.json();
                 console.log('Save result:', res.ok, data);
                 if (res.ok) {
+                    // 关键：必须 await loadProjects，否则 selectProject 会在旧 projects 上 find，
+                    // 导致 selectedProject 不更新，UI 显示的还是旧数据（用户需要刷新页面才能看到）
+                    await this.loadProjects();
+                    const updated = this.projects.find(p => p.id === this.selectedProject.id);
+                    if (updated) this.selectProject(updated);
                     this.closeComponentModal();
-                    this.loadProjects();
-                    this.selectProject(this.projects.find(p => p.id === this.selectedProject.id));
                     this.showToast('保存成功', 'success');
                 } else {
                     this.showToast('保存失败: ' + (data.error || '未知错误'), 'error');
@@ -699,6 +814,41 @@ function projectApp() {
                 console.error('Save error:', e);
                 this.showToast('保存失败', 'error');
             }
+        },
+
+        getServerGroups() {
+            const groups = new Set();
+            for (const s of (this.servers || [])) {
+                if (s.group) groups.add(s.group);
+            }
+            return Array.from(groups).sort();
+        },
+
+        getFilteredServers() {
+            const kw = (this.serverKeywordFilter || '').trim().toLowerCase();
+            const group = this.serverGroupFilter || '';
+            return (this.servers || []).filter(s => {
+                if (group && (s.group || '') !== group) return false;
+                if (kw) {
+                    const name = (s.name || '').toLowerCase();
+                    const ip = (s.ip || '').toLowerCase();
+                    if (!name.includes(kw) && !ip.includes(kw)) return false;
+                }
+                return true;
+            });
+        },
+
+        selectAllFilteredServers() {
+            const filtered = this.getFilteredServers();
+            if (!this.newComponent.server_ids) this.newComponent.server_ids = [];
+            const existing = new Set(this.newComponent.server_ids.map(id => Number(id)));
+            for (const s of filtered) {
+                if (!existing.has(s.id)) this.newComponent.server_ids.push(s.id);
+            }
+        },
+
+        clearAllServerSelection() {
+            this.newComponent.server_ids = [];
         },
 
         async deleteComponent(id) {
@@ -716,7 +866,7 @@ function projectApp() {
             } catch (e) { this.showToast('删除失败', 'error'); }
         },
 
-        deployComponent(comp) {
+        async deployComponent(comp) {
             let serverIds = [];
             if (comp.server_ids) {
                 try { serverIds = JSON.parse(comp.server_ids); } catch(e) { serverIds = []; }
@@ -731,7 +881,28 @@ function projectApp() {
 
             this.deployingComponent = comp;
             this.deployConfirmServers = this.servers.filter(s => serverIds.includes(Number(s.id)));
-            this.showDeployConfirmModal = true;
+
+            // 直接调 check-running，弹"运行状态检测"弹窗(带诊断信息)
+            // 跳过中间的"部署确认"弹窗(目标服务器已在编辑时选过)
+            let checkData = null;
+            try {
+                const checkRes = await fetch('/api/projects/components/' + comp.id + '/check-running', {
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() }
+                });
+                if (checkRes.ok) {
+                    checkData = await checkRes.json();
+                }
+            } catch (e) {
+                // check 失败不阻塞
+            }
+
+            this.updateConfirmInfo = {
+                check: checkData,
+                serverIds,
+                anyRunning: checkData ? checkData.any_running : false,
+                runningCount: checkData ? (checkData.running_count || 0) : 0,
+            };
+            this.showUpdateConfirmModal = true;
         },
 
         async doDeploy(serverIds) {
@@ -758,6 +929,33 @@ function projectApp() {
             }
         },
 
+        async doDeployUpdate(serverIds) {
+            this.showToast('正在更新部署（停止→备份→替换→启动）...', 'success');
+            try {
+                const res = await fetch('/api/projects/components/' + this.deployingComponent.id + '/deploy-update', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ server_ids: serverIds })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    this.showToast('更新部署完成', 'success');
+                    this.statusOutput = (data.component && data.component.deploy_log) || '更新完成';
+                    this.actionType = 'status';
+                    this.showStatusModal = true;
+                    this.scrollOutputToBottom();
+                    await this.loadProjects();
+                    if (this.selectedProject) {
+                        this.selectProject(this.projects.find(p => p.id === this.selectedProject.id));
+                    }
+                } else {
+                    this.showToast('更新部署失败: ' + (data.error || '未知错误'), 'error');
+                }
+            } catch (e) {
+                this.showToast('更新部署失败', 'error');
+            }
+        },
+
         async confirmDeploy() {
             if (!this.deployingComponent || this.deployConfirmServers.length === 0) {
                 this.showToast('请选择目标服务器', 'error');
@@ -765,7 +963,58 @@ function projectApp() {
             }
             this.showDeployConfirmModal = false;
             const serverIds = this.deployConfirmServers.map(s => Number(s.id));
-            await this.doDeploy(serverIds);
+
+            // 先 check 服务是否在运行
+            let checkData = null;
+            try {
+                const checkRes = await fetch('/api/projects/components/' + this.deployingComponent.id + '/check-running', {
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() }
+                });
+                if (checkRes.ok) {
+                    checkData = await checkRes.json();
+                }
+            } catch (e) {
+                // check 失败不阻塞
+            }
+
+            // 总是弹诊断弹窗,展示 check-running 的完整结果
+            // 让用户能直接看到 ExitCode/used_fallback/keyword 等诊断信息
+            this.updateConfirmInfo = {
+                check: checkData,
+                serverIds,
+                anyRunning: checkData ? checkData.any_running : false,
+                runningCount: checkData ? (checkData.running_count || 0) : 0,
+            };
+            this.showUpdateConfirmModal = true;
+        },
+
+        proceedWithDeploy() {
+            // 弹窗里选了"走更新流程"或"继续标准部署",根据 anyRunning 走对应流程
+            this.showUpdateConfirmModal = false;
+            const info = this.updateConfirmInfo;
+            this.updateConfirmInfo = null;
+            if (!info) return;
+            if (info.anyRunning) {
+                this.doDeployUpdate(info.serverIds);
+            } else {
+                this.doDeploy(info.serverIds);
+            }
+        },
+
+        confirmUpdateMode() {
+            // 旧方法,保留以防兼容
+            this.showUpdateConfirmModal = false;
+            const info = this.updateConfirmInfo;
+            this.updateConfirmInfo = null;
+            if (info) {
+                this.doDeployUpdate(info.serverIds);
+            }
+        },
+
+        cancelUpdateMode() {
+            this.showUpdateConfirmModal = false;
+            this.updateConfirmInfo = null;
+            this.showToast('已取消部署', 'success');
         },
 
         async uploadPackages() {
@@ -802,12 +1051,18 @@ function projectApp() {
                     const data = await res.json();
                     console.log('Upload response:', res.ok, data);
                     if (res.ok) {
-                        uploaded++;
-                        // 追加到文件列表
-                        if (this.editingComponent.install_pkg) {
-                            this.editingComponent.install_pkg += ',' + data.filename;
+                        if (data.duplicate) {
+                            // 重复上传，文件名不追加
                         } else {
-                            this.editingComponent.install_pkg = data.filename;
+                            uploaded++;
+                            // 追加到文件列表
+                            if (this.editingComponent.install_pkg) {
+                                this.editingComponent.install_pkg += ',' + data.filename;
+                            } else {
+                                this.editingComponent.install_pkg = data.filename;
+                            }
+                            // 同步到 newComponent，保存时不会丢失
+                            this.newComponent.install_pkg = this.editingComponent.install_pkg;
                         }
                     } else {
                         console.error('Upload failed:', data);
@@ -882,11 +1137,133 @@ function projectApp() {
             await this.componentAction(comp, 'status');
         },
 
+        async refreshAllVersions() {
+            if (!this.selectedProject) {
+                this.showToast('请先选择项目', 'error');
+                return;
+            }
+            const all = (this.selectedProject.components || []);
+            const targets = all.filter(c => c.version_cmd && c.version_cmd.trim());
+            if (targets.length === 0) {
+                this.showToast('该项目下没有配置「获取版本命令」的组件', 'error');
+                return;
+            }
+            if (!confirm(`将并发刷新 ${targets.length} 个组件的版本,继续?`)) return;
+
+            this.refreshingAllVersions = true;
+            this.showToast(`开始刷新 ${targets.length} 个组件的版本...`, 'success');
+
+            // 简单信号量：最多 3 个并发
+            const concurrency = 3;
+            const results = [];
+            let cursor = 0;
+
+            const worker = async () => {
+                while (cursor < targets.length) {
+                    const idx = cursor++;
+                    const comp = targets[idx];
+                    try {
+                        const res = await fetch('/api/projects/components/' + comp.id + '/fetch-version', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                            body: JSON.stringify({})
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.version) {
+                            comp.version = data.version;
+                            // 后端返回的 versions_per_server 同步到前端
+                            if (data.component && data.component.versions_per_server) {
+                                comp.versions_per_server = data.component.versions_per_server;
+                            }
+                            // 收集每台 server 的版本,弹窗里展示
+                            const perServer = (data.results || []).filter(r => r.version).map(r => r.server_ip + ' → ' + r.version);
+                            results.push({ name: comp.name, version: data.version, perServer: perServer, success: true });
+                        } else if (res.ok) {
+                            results.push({ name: comp.name, error: data.output ? data.output.split('\n')[0] : '未获取到版本', success: false });
+                        } else {
+                            results.push({ name: comp.name, error: data.error || '获取失败', success: false });
+                        }
+                    } catch (e) {
+                        results.push({ name: comp.name, error: e.message || '网络错误', success: false });
+                    }
+                }
+            };
+
+            try {
+                await Promise.all(Array.from({ length: concurrency }, () => worker()));
+            } finally {
+                this.refreshingAllVersions = false;
+            }
+
+            const successCount = results.filter(r => r.success).length;
+            const failedCount = results.length - successCount;
+            const skippedCount = all.length - targets.length;
+
+            this.showToast(`刷新完成: 成功 ${successCount}, 失败 ${failedCount}, 跳过 ${skippedCount}` + (skippedCount ? ' (未配置获取版本命令)' : ''), failedCount > 0 ? 'error' : 'success');
+
+            // 弹窗汇总详细结果
+            let output = '===== 刷新结果汇总 =====\n\n';
+            for (const r of results) {
+                if (r.success) {
+                    output += '[✓] ' + r.name + ' (主版本: ' + r.version + ')\n';
+                    if (r.perServer && r.perServer.length > 0) {
+                        for (const line of r.perServer) {
+                            output += '      - ' + line + '\n';
+                        }
+                    }
+                } else {
+                    output += '[✗] ' + r.name + ' → ' + r.error + '\n';
+                }
+            }
+            if (skippedCount > 0) {
+                output += '\n跳过 ' + skippedCount + ' 个未配置 VersionCmd 的组件';
+            }
+            this.statusOutput = output;
+            this.actionType = 'status';
+            this.showStatusModal = true;
+            this.scrollOutputToBottom();
+        },
+
+        async quickFetchVersion(comp) {
+            if (!comp.version_cmd) {
+                this.showToast('请先在「编辑」里配置「获取版本命令」', 'error');
+                return;
+            }
+            this.showToast('正在获取版本...', 'success');
+            try {
+                const res = await fetch('/api/projects/components/' + comp.id + '/fetch-version', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    if (data.version) {
+                        // 后端已经把主版本(第一台成功的)写回 DB
+                        comp.version = data.version;
+                        this.showToast('已获取并保存版本: ' + data.version + ' (成功 ' + data.success_count + '/' + data.server_count + ' 台)', 'success');
+                    } else {
+                        this.showToast('未获取到版本,查看详细输出', 'error');
+                    }
+                    // 弹窗显示每台 server 各自的版本和输出
+                    this.statusOutput = data.output || '无输出';
+                    this.actionType = 'status';
+                    this.showStatusModal = true;
+                    this.scrollOutputToBottom();
+                } else {
+                    this.showToast(data.error || '获取版本失败', 'error');
+                }
+            } catch (e) {
+                console.error('quickFetchVersion error:', e);
+                this.showToast('获取版本失败', 'error');
+            }
+        },
+
         async componentAction(comp, action) {
             console.log('componentAction:', comp, action, 'status:', comp.status);
 
-            if (comp.status !== 'deployed') {
-                this.showToast('组件未部署，请先设置为已部署状态', 'error');
+            if (comp.status !== 'deployed' && comp.status !== 'partial') {
+                this.showToast('组件未部署，请先部署组件或手动标记为已部署', 'error');
                 return;
             }
 
@@ -898,22 +1275,28 @@ function projectApp() {
                 deployedIds = comp.deployed_servers.split(',').map(s => parseInt(s.trim())).filter(id => id > 0);
             }
 
-            if (action === 'log') {
-                if (deployedIds.length > 0) {
-                    this.actionServers = this.servers.filter(s => deployedIds.includes(s.id));
+            if (deployedIds.length > 0) {
+                this.actionServers = this.servers.filter(s => deployedIds.includes(s.id));
+            } else {
+                // 没有部署过任何服务器：退回到组件已配置的 server_ids；如果没有则展示所有服务器
+                let configured = [];
+                if (comp.server_ids) {
+                    try { configured = JSON.parse(comp.server_ids); } catch (e) { configured = []; }
+                }
+                configured = configured.map(id => Number(id)).filter(id => id > 0);
+                if (configured.length > 0) {
+                    this.actionServers = this.servers.filter(s => configured.includes(s.id));
                 } else {
                     this.actionServers = this.servers;
                 }
-                this.selectedActionServers = [];
-                this.showActionServerModal = true;
-            } else if (deployedIds.length > 0) {
-                this.actionServers = this.servers.filter(s => deployedIds.includes(s.id));
-                this.selectedActionServers = deployedIds;
-                this.showActionServerModal = true;
-            } else {
-                this.actionServers = this.servers.slice(0, 1) || [];
-                this.showActionServerModal = true;
             }
+
+            if (action === 'log') {
+                this.selectedActionServers = this.actionServers.length > 0 ? [this.actionServers[0].id] : [];
+            } else {
+                this.selectedActionServers = this.actionServers.map(s => s.id);
+            }
+            this.showActionServerModal = true;
         },
 
         async confirmAction() {
@@ -945,6 +1328,7 @@ function projectApp() {
                     let serverCount = data.server_count || 1;
                     this.statusOutput = actionName + ' - 已选择 ' + serverCount + ' 台服务器\n\n' + (data.output || '无输出');
                     this.showStatusModal = true;
+                    this.scrollOutputToBottom();
                     await this.loadProjects();
                 } else {
                     this.showToast(data.error || '操作失败', 'error');
@@ -957,10 +1341,7 @@ function projectApp() {
 
         async loadComponentLog(tail, append) {
             this.logTail = tail;
-            if (!append) {
-                this.logOffset = 0;
-            }
-
+            this.logLoading = true;
             try {
                 const res = await fetch('/api/projects/components/' + this.actionComponent.id + '/action', {
                     method: 'POST',
@@ -969,20 +1350,54 @@ function projectApp() {
                 });
                 const data = await res.json();
                 if (res.ok) {
+                    const newChunk = data.output || '（无输出）';
                     if (append) {
-                        this.logOutput += '\n' + (data.output || '');
+                        // 「更多」:append 更老日志
+                        if (this.logOutput && newChunk) {
+                            this.logOutput += '\n\n--- 以下是更早的日志 ---\n' + newChunk;
+                        } else {
+                            this.logOutput = newChunk;
+                        }
                         this.logOffset += parseInt(tail) || 100;
                     } else {
-                        this.logOutput = data.output || '无输出';
+                        // 「最新」:不替换现有内容,直接 append 到末尾(避免闪屏)
+                        if (this.logOutput && newChunk) {
+                            this.logOutput += '\n\n--- 最新 ' + tail + ' 行 ---\n' + newChunk;
+                        } else {
+                            this.logOutput = newChunk;
+                        }
+                        this.logOffset += parseInt(tail) || 100;
                     }
                     this.actionType = 'log';
                     this.showStatusModal = true;
+                    // 滚到底部(append 模式天然就是新增在末尾,总滚到底部最自然)
+                    this.scrollOutputToBottom();
+                    if (data.truncated) {
+                        this.showToast('本批日志超过 1MB 已截断，建议点「更多」继续加载', 'error');
+                    }
                 } else {
                     this.showToast(data.error || '获取日志失败', 'error');
                 }
             } catch (e) {
                 this.showToast('获取日志失败', 'error');
+            } finally {
+                this.logLoading = false;
             }
+        },
+
+        scrollOutputToBottom() {
+            this.$nextTick(() => {
+                const el = document.getElementById('statusOutputArea');
+                if (el) el.scrollTop = el.scrollHeight;
+            });
+        },
+
+        closeStatusModal() {
+            // 关闭弹窗时清空日志相关状态,避免下次打开脏数据
+            this.showStatusModal = false;
+            this.logOutput = '';
+            this.logOffset = 0;
+            this.logLoading = false;
         },
 
         showToast(msg, type = 'success') {
@@ -1028,6 +1443,7 @@ function projectApp() {
                         const pwd = this.pendingShowPassword.access_password || '';
                         this.statusOutput = '访问密码: ' + pwd;
                         this.showStatusModal = true;
+                        this.scrollOutputToBottom();
                     }
                 } else {
                     this.showToast('密码错误', 'error');
@@ -1183,13 +1599,31 @@ function projectApp() {
 
         async updateComponentStatus(comp, newStatus) {
             try {
+                // 解析组件已配置的 server_ids 一起发给后端，让后端能正确同步 DeployedServers
+                // DB 里存的可能是字符串数组 ["1","2"]，统一转成数字 [1,2]
+                let serverIds = [];
+                if (comp.server_ids) {
+                    try { serverIds = JSON.parse(comp.server_ids); } catch (e) { serverIds = []; }
+                }
+                serverIds = serverIds.map(id => Number(id)).filter(id => id > 0);
+
                 const res = await fetch('/api/projects/components/' + comp.id, {
                     method: 'PUT',
                     headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: newStatus })
+                    body: JSON.stringify({ status: newStatus, server_ids: serverIds })
                 });
+                const data = await res.json();
                 if (res.ok) {
                     comp.status = newStatus;
+                    // 优先用后端返回值；前端兜底：自己根据 server_ids 算出 deployed_servers，
+                    // 这样即使后端没同步成功，UI 也能立即显示
+                    let deployed = '';
+                    if (data.component && data.component.deployed_servers) {
+                        deployed = data.component.deployed_servers;
+                    } else if (newStatus === 'deployed' || newStatus === 'partial') {
+                        deployed = (serverIds || []).map(id => Number(id)).join(',');
+                    }
+                    comp.deployed_servers = deployed;
                     this.showToast('状态已更新', 'success');
                 } else {
                     this.showToast('更新失败', 'error');
@@ -1201,8 +1635,22 @@ function projectApp() {
 
         async viewDeployLog(comp) {
             this.deployingComponent = comp;
-            this.deployLogContent = comp.deploy_log || '暂无日志';
+            this.deployLogContent = '加载中...';
             this.showDeployLogModal = true;
+            try {
+                const res = await fetch('/api/projects/components/' + comp.id + '/log', {
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    this.deployLogContent = data.deploy_log || '暂无日志';
+                    comp.deploy_log = this.deployLogContent;
+                } else {
+                    this.deployLogContent = '加载失败: ' + (res.statusText || res.status);
+                }
+            } catch (e) {
+                this.deployLogContent = '加载失败: ' + e.message;
+            }
         },
 
         async loadRootDirectories() {
@@ -1224,8 +1672,16 @@ function projectApp() {
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    this.availableFiles = (data.files || []).filter(f => !f.is_dir);
-                    this.availableDirectories = (data.files || []).filter(f => f.is_dir);
+                    // 不过滤：保留目录和文件，让 HTML 根据 is_dir 区分显示
+                    // 目录排在前面，文件排在后面
+                    const all = (data.files || []).slice();
+                    all.sort((a, b) => {
+                        if (a.is_dir && !b.is_dir) return -1;
+                        if (!a.is_dir && b.is_dir) return 1;
+                        return (a.name || '').localeCompare(b.name || '');
+                    });
+                    this.availableFiles = all;
+                    this.availableDirectories = all.filter(f => f.is_dir);
                 } else {
                     this.showToast('加载文件列表失败', 'error');
                 }
@@ -1287,6 +1743,62 @@ function projectApp() {
             let i = 0, size = bytes;
             while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
             return size.toFixed(1) + ' ' + units[i];
+        },
+
+        async fetchComponentVersion() {
+            if (!this.editingComponent) {
+                this.showToast('请先保存组件后再获取版本', 'error');
+                return;
+            }
+            if (!this.newComponent.version_cmd) {
+                this.showToast('请先填写获取版本命令', 'error');
+                return;
+            }
+
+            this.fetchingVersion = true;
+            try {
+                // 如果 version_cmd 有改动，先 PUT 保存，否则后端拿不到最新命令
+                if ((this.editingComponent.version_cmd || '') !== this.newComponent.version_cmd) {
+                    const saveRes = await fetch('/api/projects/components/' + this.editingComponent.id, {
+                        method: 'PUT',
+                        headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ version_cmd: this.newComponent.version_cmd })
+                    });
+                    if (!saveRes.ok) {
+                        const sd = await saveRes.json().catch(() => ({}));
+                        this.showToast('保存版本命令失败: ' + (sd.error || '未知错误'), 'error');
+                        return;
+                    }
+                    this.editingComponent.version_cmd = this.newComponent.version_cmd;
+                }
+
+                const res = await fetch('/api/projects/components/' + this.editingComponent.id + '/fetch-version', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    if (data.version) {
+                        this.newComponent.version = data.version;
+                        this.editingComponent.version = data.version;
+                        this.showToast('已获取版本: ' + data.version + ' (成功 ' + data.success_count + '/' + data.server_count + ' 台)', 'success');
+                    } else {
+                        this.showToast('未获取到版本,查看完整输出', 'error');
+                        this.statusOutput = data.output || '无输出';
+                        this.actionType = 'status';
+                        this.showStatusModal = true;
+                        this.scrollOutputToBottom();
+                    }
+                } else {
+                    this.showToast(data.error || '获取版本失败', 'error');
+                }
+            } catch (e) {
+                console.error('fetch version error:', e);
+                this.showToast('获取版本失败', 'error');
+            } finally {
+                this.fetchingVersion = false;
+            }
         }
     }
 }
