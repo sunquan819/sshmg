@@ -882,8 +882,15 @@ func executeKafkaQuery(db *model.Database, query string) ([]map[string]interface
 var ctx = context.Background()
 
 type QueryRequest struct {
-	Query string `json:"query" binding:"required"`
+	Query  string `json:"query" binding:"required"`
+	Limit  int    `json:"limit"`  // 限制返回行数,0 = 默认 1000
+	Offset int    `json:"offset"` // 跳过行数,默认 0
 }
+
+const (
+	defaultQueryLimit = 1000
+	maxQueryLimit     = 10000
+)
 
 func (h *DatabaseHandler) ExecuteQuery(c *gin.Context) {
 	id := c.Param("id")
@@ -919,13 +926,41 @@ func (h *DatabaseHandler) ExecuteQuery(c *gin.Context) {
 		return
 	}
 
-	queryLog.Rows = len(result)
+	// 性能优化:服务端分页(limit/offset),防止几万行查询让前端卡死
+	totalRows := len(result)
+	limit := req.Limit
+	if limit <= 0 {
+		limit = defaultQueryLimit
+	}
+	if limit > maxQueryLimit {
+		limit = maxQueryLimit
+	}
+	offset := req.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	paged := result
+	if offset >= totalRows {
+		paged = []map[string]interface{}{}
+	} else {
+		end := offset + limit
+		if end > totalRows {
+			end = totalRows
+		}
+		paged = result[offset:end]
+	}
+
+	queryLog.Rows = totalRows
 	database.DB.Create(&queryLog)
 
 	c.JSON(http.StatusOK, gin.H{
-		"result":   result,
-		"duration": duration,
-		"rows":     len(result),
+		"result":     paged,
+		"duration":   duration,
+		"rows":       len(paged),
+		"total_rows": totalRows,
+		"limit":      limit,
+		"offset":     offset,
+		"has_more":   offset+len(paged) < totalRows,
 	})
 }
 

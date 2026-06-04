@@ -516,6 +516,30 @@ func (h *ProjectHandler) DeployUpdate(c *gin.Context) {
 		return
 	}
 
+	// 性能优化:异步执行部署,立即 202 返回,避免 HTTP 请求阻塞 1+ 分钟
+	// 前端轮询 GET /api/projects/components/:id/deploy-status 查看进度
+	// 先把 status 设为 "running" 让前端立刻能看到状态变化
+	database.DB.Model(&model.ProjectComponent{}).Where("id = ?", component.ID).Update("status", "running")
+
+	service.SafeGo("DeployUpdate.do", func() {
+		h.doDeployUpdate(&component, serverIDs)
+	})
+
+	c.JSON(http.StatusAccepted, gin.H{
+		"message": "Deployment started in background",
+		"status":  "running",
+	})
+}
+
+// doDeployUpdate 是 DeployUpdate 的实际逻辑(原同步函数体重构)
+// 异步跑:在 goroutine 内执行 SSH 流程,结果写回 DB
+func (h *ProjectHandler) doDeployUpdate(component *model.ProjectComponent, serverIDs []uint) {
+	var servers []model.Server
+	if err := database.DB.Find(&servers, serverIDs).Error; err != nil {
+		log.Printf("[DeployUpdate] servers not found id=%d: %v", component.ID, err)
+		return
+	}
+
 	var project model.Project
 	_ = database.DB.First(&project, component.ProjectID).Error
 
@@ -627,7 +651,7 @@ func (h *ProjectHandler) DeployUpdate(c *gin.Context) {
 						f = strings.TrimPrefix(f, "/")
 						localPath = filepath.Join("./artifacts", f)
 					} else {
-						localPath = componentPackagePath(&project, &component, f)
+						localPath = componentPackagePath(&project, component, f)
 					}
 					remotePath := component.DeployDir + "/" + remoteFilename
 					if _, err := os.Stat(localPath); err == nil {
@@ -726,7 +750,7 @@ func (h *ProjectHandler) DeployUpdate(c *gin.Context) {
 		"deployed_servers": component.DeployedServers,
 		"deploy_log":       component.DeployLog,
 	}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		log.Printf("[DeployUpdate] id=%d write deploy_log failed: %v", component.ID, err)
 		return
 	}
 
@@ -734,10 +758,30 @@ func (h *ProjectHandler) DeployUpdate(c *gin.Context) {
 	var storedLen int
 	database.DB.Raw(`SELECT length(deploy_log) FROM project_components WHERE id = ?`, component.ID).Scan(&storedLen)
 	log.Printf("[DeployUpdate] id=%d AFTER UPDATE deploy_log_len_in_db=%d", component.ID, storedLen)
+}
+
+// GetDeployStatus 返回组件当前部署状态 + 最近 deploy_log 一段
+// 前端轮询这个端点判断部署是否结束(running -> deployed/failed)
+func (h *ProjectHandler) GetDeployStatus(c *gin.Context) {
+	id := c.Param("id")
+	var component model.ProjectComponent
+	if err := database.DB.First(&component, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Component not found"})
+		return
+	}
+
+	// 返回最新 deploy_log 末尾 16KB(供前端"看进度"用,不用拉全量)
+	logTail := component.DeployLog
+	const tailSize = 16 * 1024
+	if len(logTail) > tailSize {
+		logTail = logTail[len(logTail)-tailSize:]
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":   "Update deployment completed",
-		"component": component,
-		"results":   results,
+		"status":           component.Status,
+		"deployed_servers": component.DeployedServers,
+		"log_tail":         logTail,
+		"log_full_len":     len(component.DeployLog),
+		"is_running":       component.Status == "running",
 	})
 }

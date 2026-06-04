@@ -89,7 +89,7 @@
                                         <td class="py-3 text-xs">
                                             <template x-if="comp.versions_per_server">
                                                 <div class="space-y-0.5">
-                                                    <template x-for="(ver, sid) in JSON.parse(comp.versions_per_server || '{}')" :key="sid">
+                                                    <template x-for="(ver, sid) in (comp.versions_parsed || {})" :key="sid">
                                                         <div class="flex items-center space-x-1">
                                                             <span class="text-cyan-300" x-text="getServerIP(String(sid)) || sid"></span>
                                                             <span class="text-gray-500">·</span>
@@ -112,7 +112,7 @@
                                         </td>
                                         <td class="py-3">
                                             <span x-show="comp.deployed_servers">
-                                                <template x-for="(serverId, index) in comp.deployed_servers.split(',')" :key="index">
+                                                <template x-for="(serverId, index) in (comp.deployed_servers_array || [])" :key="index">
                                                     <a :href="'/terminal?server=' + serverId.trim() + '&token=' + getToken()"
                                                        target="_blank"
                                                        class="text-blue-400 hover:text-blue-300 underline mr-2"
@@ -652,8 +652,25 @@ function projectApp() {
                 const data = await res.json();
                 if (res.ok) {
                     this.projects = data.projects || [];
+                    // 预算 versions_parsed + deployed_servers_array 字段
+                    // 避免 Alpine x-for 每次 re-render 都 JSON.parse / split(性能陷阱)
+                    this._prepareComponents();
                 }
             } catch (e) { console.error(e); }
+        },
+
+        _prepareComponents() {
+            for (const proj of this.projects) {
+                if (!proj.components) continue;
+                for (const c of proj.components) {
+                    try {
+                        c.versions_parsed = c.versions_per_server ? JSON.parse(c.versions_per_server) : {};
+                    } catch (e) { c.versions_parsed = {}; }
+                    c.deployed_servers_array = c.deployed_servers
+                        ? c.deployed_servers.split(',').map(s => s.trim()).filter(s => s)
+                        : [];
+                }
+            }
         },
 
         async loadServers() {
@@ -943,27 +960,44 @@ function projectApp() {
         },
 
         async doDeployUpdate(serverIds) {
-            this.showToast('正在更新部署（停止→备份→替换→启动）...', 'success');
+            this.showToast('正在更新部署（停止→备份→替换→启动）...', 'info');
+            this.showDeployModal = false;
             try {
                 const res = await fetch('/api/projects/components/' + this.deployingComponent.id + '/deploy-update', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
                     body: JSON.stringify({ server_ids: serverIds })
                 });
-                const data = await res.json();
-                if (res.ok) {
-                    this.showToast('更新部署完成', 'success');
-                    this.statusOutput = (data.component && data.component.deploy_log) || '更新完成';
-                    this.actionType = 'status';
-                    this.showStatusModal = true;
-                    this.scrollOutputToBottom();
-                    await this.loadProjects();
-                    if (this.selectedProject) {
-                        this.selectProject(this.projects.find(p => p.id === this.selectedProject.id));
-                    }
-                } else {
+                if (res.status !== 202 && res.status !== 200) {
+                    const data = await res.json().catch(() => ({}));
                     this.showToast('更新部署失败: ' + (data.error || '未知错误'), 'error');
+                    return;
                 }
+                // 202 Accepted:部署在后台跑,前端轮询 status
+                this.showStatusModal = true;
+                this.actionType = 'status';
+                this.statusOutput = '部署已启动,正在后台执行...\n';
+                this.scrollOutputToBottom();
+
+                const componentId = this.deployingComponent.id;
+                const pollTimer = setInterval(async () => {
+                    try {
+                        const r = await fetch('/api/projects/components/' + componentId + '/deploy-status', {
+                            headers: { 'Authorization': 'Bearer ' + this.getToken() }
+                        });
+                        if (!r.ok) return;
+                        const st = await r.json();
+                        this.statusOutput = st.log_tail || '(暂无输出)';
+                        this.scrollOutputToBottom();
+                        if (!st.is_running) {
+                            clearInterval(pollTimer);
+                            this.showToast(st.status === 'deployed' ? '更新部署完成' : '更新部署失败', st.status === 'deployed' ? 'success' : 'error');
+                            await this.reloadAndReselectProject();
+                        }
+                    } catch (e) {
+                        // 轮询失败不中断
+                    }
+                }, 2000);
             } catch (e) {
                 this.showToast('更新部署失败', 'error');
             }
