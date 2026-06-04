@@ -154,6 +154,11 @@ func (h *ProjectHandler) ComponentAction(c *gin.Context) {
 		wg.Add(1)
 		go func(s model.Server) {
 			defer wg.Done()
+			defer func() {
+				if err := recover(); err != nil {
+					log.Printf("[PANIC ComponentAction server=%s] %v", s.Name, err)
+				}
+			}()
 
 			sshClient := sshPkg.NewClient(s.IP, s.Port, s.Username, s.Password, s.SSHKey)
 			sshClient.JumpEnabled = s.JumpEnabled
@@ -339,6 +344,11 @@ func (h *ProjectHandler) CheckRunning(c *gin.Context) {
 		wg.Add(1)
 		go func(srv model.Server) {
 			defer wg.Done()
+			defer func() {
+				if err := recover(); err != nil {
+					log.Printf("[PANIC CheckRunning server=%s] %v", srv.Name, err)
+				}
+			}()
 
 			running := false
 			out := ""
@@ -537,6 +547,13 @@ func (h *ProjectHandler) DeployUpdate(c *gin.Context) {
 			defer wg.Done()
 			serverOK := true
 			var serverErr string
+			defer func() {
+				if err := recover(); err != nil {
+					log.Printf("[PANIC DeployUpdate server=%s] %v", srv.Name, err)
+					serverOK = false
+					serverErr = "panic recovered"
+				}
+			}()
 
 			logContent += "\n[" + time.Now().Format("2006-01-02 15:04:05") + "] ====== 服务器 " + srv.Name + " (" + srv.IP + ") ======\n"
 

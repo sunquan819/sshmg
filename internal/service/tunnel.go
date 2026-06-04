@@ -93,7 +93,7 @@ func StartDynamicTunnel(server *model.Server, localPort int, bindAddress string)
 
 	// 启动 SOCKS5 代理处理
 	serverID := server.ID
-	go func() {
+	SafeGo("tunnel.SOCKS5", func() {
 		defer listener.Close()
 		for {
 			conn, err := listener.Accept()
@@ -102,7 +102,7 @@ func StartDynamicTunnel(server *model.Server, localPort int, bindAddress string)
 			}
 			go handleSocks5Connection(conn, serverID)
 		}
-	}()
+	})
 
 	tunnel := &Tunnel{
 		ServerID:   server.ID,

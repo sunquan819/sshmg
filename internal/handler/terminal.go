@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"deploy-manager/internal/database"
@@ -32,19 +35,47 @@ var upgrader = websocket.Upgrader{
 }
 
 type TerminalSession struct {
-	WS      *websocket.Conn
-	Stdin   io.WriteCloser
-	Stdout  io.Reader
-	Stderr  io.Reader
-	Server  *model.Server
-	Session *ssh.Session
-	mu      sync.Mutex
+	WS       *websocket.Conn
+	Stdin    io.WriteCloser
+	Stdout   io.Reader
+	Stderr   io.Reader
+	Server   *model.Server
+	Session  *ssh.Session
+	SSHClose func() // 关闭底层 SSH 客户端和 session 的回调(由 Connect 时设置)
+	mu       sync.Mutex
+	closeOnce sync.Once
+}
+
+// close 安全关闭 SSH 资源,多次调用只生效一次
+func (s *TerminalSession) Close() {
+	s.closeOnce.Do(func() {
+		if s.Session != nil {
+			s.Session.Close()
+		}
+		if s.SSHClose != nil {
+			s.SSHClose()
+		}
+		if s.WS != nil {
+			s.WS.Close()
+		}
+	})
 }
 
 var (
 	terminalSessions = make(map[string]*TerminalSession)
 	sessionMu        sync.RWMutex
+	// sessionCounter 给每个 terminal session 分配唯一 ID,避免用 serverID 当 key
+	// 导致多人/多 tab 互相覆盖泄漏
+	sessionCounter atomic.Uint64
 )
+
+// newTerminalSessionID 生成格式 "<serverID>-<counter>-<4字节hex>" 的唯一 ID
+func newTerminalSessionID(serverID uint64) string {
+	n := sessionCounter.Add(1)
+	var b [4]byte
+	rand.Read(b[:])
+	return strconv.FormatUint(serverID, 10) + "-" + strconv.FormatUint(n, 10) + "-" + hex.EncodeToString(b[:])
+}
 
 type TerminalHandler struct{}
 
@@ -164,14 +195,20 @@ func (h *TerminalHandler) Connect(c *gin.Context) {
 	// 尝试切换到 bash
 	session.Run("bash --login 2>/dev/null || bash 2>/dev/null || true")
 
-	sessionID := strconv.FormatUint(id, 10)
+	sessionID := newTerminalSessionID(id)
+	// 拷贝 server 给 closure 持有,避免 &server 在 Connect 返回后被覆盖
+	serverCopy := server
 	terminalSession := &TerminalSession{
 		WS:      conn,
 		Stdin:   stdin,
 		Stdout:  stdout,
 		Stderr:  stderr,
-		Server:  &server,
+		Server:  &serverCopy,
 		Session: session,
+		SSHClose: func() {
+			// 关闭底层 SSH 客户端连接(每个 WebSSH 是独立 client,不走 SSHSvc 缓存)
+			sshClient.Close()
+		},
 	}
 
 	sessionMu.Lock()
@@ -190,7 +227,7 @@ func (h *TerminalHandler) Connect(c *gin.Context) {
 
 func (h *TerminalHandler) handleSSHOutput(session *TerminalSession, sessionID string) {
 	defer func() {
-		session.WS.Close()
+		session.Close()
 		sessionMu.Lock()
 		delete(terminalSessions, sessionID)
 		sessionMu.Unlock()
@@ -204,7 +241,6 @@ func (h *TerminalHandler) handleSSHOutput(session *TerminalSession, sessionID st
 			return
 		}
 		if n > 0 {
-			log.Printf("SSH output: %s", string(buf[:n]))
 			session.mu.Lock()
 			session.WS.WriteMessage(websocket.BinaryMessage, buf[:n])
 			session.mu.Unlock()
@@ -213,6 +249,13 @@ func (h *TerminalHandler) handleSSHOutput(session *TerminalSession, sessionID st
 }
 
 func (h *TerminalHandler) handleSSHErr(session *TerminalSession, sessionID string) {
+	defer func() {
+		session.Close()
+		sessionMu.Lock()
+		delete(terminalSessions, sessionID)
+		sessionMu.Unlock()
+	}()
+
 	buf := make([]byte, 1024)
 	for {
 		n, err := session.Stderr.Read(buf)
@@ -229,8 +272,7 @@ func (h *TerminalHandler) handleSSHErr(session *TerminalSession, sessionID strin
 
 func (h *TerminalHandler) handleWSRead(session *TerminalSession, sessionID string) {
 	defer func() {
-		session.Stdin.Close()
-		session.WS.Close()
+		session.Close()
 		sessionMu.Lock()
 		delete(terminalSessions, sessionID)
 		sessionMu.Unlock()
@@ -280,15 +322,8 @@ func (h *TerminalHandler) Disconnect(c *gin.Context) {
 		return
 	}
 
-	if session.Session != nil {
-		session.Session.Close()
-	}
-	if session.Stdin != nil {
-		session.Stdin.Close()
-	}
-	if session.WS != nil {
-		session.WS.Close()
-	}
+	// Close 是幂等的,会自动关闭 SSH session + 底层客户端 + WS
+	session.Close()
 
 	sessionMu.Lock()
 	delete(terminalSessions, sessionID)
@@ -440,19 +475,44 @@ func (h *TerminalHandler) DisconnectRDP(c *gin.Context) {
 }
 
 type ContainerTerminalSession struct {
-	WS      *websocket.Conn
-	Stdin   io.WriteCloser
-	Stdout  io.Reader
-	Stderr  io.Reader
-	Server  *model.Server
-	Session *ssh.Session
-	mu      sync.Mutex
+	WS        *websocket.Conn
+	Stdin     io.WriteCloser
+	Stdout    io.Reader
+	Stderr    io.Reader
+	Server    *model.Server
+	Session   *ssh.Session
+	SSHClose  func()
+	mu        sync.Mutex
+	closeOnce sync.Once
+}
+
+// close 安全关闭,多次调用只生效一次
+func (s *ContainerTerminalSession) Close() {
+	s.closeOnce.Do(func() {
+		if s.Session != nil {
+			s.Session.Close()
+		}
+		if s.SSHClose != nil {
+			s.SSHClose()
+		}
+		if s.WS != nil {
+			s.WS.Close()
+		}
+	})
 }
 
 var (
 	containerTerminalSessions = make(map[string]*ContainerTerminalSession)
 	containerSessionMu        sync.RWMutex
 )
+
+// newContainerSessionID 同 newTerminalSessionID,避免多人开同 container 互相覆盖
+func newContainerSessionID(serverID uint64, containerID string) string {
+	n := sessionCounter.Add(1)
+	var b [4]byte
+	rand.Read(b[:])
+	return "ct-" + strconv.FormatUint(serverID, 10) + "-" + strconv.FormatUint(n, 10) + "-" + hex.EncodeToString(b[:]) + "-" + containerID
+}
 
 func (h *TerminalHandler) ConnectContainerTerminal(c *gin.Context) {
 	serverID, err := strconv.ParseUint(c.Param("id"), 10, 32)
@@ -550,14 +610,18 @@ func (h *TerminalHandler) ConnectContainerTerminal(c *gin.Context) {
 		return
 	}
 
-	sessionID := strconv.FormatUint(serverID, 10) + "-" + containerID
+	sessionID := newContainerSessionID(serverID, containerID)
+	serverCopy := server
 	terminalSession := &ContainerTerminalSession{
 		WS:      conn,
 		Stdin:   stdin,
 		Stdout:  stdout,
 		Stderr:  stderr,
-		Server:  &server,
+		Server:  &serverCopy,
 		Session: session,
+		SSHClose: func() {
+			sshClient.Close()
+		},
 	}
 
 	containerSessionMu.Lock()
@@ -573,7 +637,7 @@ func (h *TerminalHandler) ConnectContainerTerminal(c *gin.Context) {
 
 func (h *TerminalHandler) handleContainerSSHOutput(session *ContainerTerminalSession, sessionID string) {
 	defer func() {
-		session.WS.Close()
+		session.Close()
 		containerSessionMu.Lock()
 		delete(containerTerminalSessions, sessionID)
 		containerSessionMu.Unlock()
@@ -594,6 +658,13 @@ func (h *TerminalHandler) handleContainerSSHOutput(session *ContainerTerminalSes
 }
 
 func (h *TerminalHandler) handleContainerSSHErr(session *ContainerTerminalSession, sessionID string) {
+	defer func() {
+		session.Close()
+		containerSessionMu.Lock()
+		delete(containerTerminalSessions, sessionID)
+		containerSessionMu.Unlock()
+	}()
+
 	buf := make([]byte, 1024)
 	for {
 		n, err := session.Stderr.Read(buf)
@@ -610,8 +681,7 @@ func (h *TerminalHandler) handleContainerSSHErr(session *ContainerTerminalSessio
 
 func (h *TerminalHandler) handleContainerWSRead(session *ContainerTerminalSession, sessionID string) {
 	defer func() {
-		session.Stdin.Close()
-		session.WS.Close()
+		session.Close()
 		containerSessionMu.Lock()
 		delete(containerTerminalSessions, sessionID)
 		containerSessionMu.Unlock()

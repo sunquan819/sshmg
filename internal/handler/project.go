@@ -23,27 +23,94 @@ import (
 type ProjectHandler struct{}
 
 func (h *ProjectHandler) ListProjects(c *gin.Context) {
+	// 性能优化:不预加载 Components(避免 100MB+ 响应,deploy_log 字段最重)
+	// 前端通过 GET /api/projects/:id 获取单项目 + 完整 components
 	var projects []model.Project
-	if err := database.DB.Preload("Components").Order("created_at DESC").Find(&projects).Error; err != nil {
+	if err := database.DB.Order("created_at DESC").Find(&projects).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	// 懒修复历史脏数据：DeployedServers 跟 ServerIDs 不一致时，直接同步为 ServerIDs
-	// 用户的期望:DeployedServers 完全跟用户配置的 ServerIDs 保持一致
-	for i := range projects {
-		for j := range projects[i].Components {
-			c := &projects[i].Components[j]
-			if c.ServerIDs == "" {
-				continue
-			}
-			expected := serverIDsToCSV(c.ServerIDs)
-			if c.DeployedServers != expected {
-				c.DeployedServers = expected
-				database.DB.Model(&model.ProjectComponent{}).Where("id = ?", c.ID).Update("deployed_servers", expected)
-				log.Printf("[ListProjects] lazy-fix component id=%d deployed_servers=%s", c.ID, expected)
-			}
+
+	// 收集所有 project id,批量查 components(排除 deploy_log,1MB 上限已经能控住但
+	// 列表不显示就不该传,留到 GetDeployLog 单独拉)
+	projIDs := make([]uint, 0, len(projects))
+	for _, p := range projects {
+		projIDs = append(projIDs, p.ID)
+	}
+
+	type componentListItem struct {
+		ID                 uint
+		ProjectID          uint
+		Name               string
+		Type               string
+		Version            string
+		DeployDir          string
+		StatusCmd          string
+		LogCmd             string
+		VersionCmd         string
+		AccessUser         string
+		AccessPassword     string
+		AccessURL          string
+		InstallPkg         string
+		InstallCmd         string
+		StartCmd           string
+		StopCmd            string
+		ConfigFile         string
+		Status             string
+		ServerIDs          string
+		DeployedServers    string
+		VersionsPerServer  string
+		CreatedAt          time.Time
+		UpdatedAt          time.Time
+	}
+	var comps []componentListItem
+	if len(projIDs) > 0 {
+		// 显式 Select 排除 deploy_log 字段
+		if err := database.DB.Table("project_components").
+			Select(`id, project_id, name, type, version, deploy_dir, status_cmd, log_cmd, version_cmd,
+			        access_user, access_password, access_url, install_pkg, install_cmd, start_cmd, stop_cmd,
+			        config_file, status, server_ids, deployed_servers, versions_per_server, created_at, updated_at`).
+			Where("project_id IN ?", projIDs).
+			Find(&comps).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 	}
+
+	// 把 components 按 project_id 分到 projects[i].Components
+	byProj := make(map[uint][]model.ProjectComponent, len(projects))
+	for _, c := range comps {
+		// 显式转回 model.ProjectComponent(不含 deploy_log,但前端列表用不到)
+		byProj[c.ProjectID] = append(byProj[c.ProjectID], model.ProjectComponent{
+			ID:                c.ID,
+			ProjectID:         c.ProjectID,
+			Name:              c.Name,
+			Type:              c.Type,
+			Version:           c.Version,
+			DeployDir:         c.DeployDir,
+			StatusCmd:         c.StatusCmd,
+			LogCmd:            c.LogCmd,
+			VersionCmd:        c.VersionCmd,
+			AccessUser:        c.AccessUser,
+			AccessPassword:    c.AccessPassword,
+			AccessURL:         c.AccessURL,
+			InstallPkg:        c.InstallPkg,
+			InstallCmd:        c.InstallCmd,
+			StartCmd:          c.StartCmd,
+			StopCmd:           c.StopCmd,
+			ConfigFile:        c.ConfigFile,
+			Status:            c.Status,
+			ServerIDs:         c.ServerIDs,
+			DeployedServers:   c.DeployedServers,
+			VersionsPerServer: c.VersionsPerServer,
+			CreatedAt:         c.CreatedAt,
+			UpdatedAt:         c.UpdatedAt,
+		})
+	}
+	for i := range projects {
+		projects[i].Components = byProj[projects[i].ID]
+	}
+
 	c.JSON(http.StatusOK, gin.H{"projects": projects})
 }
 
@@ -684,6 +751,11 @@ func (h *ProjectHandler) FetchVersion(c *gin.Context) {
 		wg.Add(1)
 		go func(srv model.Server) {
 			defer wg.Done()
+			defer func() {
+				if err := recover(); err != nil {
+					log.Printf("[PANIC FetchVersion server=%s] %v", srv.Name, err)
+				}
+			}()
 
 			execCmd := component.VersionCmd
 			if component.DeployDir != "" {

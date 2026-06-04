@@ -120,13 +120,13 @@ func (h *DeployHandler) CreateDeployment(c *gin.Context) {
 		return
 	}
 
-	go func() {
+	service.SafeGo("CreateDeployment.execute", func() {
 		var dep model.Deployment
 		database.DB.First(&dep, deployment.ID)
 		var srv model.Server
 		database.DB.First(&srv, server.ID)
 		h.executeDeployment(&dep, &srv)
-	}()
+	})
 
 	c.JSON(http.StatusCreated, deployment)
 }

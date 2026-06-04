@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"deploy-manager/internal/database"
+	"deploy-manager/internal/service"
 	"deploy-manager/internal/model"
 	sshPkg "deploy-manager/pkg/ssh"
 
@@ -321,9 +322,9 @@ func (h *InfrastructureHandler) ExecuteScenario(c *gin.Context) {
 	}
 	database.DB.Create(&execution)
 
-	go func() {
+	service.SafeGo("ExecuteScenario.runAnsible", func() {
 		h.runAnsible(scenario, serverIDs, execution.ID)
-	}()
+	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"execution_id": execution.ID,
@@ -371,6 +372,11 @@ func (h *InfrastructureHandler) runAnsible(scenario model.InfrastructureScenario
 		wg.Add(1)
 		go func(s model.Server) {
 			defer wg.Done()
+			defer func() {
+				if err := recover(); err != nil {
+					log.Printf("[PANIC infrastructure.runAnsible server=%s] %v", s.Name, err)
+				}
+			}()
 			var result strings.Builder
 			result.WriteString(fmt.Sprintf("\n===========================================\n"))
 			result.WriteString(fmt.Sprintf(">>> 服务器: %s (%s:%d)\n", s.Name, s.IP, s.Port))

@@ -127,7 +127,10 @@ func main() {
 		log.Printf("Warning: Docker service initialization failed: %v", err)
 	}
 
-	r := gin.Default()
+	r := gin.New()
+	// 替代 gin.Default() 自带的 logger + recovery,加上自定义的 panic recover middleware
+	r.Use(gin.Logger())
+	r.Use(middleware.Recovery())
 
 	tmpl := template.Must(template.ParseFS(webAssets, "web/templates/*.html"))
 	r.SetHTMLTemplate(tmpl)
