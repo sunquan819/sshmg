@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/base64"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -231,12 +230,6 @@ func (h *FileHandler) DownloadFile(c *gin.Context) {
 		return
 	}
 
-	data, err := service.FileSvc.DownloadFile(&server, path)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	filename := filepath.Base(path)
 	filename = strings.ReplaceAll(filename, "\\", "/")
 	if idx := strings.LastIndex(filename, "/"); idx >= 0 {
@@ -247,9 +240,17 @@ func (h *FileHandler) DownloadFile(c *gin.Context) {
 	encodedFilename := url.QueryEscape(filename)
 	c.Header("Content-Disposition", "attachment; filename="+encodedFilename+"; filename*=UTF-8''"+encodedFilename)
 	c.Header("Content-Type", "application/octet-stream")
-	c.Header("Content-Length", fmt.Sprintf("%d", len(data)))
 	c.Header("Accept-Ranges", "bytes")
-	c.Data(http.StatusOK, "application/octet-stream", data)
+	c.Header("Content-Transfer-Encoding", "binary")
+
+	// 性能优化:用 SFTP 直接流式写到 HTTP response,不再走 base64 + stdout
+	// (之前 base64 方案:整个文件读进 Go 内存,大文件直接卡死 / 内存爆)
+	// SFTP 走 SSH 文件传输协议,流式 io.Copy,大文件也 OK
+	if err := service.SSHSvc.DownloadToWriter(&server, path, c.Writer); err != nil {
+		// 已经写过 header 就只能 log,不能 c.JSON(否则 panic)
+		log.Printf("[DownloadFile] SFTP download failed server=%s path=%s: %v", server.Name, path, err)
+		return
+	}
 }
 
 func (h *FileHandler) DeleteFile(c *gin.Context) {

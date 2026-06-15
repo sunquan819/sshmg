@@ -70,6 +70,25 @@ func (c *Client) DownloadFile(remotePath, localPath string) error {
 	return err
 }
 
+// DownloadToWriter 用 SFTP 流式读远程文件到任意 io.Writer(避免大文件爆内存)
+// 不需要落本地,直接给 HTTP response 写就行
+func (c *Client) DownloadToWriter(remotePath string, w io.Writer) error {
+	sftpClient, err := c.getSFTPClient()
+	if err != nil {
+		return err
+	}
+	defer sftpClient.Close()
+
+	remoteFile, err := sftpClient.Open(remotePath)
+	if err != nil {
+		return err
+	}
+	defer remoteFile.Close()
+
+	_, err = io.Copy(w, remoteFile)
+	return err
+}
+
 func (c *Client) RemoteFileExists(remotePath string) (bool, error) {
 	sftpClient, err := c.getSFTPClient()
 	if err != nil {
