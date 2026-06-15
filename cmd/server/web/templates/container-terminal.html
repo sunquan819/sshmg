@@ -562,7 +562,11 @@ function containerTerminalApp() {
         isRmCommand(line) {
             const trimmed = line.trim();
             if (!trimmed) return false;
-            return /^\s*rm\b/.test(trimmed) || /[|;&]\s*rm\b/.test(trimmed) || /\brm\s/.test(trimmed);
+            // 二次确认规则:
+            // 1) 命令开头: `rm xxx`
+            // 2) 管道/顺序操作符之后: `cmd | rm`、`cmd ; rm`、`cmd & rm` 以及 `cmd && rm`、`cmd || rm`
+            //    (正则引擎会逐位重试,所以单字符 `[|;&]` 已能覆盖 `&&`/`||` 在第二个操作符后的情况)
+            return /^\s*rm\b/.test(trimmed) || /[|;&]\s*rm\b/.test(trimmed);
         },
         getCurrentTerminalLine(terminal) {
             try {
