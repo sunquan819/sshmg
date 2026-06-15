@@ -16,6 +16,7 @@ type Config struct {
 	JWT      JWTConfig      `yaml:"jwt"`
 	Log      LogConfig      `yaml:"log"`
 	Admin    AdminConfig    `yaml:"admin"`
+	SSH      SSHConfig      `yaml:"ssh"`
 	Deploy   DeployConfig   `yaml:"deploy"`
 }
 
@@ -44,6 +45,11 @@ type AdminConfig struct {
 	Password string `yaml:"password"`
 }
 
+type SSHConfig struct {
+	// SSH 空闲连接超时(分钟),默认 60(1 小时)
+	IdleTTL int `yaml:"idle_ttl"`
+}
+
 type DeployConfig struct {
 	// 部署日志保留最近几次(默认 5)
 	LogKeepLast int `yaml:"log_keep_last"`
@@ -51,6 +57,14 @@ type DeployConfig struct {
 	LogMaxBytes int `yaml:"log_max_bytes"`
 	// 部署日志块分隔符(默认 "====== 开始更新部署 ======")
 	LogSeparator string `yaml:"log_separator"`
+}
+
+// EffectiveIdleTTL 返回 SSH 空闲超时(分钟),带默认值 60
+func (s SSHConfig) EffectiveIdleTTL() int {
+	if s.IdleTTL <= 0 {
+		return 60
+	}
+	return s.IdleTTL
 }
 
 // DeployLogKeepLast 返回保留最近几次,带默认值

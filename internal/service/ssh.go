@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"sync"
@@ -20,6 +21,7 @@ type SSHService struct {
 	perSrv    map[uint]*sync.Mutex     // 每 server 一个 mutex,同 server SSH 串行执行
 	perSrvMu  sync.Mutex
 	stopIdle  chan struct{} // 控制 idle cleanup goroutine
+	idleTTL   time.Duration // SSH 空闲超时,默认 60 分钟
 }
 
 // 默认全局 SSH 并发上限(同时跑的 SSH 操作数),可通过 SetMaxConcurrency 调整
@@ -31,6 +33,7 @@ var SSHSvc = &SSHService{
 	sem:      make(chan struct{}, defaultSSHMaxConcurrency),
 	perSrv:   make(map[uint]*sync.Mutex),
 	stopIdle: make(chan struct{}),
+	idleTTL:  60 * time.Minute,
 }
 
 // 启动后台 goroutine 定期清理 idle SSH 连接,防止脏缓存
@@ -38,11 +41,8 @@ func init() {
 	go SSHSvc.idleCleanupLoop()
 }
 
-// 清理 idle 连接配置
-const (
-	sshIdleTTL      = 5 * time.Minute
-	sshIdleInterval = 1 * time.Minute
-)
+// 清理 idle 连接配置(sshIdleTTL 默认 60 分钟,可通过 SetIdleTTL 覆盖)
+const sshIdleInterval = 1 * time.Minute
 
 // idleCleanupLoop 每分钟扫描一次,关闭 idle 超时的 SSH 连接
 // 关闭前先尝试 per-server mutex(若锁成功说明没人用,可以安全关)
@@ -54,7 +54,7 @@ func (s *SSHService) idleCleanupLoop() {
 		case <-s.stopIdle:
 			return
 		case <-t.C:
-			cutoff := time.Now().Add(-sshIdleTTL)
+			cutoff := time.Now().Add(-s.idleTTL)
 			s.mu.Lock()
 			for id, last := range s.lastUsed {
 				if last.Before(cutoff) {
@@ -87,6 +87,14 @@ func (s *SSHService) SetMaxConcurrency(n int) {
 		n = defaultSSHMaxConcurrency
 	}
 	s.sem = make(chan struct{}, n)
+}
+
+// SetIdleTTL 设置 SSH 空闲连接超时
+func (s *SSHService) SetIdleTTL(d time.Duration) {
+	if d <= 0 {
+		d = 60 * time.Minute
+	}
+	s.idleTTL = d
 }
 
 // getPerServerMutex 取出(或创建)对应 server 的串行 mutex
@@ -373,6 +381,16 @@ func (s *SSHService) InstallDocker(server *model.Server) error {
 		}
 	}
 	return nil
+}
+
+// DownloadToWriter 用 SFTP 流式下载远程文件到 writer(避免 base64+stdout 爆内存)
+// 大文件也 OK,走 io.Copy
+func (s *SSHService) DownloadToWriter(server *model.Server, remotePath string, w io.Writer) error {
+	client, err := s.GetClient(server)
+	if err != nil {
+		return err
+	}
+	return client.DownloadToWriter(remotePath, w)
 }
 
 func (s *SSHService) UploadFile(server *model.Server, localPath, remotePath string) error {
