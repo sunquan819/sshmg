@@ -18,6 +18,10 @@ admin:
   username: admin
   password: ""
 
+ssh:
+  # SSH 空闲连接超时(分钟),0 或不填 = 默认 60(1 小时)
+  idle_ttl: 60
+
 deploy:
   # 部署日志保留最近几次(0 或不填 = 默认 5)
   log_keep_last: 5

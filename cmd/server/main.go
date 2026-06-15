@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"deploy-manager/internal/config"
 	"deploy-manager/internal/database"
@@ -102,6 +103,8 @@ func main() {
 	if password != "" {
 		cfg.Admin.Password = password
 	}
+
+	service.SSHSvc.SetIdleTTL(time.Duration(cfg.SSH.EffectiveIdleTTL()) * time.Minute)
 
 	if err := database.Init(config.GetDBPath()); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)

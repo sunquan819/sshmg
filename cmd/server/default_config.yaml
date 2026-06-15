@@ -14,6 +14,10 @@ log:
   level: info
   path: data/deploy.log
 
+ssh:
+  # SSH 空闲连接超时(分钟),0 或不填 = 默认 60(1 小时)
+  idle_ttl: 60
+
 admin:
   username: admin
   password: ""
