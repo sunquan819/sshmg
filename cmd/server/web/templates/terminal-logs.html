@@ -7,11 +7,20 @@
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <script src="/static/js/alpine.min.js" defer></script>
     <style>
-        .log-block { border-left: 3px solid #3b82f6; margin-bottom: 8px; padding-left: 12px; }
-        .log-block:hover { background: rgba(59, 130, 246, 0.1); }
-        .cmd-text { color: #22c55e; }
-        .output-text { color: #9ca3af; white-space: pre-wrap; word-break: break-all; }
-        .timestamp { color: #6b7280; font-size: 12px; }
+        .log-block { border-left: 3px solid #3b82f6; margin-bottom: 4px; padding-left: 10px; }
+        .log-block:hover { background: rgba(59, 130, 246, 0.08); }
+        .cmd-text { color: #22c55e; font-family: 'Courier New', monospace; }
+        .output-text { color: #9ca3af; white-space: pre-wrap; word-break: break-all; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; }
+        .timestamp { color: #6b7280; font-size: 11px; }
+        .cmd-collapsed { max-height: 80px; overflow: hidden; position: relative; }
+        .cmd-collapsed::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 24px; background: linear-gradient(transparent, #1f2937); }
+        .cmd-expanded { max-height: none; }
+        .cmd-toggle { cursor: pointer; color: #60a5fa; font-size: 11px; margin-top: 2px; }
+        .cmd-toggle:hover { color: #93c5fd; }
+        .cmd-search-highlight { background: #fbbf24; color: #000; padding: 0 2px; border-radius: 2px; }
+        .cmd-header { display: flex; align-items: center; gap: 8px; }
+        .cmd-index { color: #6b7280; font-size: 11px; min-width: 24px; }
+        .terminal-output { background: #111827; border-radius: 4px; padding: 8px; margin-top: 4px; }
     </style>
 </head>
 <body class="bg-gray-900 text-white" x-data="terminalLogApp()" x-init="init()">
@@ -95,29 +104,59 @@
         </main>
     </div>
 
-    <div x-show="showViewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display:none;">
-        <div class="bg-gray-800 rounded-lg w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col border border-gray-700">
-            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
-                <div>
-                    <h3 class="text-lg font-semibold" x-text="'终端日志 - ' + currentLog?.server_name"></h3>
-                    <div class="text-sm text-gray-400 mt-1">
-                        <span x-text="currentLog?.server_ip"></span> | 
-                        <span x-text="currentLog?.system_user"></span> |
-                        <span x-text="formatTime(currentLog?.start_time)"></span> -
-                        <span x-text="formatTime(currentLog?.end_time)"></span>
+    <div x-show="showViewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display:none;" @keydown.escape.window="showViewModal=false">
+        <div class="bg-gray-800 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-700">
+            <div class="p-3 border-b border-gray-700 flex justify-between items-center">
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-lg font-semibold truncate" x-text="'终端日志 - ' + currentLog?.server_name"></h3>
+                    <div class="text-sm text-gray-400 mt-1 flex flex-wrap gap-x-3">
+                        <span x-text="currentLog?.server_ip"></span>
+                        <span x-text="currentLog?.system_user"></span>
+                        <span x-text="formatTime(currentLog?.start_time) + ' ~ ' + formatTime(currentLog?.end_time)"></span>
+                        <span class="text-gray-500">共 <span x-text="filteredCommands.length"></span> 条命令</span>
                     </div>
                 </div>
-                <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 ml-4">
                     <input type="text" x-model="logSearch" placeholder="搜索命令..." class="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm w-40">
-                    <button @click="showViewModal=false" class="text-gray-400 hover:text-white text-xl">✕</button>
+                    <button @click="expandAll = !expandAll" class="text-gray-400 hover:text-white text-sm px-2 py-1 rounded bg-gray-700" x-text="expandAll ? '折叠全部' : '展开全部'"></button>
+                    <button @click="showViewModal=false" class="text-gray-400 hover:text-white text-xl ml-1">✕</button>
                 </div>
             </div>
-            <div class="flex-1 overflow-y-auto p-4 bg-gray-900">
+            <div class="flex-1 overflow-y-auto p-3 bg-gray-900" style="font-size: 13px;">
                 <template x-for="(cmd, index) in filteredCommands" :key="index">
-                    <div class="log-block">
-                        <div class="timestamp" x-text="cmd.timestamp"></div>
-                        <div class="cmd-text font-mono my-1" x-text="cmd.command"></div>
-                        <div class="output-text font-mono text-sm mt-1 max-h-48 overflow-y-auto" x-text="cmd.output" x-show="cmd.output"></div>
+                    <div class="log-block" :id="'cmd-' + index">
+                        <div class="cmd-header">
+                            <span class="cmd-index" x-text="'#' + (index + 1)"></span>
+                            <div class="timestamp" x-text="cmd.timestamp"></div>
+                        </div>
+                        <div class="cmd-text my-0.5" x-text="'$ ' + cmd.command"></div>
+                        <template x-if="cmd.output">
+                            <div>
+                                <template x-if="isLongOutput(cmd.output) && !isExpanded(index)">
+                                    <div>
+                                        <div class="terminal-output cmd-collapsed">
+                                            <div class="output-text" x-text="getPreview(cmd.output)"></div>
+                                        </div>
+                                        <div class="cmd-toggle" @click="toggleExpand(index)">
+                                            ▼ 展开全部 (<span x-text="getLineCount(cmd.output)"></span> 行)
+                                        </div>
+                                    </div>
+                                </template>
+                                <template x-if="isLongOutput(cmd.output) && isExpanded(index)">
+                                    <div>
+                                        <div class="terminal-output">
+                                            <div class="output-text" x-text="cmd.output"></div>
+                                        </div>
+                                        <div class="cmd-toggle" @click="toggleExpand(index)">▲ 折叠</div>
+                                    </div>
+                                </template>
+                                <template x-if="!isLongOutput(cmd.output)">
+                                    <div class="terminal-output">
+                                        <div class="output-text" x-text="cmd.output"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
                     </div>
                 </template>
                 <div x-show="filteredCommands.length === 0" class="text-center text-gray-500 py-8">
@@ -147,6 +186,8 @@ function terminalLogApp() {
         logSearch: '',
         message: '',
         messageType: 'success',
+        expandedCmds: {},
+        expandAll: false,
 
         init() {
             const params = new URLSearchParams(window.location.search);
@@ -178,17 +219,44 @@ function terminalLogApp() {
                 this.currentLog = data.log;
                 this.commands = data.commands || [];
                 this.logSearch = '';
+                this.expandedCmds = {};
+                this.expandAll = false;
                 this.showViewModal = true;
             } catch (e) { this.showMessage('加载详情失败', 'error'); }
         },
 
-        filteredCommands() {
+        get filteredCommands() {
             if (!this.logSearch) return this.commands;
             const search = this.logSearch.toLowerCase();
             return this.commands.filter(c => 
                 c.command.toLowerCase().includes(search) || 
-                c.output.toLowerCase().includes(search)
+                (c.output && c.output.toLowerCase().includes(search))
             );
+        },
+
+        isLongOutput(output) {
+            if (!output) return false;
+            return output.split('\n').length > 5;
+        },
+
+        getLineCount(output) {
+            if (!output) return 0;
+            return output.split('\n').length;
+        },
+
+        getPreview(output) {
+            if (!output) return '';
+            const lines = output.split('\n');
+            return lines.slice(0, 5).join('\n');
+        },
+
+        isExpanded(index) {
+            if (this.expandAll) return true;
+            return !!this.expandedCmds[index];
+        },
+
+        toggleExpand(index) {
+            this.expandedCmds[index] = !this.expandedCmds[index];
         },
 
         async deleteLog(id) {
