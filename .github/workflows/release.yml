@@ -56,14 +56,19 @@ jobs:
         if: matrix.os == 'windows'
         run: zip deploy-manager-${{ matrix.os }}-${{ matrix.arch }}.zip deploy-manager-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
 
-      - name: Upload artifact
+      - name: Upload artifact (Linux)
+        if: matrix.os == 'linux'
         uses: actions/upload-artifact@v4
         with:
           name: deploy-manager-${{ matrix.os }}-${{ matrix.arch }}
-          path: |
-            deploy-manager-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
-            deploy-manager-${{ matrix.os }}-${{ matrix.arch }}.gz
-            deploy-manager-${{ matrix.os }}-${{ matrix.arch }}.zip
+          path: deploy-manager-${{ matrix.os }}-${{ matrix.arch }}.gz
+
+      - name: Upload artifact (Windows)
+        if: matrix.os == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-manager-${{ matrix.os }}-${{ matrix.arch }}
+          path: deploy-manager-${{ matrix.os }}-${{ matrix.arch }}.zip
 
   release:
     name: Create Release
@@ -93,25 +98,26 @@ jobs:
             ## 部署管理系统 ${{ steps.tag.outputs.tag }}
 
             ### 下载
-            - **Windows amd64**: `deploy-manager-windows-amd64.exe`
-            - **Linux amd64**: `deploy-manager-linux-amd64`
-            - **Linux arm64**: `deploy-manager-linux-arm64`
+            | 文件 | 说明 |
+            |------|------|
+            | `deploy-manager-windows-amd64.zip` | Windows amd64 |
+            | `deploy-manager-linux-amd64.gz` | Linux amd64 |
+            | `deploy-manager-linux-arm64.gz` | Linux arm64 (树莓派等) |
 
             ### 使用说明
             ```bash
-            # Windows
-            deploy-manager-windows-amd64.exe --password yourpass
+            # Windows (解压后运行)
+            unzip deploy-manager-windows-amd64.zip
+            .\deploy-manager-windows-amd64.exe --password yourpass
 
             # Linux
+            gunzip deploy-manager-linux-amd64.gz
             chmod +x deploy-manager-linux-amd64
             ./deploy-manager-linux-amd64 --password yourpass
             ```
           files: |
-            artifacts/deploy-manager-windows-amd64/deploy-manager-windows-amd64.exe
             artifacts/deploy-manager-windows-amd64/deploy-manager-windows-amd64.zip
-            artifacts/deploy-manager-linux-amd64/deploy-manager-linux-amd64
             artifacts/deploy-manager-linux-amd64/deploy-manager-linux-amd64.gz
-            artifacts/deploy-manager-linux-arm64/deploy-manager-linux-arm64
             artifacts/deploy-manager-linux-arm64/deploy-manager-linux-arm64.gz
           draft: false
           prerelease: false
