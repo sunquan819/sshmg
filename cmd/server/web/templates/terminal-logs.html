@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <script src="/static/js/alpine.min.js" defer></script>
     <style>
+        [x-cloak] { display: none !important; }
         .log-block { border-left: 3px solid #3b82f6; margin-bottom: 4px; padding-left: 10px; }
         .log-block:hover { background: rgba(59, 130, 246, 0.08); }
         .cmd-text { color: #22c55e; font-family: 'Courier New', monospace; }
@@ -104,9 +105,9 @@
         </main>
     </div>
 
-    <div x-show="showViewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display:none;" @keydown.escape.window="showViewModal=false">
-        <div class="bg-gray-800 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-700">
-            <div class="p-3 border-b border-gray-700 flex justify-between items-center">
+    <div x-show="showViewModal" @click.self="showViewModal=false" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @keydown.escape.window="showViewModal=false" x-cloak>
+        <div class="bg-gray-800 rounded-lg border border-gray-700 flex flex-col" style="width: 90vw; max-width: 960px; height: 85vh;">
+            <div class="flex-shrink-0 p-3 border-b border-gray-700 flex justify-between items-center">
                 <div class="flex-1 min-w-0">
                     <h3 class="text-lg font-semibold truncate" x-text="'终端日志 - ' + currentLog?.server_name"></h3>
                     <div class="text-sm text-gray-400 mt-1 flex flex-wrap gap-x-3">
@@ -116,13 +117,13 @@
                         <span class="text-gray-500">共 <span x-text="filteredCommands.length"></span> 条命令</span>
                     </div>
                 </div>
-                <div class="flex items-center space-x-2 ml-4">
+                <div class="flex items-center space-x-2 ml-4 flex-shrink-0">
                     <input type="text" x-model="logSearch" placeholder="搜索命令..." class="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm w-40">
                     <button @click="expandAll = !expandAll" class="text-gray-400 hover:text-white text-sm px-2 py-1 rounded bg-gray-700" x-text="expandAll ? '折叠全部' : '展开全部'"></button>
                     <button @click="showViewModal=false" class="text-gray-400 hover:text-white text-xl ml-1">✕</button>
                 </div>
             </div>
-            <div class="flex-1 overflow-y-auto p-3 bg-gray-900" style="font-size: 13px;">
+            <div class="flex-1 min-h-0 overflow-y-auto p-3 bg-gray-900" style="font-size: 13px;">
                 <template x-for="(cmd, index) in filteredCommands" :key="index">
                     <div class="log-block" :id="'cmd-' + index">
                         <div class="cmd-header">
