@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag name'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: windows
+            arch: amd64
+            ext: .exe
+          - os: linux
+            arch: amd64
+            ext: ''
+          - os: linux
+            arch: arm64
+            ext: ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
+            -ldflags="-s -w" \
+            -o deploy-manager-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} \
+            ./cmd/server/main.go
+        env:
+          CGO_ENABLED: 0
+
+      - name: Archive (Linux)
+        if: matrix.os == 'linux'
+        run: gzip -k deploy-manager-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
+
+      - name: Archive (Windows)
+        if: matrix.os == 'windows'
+        run: zip deploy-manager-${{ matrix.os }}-${{ matrix.arch }}.zip deploy-manager-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-manager-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            deploy-manager-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
+            deploy-manager-${{ matrix.os }}-${{ matrix.arch }}.gz
+            deploy-manager-${{ matrix.os }}-${{ matrix.arch }}.zip
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Release ${{ steps.tag.outputs.tag }}
+          body: |
+            ## 部署管理系统 ${{ steps.tag.outputs.tag }}
+
+            ### 下载
+            - **Windows amd64**: `deploy-manager-windows-amd64.exe`
+            - **Linux amd64**: `deploy-manager-linux-amd64`
+            - **Linux arm64**: `deploy-manager-linux-arm64`
+
+            ### 使用说明
+            ```bash
+            # Windows
+            deploy-manager-windows-amd64.exe --password yourpass
+
+            # Linux
+            chmod +x deploy-manager-linux-amd64
+            ./deploy-manager-linux-amd64 --password yourpass
+            ```
+          files: |
+            artifacts/deploy-manager-windows-amd64/deploy-manager-windows-amd64.exe
+            artifacts/deploy-manager-windows-amd64/deploy-manager-windows-amd64.zip
+            artifacts/deploy-manager-linux-amd64/deploy-manager-linux-amd64
+            artifacts/deploy-manager-linux-amd64/deploy-manager-linux-amd64.gz
+            artifacts/deploy-manager-linux-arm64/deploy-manager-linux-arm64
+            artifacts/deploy-manager-linux-arm64/deploy-manager-linux-arm64.gz
+          draft: false
+          prerelease: false
