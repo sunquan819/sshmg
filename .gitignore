@@ -1,5 +1,4 @@
 *.exe
 *.exe~
-artifacts/data/*.db
-artifacts/data/*.db-journal
 /artifacts
+/data
