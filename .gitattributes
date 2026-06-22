@@ -1,0 +1,15 @@
+# Binary files - never auto-convert line endings
+*.exe binary
+*.exe~ binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.tar.gz binary
+*.tgz binary
+*.zip binary
+*.gz binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.db binary
+*.db-journal binary
