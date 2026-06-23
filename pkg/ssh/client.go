@@ -122,6 +122,12 @@ func (c *Client) connectDirect() error {
 	}
 	log.Printf("[SSH] TCP连接建立 %s,开始 SSH 握手...", addr)
 
+	// 启用 TCP keepalive,防止中间设备(NAT/防火墙)静默断开连接
+	if tcpConn, ok := conn.(*net.TCPConn); ok {
+		tcpConn.SetKeepAlive(true)
+		tcpConn.SetKeepAlivePeriod(30 * time.Second)
+	}
+
 	// SSH 握手整体加 timeout(底层 net.Conn 也要 deadline,否则协议层可能永久阻塞)
 	allConn := conn
 	if tcpConn, ok := allConn.(*net.TCPConn); ok {
@@ -154,9 +160,13 @@ func (c *Client) dialViaProxy(addr string) (net.Conn, error) {
 }
 
 func (c *Client) dialSocks5Proxy(proxyAddr, targetAddr string) (net.Conn, error) {
-	conn, err := net.Dial("tcp", proxyAddr)
+	conn, err := net.DialTimeout("tcp", proxyAddr, 10*time.Second)
 	if err != nil {
 		return nil, err
+	}
+	if tcpConn, ok := conn.(*net.TCPConn); ok {
+		tcpConn.SetKeepAlive(true)
+		tcpConn.SetKeepAlivePeriod(30 * time.Second)
 	}
 
 	buf := []byte{5, 1, 0}
@@ -201,9 +211,13 @@ func (c *Client) dialSocks5Proxy(proxyAddr, targetAddr string) (net.Conn, error)
 }
 
 func (c *Client) dialHttpProxy(proxyAddr, targetAddr string) (net.Conn, error) {
-	conn, err := net.Dial("tcp", proxyAddr)
+	conn, err := net.DialTimeout("tcp", proxyAddr, 10*time.Second)
 	if err != nil {
 		return nil, err
+	}
+	if tcpConn, ok := conn.(*net.TCPConn); ok {
+		tcpConn.SetKeepAlive(true)
+		tcpConn.SetKeepAlivePeriod(30 * time.Second)
 	}
 
 	req := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", targetAddr, targetAddr)
@@ -295,10 +309,21 @@ func (c *Client) connectViaJump() error {
 		jumpAddr := fmt.Sprintf("%s:%d", jump.Host, jump.Port)
 
 		if currentClient == nil {
-			currentClient, err = ssh.Dial("tcp", jumpAddr, jumpConfig)
+			var tcpConn net.Conn
+			tcpConn, err = net.DialTimeout("tcp", jumpAddr, 10*time.Second)
 			if err != nil {
 				return fmt.Errorf("failed to connect to jump server %s: %w", jump.Host, err)
 			}
+			if tc, ok := tcpConn.(*net.TCPConn); ok {
+				tc.SetKeepAlive(true)
+				tc.SetKeepAlivePeriod(30 * time.Second)
+			}
+			sshConn, chans, reqs, err := ssh.NewClientConn(tcpConn, jumpAddr, jumpConfig)
+			if err != nil {
+				tcpConn.Close()
+				return fmt.Errorf("failed to establish SSH connection to jump server %s: %w", jump.Host, err)
+			}
+			currentClient = ssh.NewClient(sshConn, chans, reqs)
 		} else {
 			var conn net.Conn
 			conn, err = currentClient.Dial("tcp", jumpAddr)

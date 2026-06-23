@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"deploy-manager/internal/database"
 	"deploy-manager/internal/model"
@@ -232,15 +233,34 @@ func handleSocks5Connection(localConn net.Conn, serverID uint) {
 		return
 	}
 
-	remoteConn, err := nativeClient.Dial("tcp", targetAddr)
-	if err != nil {
-		log.Printf("SOCKS5: dial error: %v", err)
+	// Dial 加超时，防止 SSH 连接已断开时永久阻塞
+	type dialResult struct {
+		conn net.Conn
+		err  error
+	}
+	dialCh := make(chan dialResult, 1)
+	go func() {
+		remoteConn, err := nativeClient.Dial("tcp", targetAddr)
+		dialCh <- dialResult{conn: remoteConn, err: err}
+	}()
+
+	var remoteConn net.Conn
+	select {
+	case res := <-dialCh:
+		if res.err != nil {
+			log.Printf("SOCKS5: dial error: %v", res.err)
+			localConn.Write([]byte{5, 1, 0, 1, 0, 0, 0, 0, 0, 0})
+			return
+		}
+		remoteConn = res.conn
+		log.Printf("SOCKS5: connected to %s, forwarding", targetAddr)
+	case <-time.After(15 * time.Second):
+		log.Printf("SOCKS5: dial timeout to %s (SSH connection may be dead)", targetAddr)
 		localConn.Write([]byte{5, 1, 0, 1, 0, 0, 0, 0, 0, 0})
 		return
 	}
 	// 响应成功
 	localConn.Write([]byte{5, 0, 0, 1, 0, 0, 0, 0, 0, 0})
-	log.Printf("SOCKS5: connected to %s, forwarding", targetAddr)
 
 	// 同步转发
 	go func() {
