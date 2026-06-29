@@ -442,11 +442,11 @@ func testDBConnection(db *model.Database) error {
 		return err
 	}
 
-	sqlDB, err := getSQLDBWithProxy(db)
+	sqlDB, closeDB, err := getSQLDBWithProxy(db)
 	if err != nil {
 		return err
 	}
-	defer sqlDB.Close()
+	defer closeDB()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -454,23 +454,26 @@ func testDBConnection(db *model.Database) error {
 	return sqlDB.PingContext(ctx)
 }
 
-func getSQLDBWithProxy(db *model.Database) (*sql.DB, error) {
+func getSQLDBWithProxy(db *model.Database) (*sql.DB, func(), error) {
 	dsn := getDSN(db)
+
+	var sshClient *sshPkg.Client
+	var cleanup func()
 
 	if db.JumpEnabled && db.JumpHost != "" {
 		log.Printf("[DB] 使用跳板机 SSH 隧道: %s:%d -> %s:%d", db.JumpHost, db.JumpPort, db.Host, db.Port)
-		sshClient := sshPkg.NewClient(db.JumpHost, db.JumpPort, db.JumpUser, db.JumpPassword, db.JumpKey)
+		sshClient = sshPkg.NewClient(db.JumpHost, db.JumpPort, db.JumpUser, db.JumpPassword, db.JumpKey)
 		if err := sshClient.Connect(); err != nil {
-			return nil, fmt.Errorf("跳板机连接失败: %w", err)
+			return nil, nil, fmt.Errorf("跳板机连接失败: %w", err)
 		}
 		localPort, err := sshClient.LocalPortForward(db.Host, db.Port)
 		if err != nil {
 			sshClient.Close()
-			return nil, fmt.Errorf("端口转发失败: %w", err)
+			return nil, nil, fmt.Errorf("端口转发失败: %w", err)
 		}
 		log.Printf("[DB] SSH 隧道建立: localhost:%d -> %s:%d", localPort, db.Host, db.Port)
 		dsn = strings.Replace(dsn, fmt.Sprintf("%s:%d", db.Host, db.Port), fmt.Sprintf("127.0.0.1:%d", localPort), 1)
-		defer sshClient.Close()
+		cleanup = func() { sshClient.Close() }
 	}
 
 	var sqlDB *sql.DB
@@ -482,11 +485,11 @@ func getSQLDBWithProxy(db *model.Database) (*sql.DB, error) {
 	case "postgresql", "postgres":
 		sqlDB, err = sql.Open("postgres", dsn)
 	default:
-		return nil, fmt.Errorf("unsupported database type: %s", db.Type)
+		return nil, nil, fmt.Errorf("unsupported database type: %s", db.Type)
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if db.ProxyEnabled && db.ProxyHost != "" {
@@ -494,13 +497,19 @@ func getSQLDBWithProxy(db *model.Database) (*sql.DB, error) {
 		proxyConn, err := dialViaProxy(fmt.Sprintf("%s:%d", db.Host, db.Port), db.ProxyHost, db.ProxyPort, db.ProxyType)
 		if err != nil {
 			sqlDB.Close()
-			return nil, fmt.Errorf("代理连接失败: %w", err)
+			return nil, nil, fmt.Errorf("代理连接失败: %w", err)
 		}
 		log.Printf("[DB] 代理连接成功")
 		_ = proxyConn
 	}
 
-	return sqlDB, nil
+	closeFunc := func() {
+		sqlDB.Close()
+		if cleanup != nil {
+			cleanup()
+		}
+	}
+	return sqlDB, closeFunc, nil
 }
 
 func getDSN(db *model.Database) string {
@@ -1103,11 +1112,11 @@ func executeQuery(db *model.Database, query string) ([]map[string]interface{}, e
 		}
 	}
 
-	sqlDB, err := getSQLDBWithProxy(db)
+	sqlDB, closeDB, err := getSQLDBWithProxy(db)
 	if err != nil {
 		return nil, err
 	}
-	defer sqlDB.Close()
+	defer closeDB()
 
 	query = strings.TrimSpace(query)
 	lowerQuery := strings.ToLower(query)
@@ -1266,11 +1275,11 @@ func getSchemas(db *model.Database) ([]string, error) {
 	}
 
 	log.Printf("DSN: %s", dsn)
-	sqlDB, err := getSQLDBWithProxy(db)
+	sqlDB, closeDB, err := getSQLDBWithProxy(db)
 	if err != nil {
 		return nil, err
 	}
-	defer sqlDB.Close()
+	defer closeDB()
 
 	var schemas []string
 	switch db.Type {
@@ -1414,11 +1423,11 @@ func getTables(db *model.Database, schema string) ([]map[string]interface{}, err
 	}
 
 	log.Printf("getTables: %s:%d", db.Host, db.Port)
-	sqlDB, err := getSQLDBWithProxy(db)
+	sqlDB, closeDB, err := getSQLDBWithProxy(db)
 	if err != nil {
 		return nil, err
 	}
-	defer sqlDB.Close()
+	defer closeDB()
 
 	var tables []map[string]interface{}
 	switch db.Type {
@@ -1514,11 +1523,11 @@ func (h *DatabaseHandler) GetColumns(c *gin.Context) {
 }
 
 func getColumnsWithSchema(db *model.Database, tableName string, schema string) ([]map[string]interface{}, error) {
-	sqlDB, err := getSQLDBWithProxy(db)
+	sqlDB, closeDB, err := getSQLDBWithProxy(db)
 	if err != nil {
 		return nil, err
 	}
-	defer sqlDB.Close()
+	defer closeDB()
 
 	var columns []map[string]interface{}
 	switch db.Type {
