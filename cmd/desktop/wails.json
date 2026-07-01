@@ -1,0 +1,12 @@
+{
+  "name": "deploy-manager",
+  "outputfilename": "deploy-manager-desktop",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "author": {
+    "name": "deploy-manager",
+    "email": ""
+  }
+}
