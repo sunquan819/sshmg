@@ -1165,6 +1165,10 @@ function terminalApp() {
                 const proxyHost = data.proxy_host || '';
                 const proxyPort = data.proxy_port || 1080;
                 
+                if (window.runtime && window.runtime.LaunchRDP) {
+                    try { await window.runtime.LaunchRDP(host, port, username, password); return; } catch(e) {}
+                }
+
                 const rdpRes = await fetch('http://localhost:8765/connect', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

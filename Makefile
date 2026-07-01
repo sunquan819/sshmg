@@ -1,4 +1,4 @@
-.PHONY: build run dev clean test linux windows
+.PHONY: build run dev clean test linux windows desktop
 
 BINARY_NAME=deploy-manager
 
@@ -10,6 +10,9 @@ run:
 
 dev:
 	go run ./cmd/server/main.go --port 3001
+
+desktop:
+	cd cmd/desktop && wails build -clean
 
 linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BINARY_NAME)-linux ./cmd/server/main.go
