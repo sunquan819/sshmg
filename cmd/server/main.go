@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/rand"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -19,25 +18,11 @@ import (
 	"deploy-manager/internal/middleware"
 	"deploy-manager/internal/model"
 	"deploy-manager/internal/service"
+	"deploy-manager/pkg/assets"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
-
-//go:embed web
-var webAssets embed.FS
-
-//go:embed rdp-agent.exe
-var rdpAgentExe []byte
-
-//go:embed default_config.yaml
-var defaultConfigFile []byte
-
-//go:embed default_scenarios.json
-var defaultScenariosJSON []byte
-
-//go:embed default_templates.json
-var defaultTemplatesJSON []byte
 
 func getAppDir() string {
 	exePath, err := os.Executable()
@@ -135,7 +120,7 @@ func main() {
 	r.Use(gin.Logger())
 	r.Use(middleware.Recovery())
 
-	tmpl := template.Must(template.ParseFS(webAssets, "web/templates/*.html"))
+	tmpl := template.Must(template.ParseFS(assets.WebAssets, "web/templates/*.html"))
 	r.SetHTMLTemplate(tmpl)
 
 	// HTML 页面和静态资源都加 no-cache 头，避免 embed 模板改了之后浏览器还显示旧版
@@ -153,7 +138,7 @@ func main() {
 
 	r.GET("/static/*filepath", func(c *gin.Context) {
 		filePath := c.Param("filepath")
-		content, err := webAssets.ReadFile("web/static" + filePath)
+		content, err := assets.WebAssets.ReadFile("web/static" + filePath)
 		if err != nil {
 			c.Status(404)
 			return
@@ -174,9 +159,9 @@ func main() {
 	r.GET("/artifacts/*filepath", func(c *gin.Context) {
 		filePath := c.Param("filepath")
 
-		if filePath == "/rdp-agent.exe" && len(rdpAgentExe) > 0 {
+		if filePath == "/rdp-agent.exe" && len(assets.RDPAgentExe) > 0 {
 			c.Header("Content-Disposition", "attachment")
-			c.Data(200, "application/x-msdownload", rdpAgentExe)
+			c.Data(200, "application/x-msdownload", assets.RDPAgentExe)
 			return
 		}
 
@@ -504,7 +489,7 @@ r.GET("/tunnels", func(c *gin.Context) {
 }
 
 func createDefaultConfig(path string) error {
-	return os.WriteFile(path, defaultConfigFile, 0644)
+	return os.WriteFile(path, assets.DefaultConfig, 0644)
 }
 
 func initAdminUser(cfg *config.Config) error {
@@ -585,7 +570,7 @@ func initDefaultScenarios(reset bool) error {
 	}
 
 	var scenarios []defaultScenario
-	if err := json.Unmarshal(defaultScenariosJSON, &scenarios); err != nil {
+	if err := json.Unmarshal(assets.DefaultScenarios, &scenarios); err != nil {
 		return err
 	}
 

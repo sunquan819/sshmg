@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>容器终端 - 部署管理系统</title>
+    <link rel="stylesheet" href="/static/css/xterm.css">
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <script src="/static/js/alpine.min.js" defer></script>
+    <style>
+        .file-item { cursor: pointer; padding: 4px 8px; }
+        .file-item:hover { background-color: rgba(255,255,255,0.1); }
+        .file-item.active { background-color: rgba(59,130,246,0.3); }
+        .xterm-viewport::-webkit-scrollbar { width: 8px; }
+        .xterm-viewport::-webkit-scrollbar-track { background: #1f2937; }
+        .xterm-viewport::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        .xterm-viewport::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        .scrollbar-always::-webkit-scrollbar { height: 8px; }
+        .scrollbar-always::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-always::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; min-height: 8px; }
+    </style>
+</head>
+<body class="bg-gray-900 h-screen overflow-hidden" x-data="containerTerminalApp()" x-init="init()">
+<div class="h-full flex flex-col">
+    <header class="bg-gray-800 text-white px-4 py-2 flex justify-between items-center border-b border-gray-700 relative">
+        <div class="flex items-center space-x-4">
+            <h1 class="text-lg font-semibold">🐳 容器终端</h1>
+            <span id="connectionStatus" class="text-xs text-yellow-400">未连接</span>
+        </div>
+        <div id="centerMessage" class="hidden absolute left-1/2 transform -translate-x-1/2 text-sm px-4 py-1 rounded bg-gray-700 text-white"></div>
+        <div class="flex items-center space-x-4">
+            <div x-show="uploading" class="flex items-center space-x-2">
+                <span class="text-xs" x-text="downloadMode ? '下载中...' : '上传中...'"></span>
+                <template x-if="!downloadMode">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-24 h-2 bg-gray-600 rounded overflow-hidden">
+                            <div id="uploadProgress" class="h-full bg-blue-500 transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <span id="uploadPercent" class="text-xs">0%</span>
+                    </div>
+                </template>
+                <template x-if="downloadMode">
+                    <svg class="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </template>
+            </div>
+            <button @click="goHome()" class="text-gray-400 hover:text-white text-sm px-2">🏠主页</button>
+            <a :href="'/terminal-logs?token=' + token" class="text-gray-400 hover:text-white text-sm px-2">📋日志</a>
+            <button @click="logout()" class="text-gray-400 hover:text-red-400 text-sm px-2">🚪退出</button>
+            <button @click="toggleFullscreen()" class="text-gray-400 hover:text-white text-sm px-2">全屏</button>
+            <button @click="closeTerminal()" class="text-gray-400 hover:text-white text-sm px-2">关闭</button>
+        </div>
+    </header>
+    <div class="flex-1 flex overflow-hidden">
+        <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+            <div class="p-3 border-b border-gray-700 flex-shrink-0">
+                <h2 class="text-sm font-semibold text-gray-300">选择服务器</h2>
+            </div>
+            <div class="h-32 overflow-y-auto p-2 flex-shrink-0">
+                <template x-for="server in servers" :key="server.id">
+                    <div @click="selectServer(server)" 
+                         :class="currentServer?.id === server.id ? 'bg-blue-600' : 'hover:bg-gray-700'"
+                         class="file-item rounded mb-1 p-2 cursor-pointer transition">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-white truncate" x-text="server.name"></p>
+                                <p class="text-xs text-gray-400 truncate" x-text="server.ip"></p>
+                            </div>
+                            <span :class="server.status === 'online' ? 'bg-green-500' : 'bg-red-500'" class="w-2 h-2 rounded-full ml-2"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            <div class="p-3 border-t border-gray-700 flex-1 overflow-hidden flex flex-col">
+                <h2 class="text-sm font-semibold text-gray-300 mb-2 flex-shrink-0">容器列表</h2>
+                <div class="flex-1 overflow-y-auto">
+                    <template x-for="c in containers" :key="c.id">
+                        <div @click="connectContainer(c)" 
+                             :class="currentContainer?.id === c.id ? 'bg-purple-600' : 'hover:bg-gray-700'"
+                             class="file-item rounded mb-1 p-2 cursor-pointer transition">
+                            <p class="text-sm font-medium text-white truncate" x-text="c.name"></p>
+                            <p class="text-xs text-gray-400 truncate" x-text="c.image"></p>
+                        </div>
+                    </template>
+                </div>
+                <button @click="loadContainers()" class="w-full mt-2 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs flex-shrink-0">🔄 刷新容器</button>
+            </div>
+        </aside>
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <div class="bg-gray-800 px-2 py-1 border-b border-gray-700 flex items-center justify-between overflow-hidden">
+                <div class="flex items-center space-x-1 overflow-x-auto flex-1 scrollbar-always" style="max-width: 80%;">
+                    <template x-for="(tab, index) in tabs" :key="tab.id">
+                        <div @click="switchTab(tab.id)" 
+                             :class="activeTabId === tab.id ? 'bg-gray-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
+                             class="flex items-center space-x-1 px-3 py-1 rounded text-sm cursor-pointer whitespace-nowrap">
+                            <span x-text="tab.container ? tab.container.name : '未选择'"></span>
+                            <span @click.stop="closeTab(tab.id)" class="text-gray-400 hover:text-white ml-1">×</span>
+                        </div>
+                    </template>
+                </div>
+                <div class="flex space-x-2 ml-2 flex-shrink-0">
+                    <button @click="clearTerminal()" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded">清屏</button>
+                    <button @click="reconnect()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded">重连</button>
+                </div>
+            </div>
+            <template x-for="tab in tabs" :key="tab.id">
+                <div x-show="activeTabId === tab.id" :id="'terminal-' + tab.id" class="flex-1 p-2 bg-gray-900 pr-4" style="height: calc(100vh - 220px);"></div>
+            </template>
+        </main>
+        <aside class="w-72 bg-gray-800 border-l border-gray-700 flex flex-col overflow-hidden">
+            <div class="p-3 border-b border-gray-700">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-sm font-semibold text-gray-300">文件管理</h2>
+                    <button @click="loadFiles()" class="text-gray-400 hover:text-white">🔄</button>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="text" :value="getCurrentPath()" @keyup.enter="navigateToPath($event.target.value)" 
+                           class="flex-1 bg-gray-700 text-white px-2 py-1 rounded text-xs border border-gray-600 focus:border-blue-500 focus:outline-none"
+                           placeholder="/">
+                    <button @click="loadFiles()" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs">Go</button>
+                </div>
+                <div class="flex space-x-1 mt-2">
+                    <button @click="navigateToPath('/')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs">🏠 根</button>
+                    <button @click="goUp()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs">⬆️ 上级</button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-2">
+                <template x-for="(file, index) in files" :key="index">
+                    <div class="file-item flex items-center text-sm text-gray-300 rounded"
+                         :class="selectedFile?.path === file.path ? 'active' : ''"
+                         @click="selectFile(file)"
+                         @dblclick="openFile(file)">
+                        <span class="mr-2 text-lg" x-text="getFileIcon(file)"></span>
+                        <span class="flex-1 truncate" x-text="file.name"></span>
+                        <span class="text-xs text-gray-500" x-show="!file.is_dir" x-text="formatSize(file.size)"></span>
+                    </div>
+                </template>
+                <div x-show="loading" class="text-center text-gray-500 text-sm py-4">加载中...</div>
+                <div x-show="!loading && files.length === 0" class="text-center text-gray-500 text-sm py-4">空目录</div>
+            </div>
+            <div class="p-3 border-t border-gray-700">
+                <div class="flex space-x-2 mb-2">
+                    <button @click="uploadFile()" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm">⬆️ 上传</button>
+                    <button @click="downloadFile()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">⬇️ 下载</button>
+                </div>
+                <div class="flex space-x-2">
+                    <button @click="newFolder()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm">📁 新建</button>
+                    <button @click="deleteFile()" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm">🗑️ 删除</button>
+                </div>
+                <input type="file" id="fileInput" @change="handleFileUpload" class="hidden">
+            </div>
+        </aside>
+    </div>
+</div>
+<script src="/static/js/xterm.min.js"></script>
+<script src="/static/js/xterm-addon-fit.min.js"></script>
+<script src="/static/js/xterm-addon-web-links.min.js"></script>
+<script>
+function containerTerminalApp() {
+    return {
+        token: '',
+        servers: [],
+        containers: [],
+        currentServer: null,
+        currentContainer: null,
+        currentPath: '/',
+        files: [],
+        selectedFile: null,
+        loading: false,
+        tabs: [],
+        activeTabId: null,
+        tabCounter: 0,
+        terminals: {},
+        websockets: {},
+        message: '',
+        messageType: 'info',
+        uploading: false,
+        downloadMode: false,
+        uploadProgress: 0,
+        loadingFiles: false,
+        showMessageCenter(msg, type = 'info', duration = 3000) {
+            const el = document.getElementById('centerMessage');
+            if (el) {
+                el.textContent = msg;
+                el.className = type === 'error' ? 'absolute left-1/2 transform -translate-x-1/2 text-sm px-4 py-1 rounded bg-red-600 text-white' : 'absolute left-1/2 transform -translate-x-1/2 text-sm px-4 py-1 rounded bg-green-600 text-white';
+                el.classList.remove('hidden');
+                setTimeout(() => el.classList.add('hidden'), duration);
+            }
+        },
+        async init() {
+            const params = new URLSearchParams(window.location.search);
+            this.token = params.get('token');
+            const serverId = params.get('serverId');
+            const containerId = params.get('containerId');
+            if (!this.token) { this.showMessageCenter('缺少认证信息', 'error'); return; }
+            
+            await this.loadServers();
+            
+            if (serverId) {
+                const server = this.servers.find(s => s.id == serverId || s.id == parseInt(serverId));
+                if (server) {
+                    await this.selectServer(server);
+                    
+                    if (containerId) {
+                        const container = this.containers.find(c => c.id === containerId || c.id.startsWith(containerId.substring(0, 12)));
+                        if (container) {
+                            this.connectContainer(container);
+                        }
+                    }
+                }
+            }
+        },
+        createTab(container = null) {
+            this.tabCounter++;
+            const tabId = 'tab-' + this.tabCounter;
+            const newTab = {
+                id: tabId,
+                server: this.currentServer,
+                container: container,
+                terminal: null,
+                ws: null,
+                fitAddon: null,
+                currentPath: '/'
+            };
+            this.tabs.push(newTab);
+            this.activeTabId = tabId;
+            
+            this.$nextTick(() => {
+                this.initTerminalForTab(tabId);
+                if (container) this.connectTerminalForTab(tabId);
+            });
+            
+            return tabId;
+        },
+        switchTab(tabId) {
+            this.activeTabId = tabId;
+            const tab = this.tabs.find(t => t.id === tabId);
+            if (tab && tab.container) {
+                this.currentContainer = tab.container;
+                this.currentPath = tab.currentPath;
+                this.loadFiles();
+            }
+            this.$nextTick(() => {
+                const termEl = document.getElementById('terminal-' + tabId);
+                if (termEl && tab.fitAddon) {
+                    tab.fitAddon.fit();
+                }
+            });
+        },
+        closeTab(tabId) {
+            const tab = this.tabs.find(t => t.id === tabId);
+            if (!tab) return;
+            
+            if (tab.ws) {
+                try { tab.ws.close(); } catch(e) {}
+            }
+            if (tab.terminal) {
+                try { tab.terminal.dispose(); } catch(e) {}
+            }
+            
+            const idx = this.tabs.indexOf(tab);
+            this.tabs.splice(idx, 1);
+            
+            if (this.tabs.length === 0) {
+                this.currentContainer = null;
+            } else if (this.activeTabId === tabId) {
+                this.switchTab(this.tabs[0].id);
+            }
+        },
+        getActiveTab() {
+            return this.tabs.find(t => t.id === this.activeTabId);
+        },
+        getCurrentServer() {
+            const tab = this.getActiveTab();
+            return tab ? tab.server : this.currentServer;
+        },
+        getCurrentContainer() {
+            const tab = this.getActiveTab();
+            return tab ? tab.container : this.currentContainer;
+        },
+        getCurrentPath() {
+            const tab = this.getActiveTab();
+            return tab ? (tab.currentPath || '/') : '/';
+        },
+        async loadServers() {
+            try {
+                const res = await fetch('/api/servers', { headers: { 'Authorization': 'Bearer ' + this.token } });
+                const data = await res.json();
+                if (res.ok && data.servers) { 
+                    this.servers = data.servers; 
+                }
+            } catch (e) { 
+                console.error('Failed to load servers:', e); 
+            }
+        },
+        async selectServer(server) {
+            this.currentServer = server;
+            this.currentContainer = null;
+            this.containers = [];
+            this.files = [];
+            this.tabs = [];
+            this.activeTabId = null;
+            await this.loadContainers();
+        },
+        async loadContainers() {
+            if (!this.currentServer) return;
+            try {
+                const res = await fetch('/api/containers?server_id=' + this.currentServer.id + '&all=false', { headers: { 'Authorization': 'Bearer ' + this.token } });
+                const data = await res.json();
+                if (res.ok && data.containers) {
+                    this.containers = data.containers.filter(c => c.state === 'running');
+                }
+            } catch (e) {
+                console.error('Failed to load containers:', e);
+            }
+        },
+        connectContainer(container) {
+            if (!container) return;
+            const existingTab = this.tabs.find(t => t.container && t.container.id === container.id);
+            if (existingTab) {
+                this.switchTab(existingTab.id);
+                return;
+            }
+            this.currentContainer = container;
+            this.createTab(container);
+        },
+        initTerminalForTab(tabId) {
+            const tab = this.tabs.find(t => t.id === tabId);
+            if (!tab) return;
+            
+            const termEl = document.getElementById('terminal-' + tabId);
+            if (!termEl) return;
+            
+            try {
+                tab.terminal = new Terminal({ 
+                    cursorBlink: true, 
+                    fontSize: 14, 
+                    fontFamily: 'Consolas, "Courier New", monospace', 
+                    theme: { background: '#1a1a2e', foreground: '#eee', cursor: '#0f0' },
+                    allowProposedApi: true,
+                    rightClickSelectsWord: true
+                });
+                
+                tab.fitAddon = new FitAddon.FitAddon();
+                tab.terminal.loadAddon(tab.fitAddon);
+                tab.terminal.loadAddon(new WebLinksAddon.WebLinksAddon());
+                tab.terminal.open(termEl);
+                tab.fitAddon.fit();
+                
+                const self = this;
+                tab.terminal.onSelectionChange(() => {
+                    if (tab.terminal.hasSelection()) {
+                        const selection = tab.terminal.getSelection();
+                        if (selection) {
+                            self.clipboardCopy(selection);
+                        }
+                    }
+                });
+                
+                tab.terminal.attachCustomKeyEventHandler(function(e) {
+                    if (e.type === 'keydown' && (e.ctrlKey || e.metaKey) && e.key === 'v') {
+                        e.preventDefault();
+                        self.clipboardPaste().then(function(text) {
+                            if (tab.ws && tab.ws.readyState === WebSocket.OPEN && text) {
+                                if (self.isRmCommand(text)) {
+                                    tab.pendingRmConfirm = true;
+                                    tab.pendingRmLine = text;
+                                    tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
+                                    tab.currentLine = '';
+                                    return;
+                                }
+                                tab.ws.send(JSON.stringify({ type: 'input', data: text }));
+                            }
+                        }).catch(function() {});
+                        return false;
+                    }
+                    if (e.type === 'keydown' && (e.ctrlKey || e.metaKey) && e.key === 'c' && tab.terminal.hasSelection()) {
+                        e.preventDefault();
+                        const selection = tab.terminal.getSelection();
+                        if (selection) {
+                            self.clipboardCopy(selection);
+                        }
+                        return false;
+                    }
+                    return true;
+                });
+            } catch(e) {
+                console.error('Terminal init error:', e);
+            }
+        },
+        connectTerminalForTab(tabId) {
+            const tab = this.tabs.find(t => t.id === tabId);
+            if (!tab || !tab.container) return;
+            
+            if (tab.ws) {
+                try { tab.ws.close(); } catch(e) {}
+            }
+            
+            const termEl = document.getElementById('terminal-' + tabId);
+            if (termEl) termEl.innerHTML = '';
+            
+            this.initTerminalForTab(tabId);
+            
+            if (!tab.terminal) return;
+            
+            const self = this;
+            tab.terminal.writeln('\x1b[32m 正在连接容器...\x1b[0m\r\n');
+            const initCols = tab.terminal.cols;
+            const initRows = tab.terminal.rows;
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = protocol + '//' + window.location.host + '/ws/container-terminal/' + tab.server.id + '/' + tab.container.id + '?token=' + this.token + '&cols=' + initCols + '&rows=' + initRows;
+            tab.ws = new WebSocket(wsUrl);
+            
+            tab.ws.onopen = function() {
+                tab.terminal.writeln('\x1b[32m✓ 连接成功!\x1b[0m\r\n');
+                tab.terminal.writeln('\x1b[36m================================\x1b[0m\r\n');
+                tab.terminal.focus();
+                tab.terminal.writeln('\x1b[33m 容器：' + tab.container.name + '\x1b[0m\r\n');
+                tab.terminal.writeln('\x1b[33m 镜像：' + tab.container.image + '\x1b[0m\r\n');
+                tab.terminal.writeln('\r\n\x1b[32m 准备就绪！\x1b[0m\r\n\r\n');
+                self.updateConnectionStatus('已连接', 'text-xs text-green-400');
+                tab.sessionHistory = [];
+                tab.sessionStartTime = new Date().toISOString();
+                tab.currentCommand = null;
+                tab.outputBuffer = '';
+            };
+            
+            tab.ws.onmessage = async function(event) {
+                let str = '';
+                if (event.data instanceof ArrayBuffer) {
+                    const bytes = new Uint8Array(event.data);
+                    for (let i = 0; i < bytes.length; i++) {
+                        str += String.fromCharCode(bytes[i]);
+                    }
+                } else if (event.data instanceof Blob) {
+                    str = await event.data.text();
+                } else {
+                    str = event.data;
+                }
+                tab.terminal.write(str);
+                if (tab.currentCommand) {
+                    tab.outputBuffer += str;
+                }
+            };
+            
+            tab.ws.onclose = function() {
+                tab.terminal.writeln('\r\n\x1b[31m✗ 连接已断开\x1b[0m\r\n');
+                self.updateConnectionStatus('已断开', 'text-xs text-red-400');
+                self.saveContainerSessionHistory(tab);
+            };
+            
+            tab.ws.onerror = function(event) {
+                tab.terminal.writeln('\r\n\x1b[31m 连接错误\x1b[0m\r\n');
+                self.updateConnectionStatus('错误', 'text-xs text-red-400');
+            };
+            
+            tab.currentLine = '';
+            tab.currentLineUnknown = false;
+            tab.pendingRmConfirm = false;
+            tab.pendingRmLine = '';
+            tab.outputBuffer = '';
+
+            tab.terminal.onData(function(data) { 
+                if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+                    if (tab.pendingRmConfirm) {
+                        if (data === 'y' || data === 'Y') {
+                            tab.pendingRmConfirm = false;
+                            const line = tab.pendingRmLine;
+                            tab.pendingRmLine = '';
+                            tab.currentLine = '';
+                            tab.currentLineUnknown = false;
+                            tab.ws.send(JSON.stringify({ type: 'input', data: line }));
+                            tab.terminal.write('\r\n');
+                        } else if (data === 'n' || data === 'N' || data === '\r' || data === '\x03' || data === '\x15') {
+                            tab.pendingRmConfirm = false;
+                            tab.pendingRmLine = '';
+                            tab.currentLine = '';
+                            tab.currentLineUnknown = false;
+                            tab.terminal.write('\r\n\x1b[33m已取消\x1b[0m\r\n');
+                            tab.ws.send(JSON.stringify({ type: 'input', data: '\x03' }));
+                        } else {
+                            tab.terminal.write('\x07');
+                        }
+                        return;
+                    }
+                    if (data === '\r' || data === '\n') {
+                        let lineToCheck = tab.currentLineUnknown ? self.getCurrentTerminalLine(tab.terminal) : tab.currentLine;
+                        const cmd = tab.currentLineUnknown ? self.getCurrentTerminalLine(tab.terminal) : tab.currentLine;
+                        if (cmd && cmd.trim() && tab.sessionHistory) {
+                            tab.currentCommand = {
+                                timestamp: new Date().toLocaleString('zh-CN'),
+                                command: cmd.trim(),
+                                output: ''
+                            };
+                            tab.outputBuffer = '';
+                        }
+                        tab.currentLine = '';
+                        tab.currentLineUnknown = false;
+                        if (self.isRmCommand(lineToCheck)) {
+                            tab.pendingRmConfirm = true;
+                            tab.pendingRmLine = data;
+                            tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
+                            return;
+                        }
+                    } else if (data === '\x7f' || data === '\b') {
+                        if (tab.currentLine.length > 0) tab.currentLine = tab.currentLine.slice(0, -1);
+                    } else if (data === '\x03') {
+                        tab.currentLine = '';
+                        tab.currentLineUnknown = false;
+                        if (tab.currentCommand && tab.sessionHistory) {
+                            tab.currentCommand.output = tab.outputBuffer;
+                            tab.sessionHistory.push(tab.currentCommand);
+                            tab.currentCommand = null;
+                            tab.outputBuffer = '';
+                        }
+                    } else if (data === '\x15') {
+                        tab.currentLine = '';
+                    } else if (data.startsWith('\x1b[') || data.startsWith('\x1bO')) {
+                        tab.currentLineUnknown = true;
+                    } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
+                        tab.currentLine += data;
+                    } else if (data.length > 1) {
+                        if (data.includes('\n') || data.includes('\r')) {
+                            if (self.isRmCommand(data)) {
+                                tab.pendingRmConfirm = true;
+                                tab.pendingRmLine = data;
+                                tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
+                                tab.currentLine = '';
+                                return;
+                            }
+                        } else {
+                            tab.currentLineUnknown = true;
+                        }
+                    }
+                    tab.ws.send(JSON.stringify({ type: 'input', data: data }));
+                    setTimeout(() => {
+                        if (tab.currentCommand && tab.outputBuffer && tab.sessionHistory) {
+                            tab.currentCommand.output = tab.outputBuffer;
+                            if (tab.currentCommand.output.length > 0 && (tab.outputBuffer.includes('\n') || tab.outputBuffer.includes('\r'))) {
+                                tab.sessionHistory.push(tab.currentCommand);
+                                tab.currentCommand = null;
+                                tab.outputBuffer = '';
+                            }
+                        }
+                    }, 100);
+                } 
+            });
+            
+            tab.terminal.onResize(function(size) { 
+                if (tab.ws && tab.ws.readyState === WebSocket.OPEN) { 
+                    tab.ws.send(JSON.stringify({ type: 'resize', cols: size.cols, rows: size.rows })); 
+                } 
+            });
+            
+            window.addEventListener('resize', function() { 
+                if (tab.fitAddon) tab.fitAddon.fit(); 
+            });
+        },
+        isRmCommand(line) {
+            const trimmed = line.trim();
+            if (!trimmed) return false;
+            // 二次确认规则:
+            // 1) 命令开头: `rm xxx`
+            // 2) 管道/顺序操作符之后: `cmd | rm`、`cmd ; rm`、`cmd & rm` 以及 `cmd && rm`、`cmd || rm`
+            //    (正则引擎会逐位重试,所以单字符 `[|;&]` 已能覆盖 `&&`/`||` 在第二个操作符后的情况)
+            return /^\s*rm\b/.test(trimmed) || /[|;&]\s*rm\b/.test(trimmed);
+        },
+        getCurrentTerminalLine(terminal) {
+            try {
+                const line = terminal.buffer.active.getLine(terminal.buffer.active.cursorY);
+                if (line) {
+                    return line.translateToString(true, 0, terminal.cols).trim();
+                }
+            } catch(e) {}
+            return '';
+        },
+        clipboardCopy(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).catch(() => {
+                    this.fallbackCopy(text);
+                });
+            } else {
+                this.fallbackCopy(text);
+            }
+        },
+        fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.top = '-9999px';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch(e) {}
+            document.body.removeChild(ta);
+        },
+        clipboardPaste() {
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                return navigator.clipboard.readText().catch(() => {
+                    return this.fallbackPaste();
+                });
+            }
+            return this.fallbackPaste();
+        },
+        fallbackPaste() {
+            return new Promise((resolve) => {
+                const ta = document.createElement('textarea');
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                ta.style.top = '-9999px';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                const handler = () => {
+                    const text = ta.value;
+                    document.body.removeChild(ta);
+                    resolve(text || '');
+                };
+                ta.addEventListener('input', handler, { once: true });
+                ta.addEventListener('blur', () => {
+                    setTimeout(() => {
+                        if (ta.parentNode) {
+                            const text = ta.value;
+                            document.body.removeChild(ta);
+                            resolve(text || '');
+                        }
+                    }, 100);
+                }, { once: true });
+                try { document.execCommand('paste'); } catch(e) {}
+                setTimeout(() => {
+                    if (ta.parentNode) {
+                        const text = ta.value;
+                        document.body.removeChild(ta);
+                        resolve(text || '');
+                    }
+                }, 500);
+            });
+        },
+        async saveContainerSessionHistory(tab) {
+            if (!tab || !tab.sessionHistory || tab.sessionHistory.length === 0) return;
+            try {
+                const logData = {
+                    server_id: tab.server.id,
+                    server_name: tab.server.name,
+                    server_ip: tab.server.ip,
+                    system_user: 'container',
+                    session_type: 'container',
+                    start_time: tab.sessionStartTime,
+                    commands: JSON.stringify(tab.sessionHistory)
+                };
+                await fetch('/api/terminal-logs', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify(logData)
+                });
+            } catch (e) { console.error('保存历史失败:', e); }
+        },
+        updateConnectionStatus(text, className) {
+            const statusEl = document.getElementById('connectionStatus');
+            if (statusEl) {
+                statusEl.textContent = text;
+                statusEl.className = className;
+            }
+        },
+        reconnect() { 
+            const tab = this.getActiveTab();
+            if (tab && tab.container) {
+                this.connectTerminalForTab(tab.id);
+            }
+        },
+        clearTerminal() { 
+            const tab = this.getActiveTab();
+            if (tab && tab.terminal) {
+                tab.terminal.clear();
+            }
+        },
+        closeTerminal() { 
+            if (this.activeTabId) {
+                this.closeTab(this.activeTabId);
+            }
+        },
+        getToken() { return localStorage.getItem('access_token'); },
+        goHome() { window.location.href = '/?token=' + this.getToken(); },
+        logout() { localStorage.removeItem('access_token'); window.location.href = '/login'; },
+        toggleFullscreen() { if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); } else { document.exitFullscreen(); } },
+        async loadFiles() {
+            if (this.loadingFiles) return;
+            const tab = this.getActiveTab();
+            if (!tab || !tab.container) return;
+            this.loadingFiles = true;
+            this.loading = true;
+            const server = tab.server;
+            const container = tab.container;
+            const path = tab.currentPath || '/';
+            try {
+                const encodedPath = encodeURIComponent(path);
+                const res = await fetch('/api/container-files/' + container.id + '/list?server_id=' + server.id + '&path=' + encodedPath, { headers: { 'Authorization': 'Bearer ' + this.token } });
+                const data = await res.json();
+                if (res.ok) { 
+                    this.files = (data.files || []).filter(f => f.name !== '.' && f.name !== '..');
+                    this.selectedFile = null;
+                } else if (data.error) {
+                    console.error('API error:', data.error);
+                }
+            } catch (e) { console.error('Failed to load files:', e); }
+            this.loading = false;
+            this.loadingFiles = false;
+        },
+        goUp() {
+            const tab = this.getActiveTab();
+            if (!tab) return;
+            const currentPath = tab.currentPath || '/';
+            if (currentPath === '/') return;
+            const parts = currentPath.split('/').filter(p => p);
+            parts.pop();
+            tab.currentPath = '/' + parts.join('/') || '/';
+            this.loadFiles();
+        },
+        navigateToPath(path) {
+            const tab = this.getActiveTab();
+            if (!tab) return;
+            tab.currentPath = path || '/';
+            this.loadFiles();
+        },
+        selectFile(file) { this.selectedFile = file; },
+        normalizePath(path) {
+            const parts = path.split('/').filter(p => p && p !== '.');
+            const stack = [];
+            for (const part of parts) {
+                if (part === '..') {
+                    stack.pop();
+                } else {
+                    stack.push(part);
+                }
+            }
+            return '/' + stack.join('/');
+        },
+        openFile(file) { 
+            if (this.loadingFiles) return;
+            const tab = this.getActiveTab();
+            if (!tab) return;
+            if (file.is_dir || file.IsDir || file.isDirectory) { 
+                let name = file.name;
+                const arrowIdx = name.indexOf(' -> ');
+                if (arrowIdx > 0) {
+                    name = name.substring(0, arrowIdx);
+                }
+                const currentPath = tab.currentPath || '/';
+                let newPath = currentPath === '/' ? '/' + name : currentPath + '/' + name;
+                tab.currentPath = this.normalizePath(newPath);
+                this.loadFiles(); 
+            } else { 
+                this.viewFile(file); 
+            } 
+        },
+        getFileIcon(file) {
+            if (file.is_dir || file.IsDir || file.isDirectory) return '📁';
+            const name = file.name.toLowerCase();
+            if (name.endsWith('.sh') || name.endsWith('.bash')) return '📜';
+            if (name.endsWith('.py')) return '🐍';
+            if (name.endsWith('.js') || name.endsWith('.ts')) return '📄';
+            if (name.endsWith('.json') || name.endsWith('.xml') || name.endsWith('.yaml') || name.endsWith('.yml')) return '📋';
+            if (name.endsWith('.md') || name.endsWith('.txt')) return '📝';
+            if (name.endsWith('.log')) return '📋';
+            return '📄';
+        },
+        formatSize(bytes) {
+            if (!bytes && bytes !== 0) return '';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let i = 0, size = bytes;
+            while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
+            return size.toFixed(1) + ' ' + units[i];
+        },
+        async viewFile(file) {
+            const server = this.getCurrentServer();
+            const container = this.getCurrentContainer();
+            if (!server || !container) return;
+            try {
+                const res = await fetch('/api/container-files/' + container.id + '/read?server_id=' + server.id + '&path=' + encodeURIComponent(file.path), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                const data = await res.json();
+                if (res.ok && data.content) {
+                    const tab = this.getActiveTab();
+                    if (tab && tab.terminal) {
+                        tab.terminal.writeln('\r\n\x1b[33m=== 文件内容：' + file.path + ' ===\x1b[0m\r\n');
+                        tab.terminal.writeln(data.content);
+                        tab.terminal.writeln('\r\n\x1b[33m=== 文件结束 ===\x1b[0m\r\n\r\n');
+                    }
+                }
+            } catch (e) { this.showMessageCenter('查看文件失败', 'error'); }
+        },
+        uploadFile() { 
+            if (!this.getCurrentContainer()) { this.showMessageCenter('请先选择容器', 'error'); return; }
+            document.getElementById('fileInput').click(); 
+        },
+        handleFileUpload(event) {
+            const server = this.getCurrentServer();
+            const container = this.getCurrentContainer();
+            const currentPath = this.getCurrentPath();
+            if (!server || !container) return;
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            this.downloadMode = false;
+            this.uploading = true;
+            this.uploadProgress = 0;
+            document.getElementById('uploadProgress').style.width = '0%';
+            document.getElementById('uploadPercent').textContent = '0%';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('server_id', server.id);
+            formData.append('path', currentPath);
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/container-files/' + container.id + '/upload');
+            xhr.setRequestHeader('Authorization', 'Bearer ' + this.token);
+            
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    this.uploadProgress = percent;
+                    document.getElementById('uploadProgress').style.width = percent + '%';
+                    document.getElementById('uploadPercent').textContent = percent + '%';
+                }
+            };
+            
+            xhr.onload = () => {
+                this.uploading = false;
+                if (xhr.status === 200) {
+                    this.showMessageCenter('上传成功！', 'success');
+                    this.loadFiles();
+                } else {
+                    let errorMsg = '上传失败';
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        errorMsg = data.error || '上传失败';
+                    } catch(e) {}
+                    this.showMessageCenter(errorMsg, 'error');
+                }
+                event.target.value = '';
+            };
+            
+            xhr.onerror = () => {
+                this.uploading = false;
+                this.showMessageCenter('上传失败', 'error');
+                event.target.value = '';
+            };
+            
+            xhr.send(formData);
+        },
+        downloadFile() {
+            const server = this.getCurrentServer();
+            const container = this.getCurrentContainer();
+            const file = this.selectedFile;
+            if (!file) { this.showMessageCenter('请先选择要下载的文件', 'error'); return; }
+            if (!server || !container) return;
+            if (file.is_dir || file.IsDir) { this.showMessageCenter('不能下载文件夹', 'error'); return; }
+            
+            this.downloadMode = true;
+            this.uploading = true;
+            this.uploadProgress = 0;
+            this.showMessageCenter('正在下载: ' + file.name, 'success');
+            
+            const self = this;
+            const token = localStorage.getItem('access_token');
+            const url = '/api/container-files/' + container.id + '/download?server_id=' + server.id + '&path=' + encodeURIComponent(file.path);
+            
+            fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Download failed');
+                    return response.blob();
+                })
+                .then(function(blob) {
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = file.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(downloadUrl);
+                    
+                    self.uploading = false;
+                    self.downloadMode = false;
+                    self.showMessageCenter('下载完成！', 'success');
+                })
+                .catch(function(err) {
+                    self.showMessageCenter('下载失败: ' + err.message, 'error');
+                    self.uploading = false;
+                    self.downloadMode = false;
+                });
+        },
+        async newFolder() {
+            const server = this.getCurrentServer();
+            const container = this.getCurrentContainer();
+            const currentPath = this.getCurrentPath();
+            if (!server || !container) return;
+            const name = prompt('请输入文件夹名称:');
+            if (!name) return;
+            try {
+                const res = await fetch('/api/container-files/' + container.id + '/mkdir?server_id=' + server.id, { 
+                    method: 'POST', 
+                    headers: { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ path: currentPath + '/' + name }) 
+                });
+                if (res.ok) { this.showMessageCenter('创建成功！', 'success'); this.loadFiles(); } else { this.showMessageCenter('创建失败', 'error'); }
+            } catch (e) { this.showMessageCenter('创建失败', 'error'); }
+        },
+        async deleteFile() {
+            const server = this.getCurrentServer();
+            const container = this.getCurrentContainer();
+            if (!this.selectedFile) { this.showMessageCenter('请先选择文件', 'error'); return; }
+            if (!server || !container) return;
+            if (!confirm('确定要删除 "' + this.selectedFile.name + '" 吗？此操作不可恢复！')) return;
+            try {
+                const res = await fetch('/api/container-files/' + container.id + '?server_id=' + server.id + '&path=' + encodeURIComponent(this.selectedFile.path), { 
+                    method: 'DELETE', 
+                    headers: { 'Authorization': 'Bearer ' + this.token } 
+                });
+                if (res.ok) { this.showMessageCenter('删除成功！', 'success'); this.loadFiles(); } else { this.showMessageCenter('删除失败', 'error'); }
+            } catch (e) { this.showMessageCenter('删除失败', 'error'); }
+        }
+    }
+}
+</script>
+</body>
+</html>

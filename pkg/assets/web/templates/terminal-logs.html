@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>终端日志 - 部署管理系统</title>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <script src="/static/js/alpine.min.js" defer></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .log-block { border-left: 3px solid #3b82f6; margin-bottom: 4px; padding-left: 10px; }
+        .log-block:hover { background: rgba(59, 130, 246, 0.08); }
+        .cmd-text { color: #22c55e; font-family: 'Courier New', monospace; }
+        .output-text { color: #9ca3af; white-space: pre-wrap; word-break: break-all; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; }
+        .timestamp { color: #6b7280; font-size: 11px; }
+        .cmd-collapsed { max-height: 80px; overflow: hidden; position: relative; }
+        .cmd-collapsed::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 24px; background: linear-gradient(transparent, #1f2937); }
+        .cmd-expanded { max-height: none; }
+        .cmd-toggle { cursor: pointer; color: #60a5fa; font-size: 11px; margin-top: 2px; }
+        .cmd-toggle:hover { color: #93c5fd; }
+        .cmd-search-highlight { background: #fbbf24; color: #000; padding: 0 2px; border-radius: 2px; }
+        .cmd-header { display: flex; align-items: center; gap: 8px; }
+        .cmd-index { color: #6b7280; font-size: 11px; min-width: 24px; }
+        .terminal-output { background: #111827; border-radius: 4px; padding: 8px; margin-top: 4px; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white" x-data="terminalLogApp()" x-init="init()">
+    <div class="min-h-screen flex flex-col">
+        <header class="bg-gray-800 px-4 py-3 flex justify-between items-center border-b border-gray-700">
+            <div class="flex items-center space-x-4">
+                <a href="/" class="text-gray-400 hover:text-white">🏠主页</a>
+                <h1 class="text-xl font-semibold">📋 终端日志</h1>
+            </div>
+            <button @click="logout()" class="text-gray-400 hover:text-red-400">🚪退出</button>
+        </header>
+
+        <main class="flex-1 p-6 overflow-auto">
+            <div class="mb-4 flex justify-between items-center flex-wrap gap-2">
+                <div class="flex items-center space-x-2 flex-wrap gap-2">
+                    <input type="text" x-model="search" @input="loadLogs()" placeholder="搜索..." class="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm w-48">
+                    <select x-model="sessionType" @change="loadLogs()" class="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm">
+                        <option value="">全部类型</option>
+                        <option value="ssh">SSH终端</option>
+                        <option value="container">容器终端</option>
+                    </select>
+                    <select x-model="sortOrder" @change="loadLogs()" class="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm">
+                        <option value="desc">最新优先</option>
+                        <option value="asc">最早优先</option>
+                        <option value="start_time">按开始时间</option>
+                    </select>
+                    <input type="date" x-model="dateFilter" @change="loadLogs()" class="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button @click="deleteSelected()" x-show="selectedIds.length > 0" class="bg-red-600 hover:bg-red-700 px-3 py-2 rounded text-sm">
+                        🗑️ 删除选中 (<span x-text="selectedIds.length"></span>)
+                    </button>
+                    <button @click="clearOldLogs()" class="bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded text-sm">🧹 清理30天前</button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-gray-400 border-b border-gray-700">
+                            <th class="pb-2 w-8"><input type="checkbox" @change="toggleSelectAll()" x-model="selectAllFlag" class="w-4 h-4"></th>
+                            <th class="pb-2">服务器</th>
+                            <th class="pb-2">IP</th>
+                            <th class="pb-2">用户</th>
+                            <th class="pb-2">类型</th>
+                            <th class="pb-2">开始时间</th>
+                            <th class="pb-2">持续时间</th>
+                            <th class="pb-2">命令数</th>
+                            <th class="pb-2">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="log in logs" :key="log.id">
+                            <tr class="border-b border-gray-700 hover:bg-gray-800">
+                                <td class="py-3"><input type="checkbox" :value="log.id" x-model="selectedIds" class="w-4 h-4"></td>
+                                <td class="py-3" x-text="log.server_name"></td>
+                                <td class="py-3" x-text="log.server_ip"></td>
+                                <td class="py-3" x-text="log.system_user"></td>
+                                <td class="py-3">
+                                    <span :class="log.session_type === 'ssh' ? 'text-blue-400' : 'text-green-400'" x-text="log.session_type === 'ssh' ? 'SSH' : '容器'"></span>
+                                </td>
+                                <td class="py-3" x-text="formatTime(log.start_time)"></td>
+                                <td class="py-3" x-text="formatDuration(log.start_time, log.end_time)"></td>
+                                <td class="py-3" x-text="countCommands(log.commands)"></td>
+                                <td class="py-3">
+                                    <button @click="viewLog(log)" class="text-blue-400 hover:text-blue-300 mr-2">查看</button>
+                                    <button @click="deleteLog(log.id)" class="text-red-400 hover:text-red-300">删除</button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="logs.length === 0">
+                            <td colspan="9" class="py-8 text-center text-gray-500">暂无终端日志</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-4 text-gray-400 text-sm">
+                共 <span x-text="total"></span> 条日志记录
+            </div>
+        </main>
+    </div>
+
+    <div x-show="showViewModal" @click.self="showViewModal=false" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @keydown.escape.window="showViewModal=false" x-cloak>
+        <div class="bg-gray-800 rounded-lg border border-gray-700 flex flex-col" style="width: 90vw; max-width: 960px; height: 85vh;">
+            <div class="flex-shrink-0 p-3 border-b border-gray-700 flex justify-between items-center">
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-lg font-semibold truncate" x-text="'终端日志 - ' + currentLog?.server_name"></h3>
+                    <div class="text-sm text-gray-400 mt-1 flex flex-wrap gap-x-3">
+                        <span x-text="currentLog?.server_ip"></span>
+                        <span x-text="currentLog?.system_user"></span>
+                        <span x-text="formatTime(currentLog?.start_time) + ' ~ ' + formatTime(currentLog?.end_time)"></span>
+                        <span class="text-gray-500">共 <span x-text="filteredCommands.length"></span> 条命令</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 ml-4 flex-shrink-0">
+                    <input type="text" x-model="logSearch" placeholder="搜索命令..." class="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm w-40">
+                    <button @click="expandAll = !expandAll" class="text-gray-400 hover:text-white text-sm px-2 py-1 rounded bg-gray-700" x-text="expandAll ? '折叠全部' : '展开全部'"></button>
+                    <button @click="showViewModal=false" class="text-gray-400 hover:text-white text-xl ml-1">✕</button>
+                </div>
+            </div>
+            <div class="flex-1 min-h-0 overflow-y-auto p-3 bg-gray-900" style="font-size: 13px;">
+                <template x-for="(cmd, index) in filteredCommands" :key="index">
+                    <div class="log-block" :id="'cmd-' + index">
+                        <div class="cmd-header">
+                            <span class="cmd-index" x-text="'#' + (index + 1)"></span>
+                            <div class="timestamp" x-text="cmd.timestamp"></div>
+                        </div>
+                        <div class="cmd-text my-0.5" x-text="'$ ' + cmd.command"></div>
+                        <template x-if="cmd.output">
+                            <div>
+                                <template x-if="isLongOutput(cmd.output) && !isExpanded(index)">
+                                    <div>
+                                        <div class="terminal-output cmd-collapsed">
+                                            <div class="output-text" x-text="getPreview(cmd.output)"></div>
+                                        </div>
+                                        <div class="cmd-toggle" @click="toggleExpand(index)">
+                                            ▼ 展开全部 (<span x-text="getLineCount(cmd.output)"></span> 行)
+                                        </div>
+                                    </div>
+                                </template>
+                                <template x-if="isLongOutput(cmd.output) && isExpanded(index)">
+                                    <div>
+                                        <div class="terminal-output">
+                                            <div class="output-text" x-text="cmd.output"></div>
+                                        </div>
+                                        <div class="cmd-toggle" @click="toggleExpand(index)">▲ 折叠</div>
+                                    </div>
+                                </template>
+                                <template x-if="!isLongOutput(cmd.output)">
+                                    <div class="terminal-output">
+                                        <div class="output-text" x-text="cmd.output"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <div x-show="filteredCommands.length === 0" class="text-center text-gray-500 py-8">
+                    无匹配的命令
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="message" class="fixed top-4 right-4 px-4 py-2 rounded z-50" :class="messageType === 'error' ? 'bg-red-600' : 'bg-green-600'" x-text="message"></div>
+
+<script>
+function terminalLogApp() {
+    return {
+        token: '',
+        logs: [],
+        total: 0,
+        search: '',
+        sessionType: '',
+        sortOrder: 'desc',
+        dateFilter: '',
+        selectedIds: [],
+        selectAllFlag: false,
+        showViewModal: false,
+        currentLog: null,
+        commands: [],
+        logSearch: '',
+        message: '',
+        messageType: 'success',
+        expandedCmds: {},
+        expandAll: false,
+
+        init() {
+            const params = new URLSearchParams(window.location.search);
+            this.token = params.get('token') || localStorage.getItem('access_token');
+            if (!this.token) { window.location.href = '/login'; return; }
+            this.loadLogs();
+        },
+
+        getToken() { return this.token; },
+        logout() { localStorage.removeItem('access_token'); window.location.href = '/login'; },
+
+        async loadLogs() {
+            try {
+                let url = '/api/terminal-logs?';
+                if (this.search) url += 'search=' + encodeURIComponent(this.search) + '&';
+                if (this.sessionType) url += 'session_type=' + this.sessionType + '&';
+                if (this.sortOrder) url += 'sort=' + this.sortOrder + '&';
+                const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.getToken() } });
+                const data = await res.json();
+                this.logs = data.logs || [];
+                this.total = data.total || 0;
+            } catch (e) { this.showMessage('加载失败', 'error'); }
+        },
+
+        async viewLog(log) {
+            try {
+                const res = await fetch('/api/terminal-logs/' + log.id, { headers: { 'Authorization': 'Bearer ' + this.getToken() } });
+                const data = await res.json();
+                this.currentLog = data.log;
+                this.commands = data.commands || [];
+                this.logSearch = '';
+                this.expandedCmds = {};
+                this.expandAll = false;
+                this.showViewModal = true;
+            } catch (e) { this.showMessage('加载详情失败', 'error'); }
+        },
+
+        get filteredCommands() {
+            if (!this.logSearch) return this.commands;
+            const search = this.logSearch.toLowerCase();
+            return this.commands.filter(c => 
+                c.command.toLowerCase().includes(search) || 
+                (c.output && c.output.toLowerCase().includes(search))
+            );
+        },
+
+        isLongOutput(output) {
+            if (!output) return false;
+            return output.split('\n').length > 5;
+        },
+
+        getLineCount(output) {
+            if (!output) return 0;
+            return output.split('\n').length;
+        },
+
+        getPreview(output) {
+            if (!output) return '';
+            const lines = output.split('\n');
+            return lines.slice(0, 5).join('\n');
+        },
+
+        isExpanded(index) {
+            if (this.expandAll) return true;
+            return !!this.expandedCmds[index];
+        },
+
+        toggleExpand(index) {
+            this.expandedCmds[index] = !this.expandedCmds[index];
+        },
+
+        async deleteLog(id) {
+            if (!confirm('确定删除此日志？')) return;
+            try {
+                const res = await fetch('/api/terminal-logs/' + id, { 
+                    method: 'DELETE', 
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() } 
+                });
+                if (res.ok) {
+                    this.showMessage('删除成功', 'success');
+                    this.loadLogs();
+                    this.selectedIds = this.selectedIds.filter(i => i !== id);
+                } else { this.showMessage('删除失败', 'error'); }
+            } catch (e) { this.showMessage('删除失败', 'error'); }
+        },
+
+        async deleteSelected() {
+            if (this.selectedIds.length === 0) return;
+            if (!confirm('确定删除选中的 ' + this.selectedIds.length + ' 条日志？')) return;
+            try {
+                const res = await fetch('/api/terminal-logs', { 
+                    method: 'DELETE', 
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: this.selectedIds })
+                });
+                if (res.ok) {
+                    this.showMessage('删除成功', 'success');
+                    this.selectedIds = [];
+                    this.selectAllFlag = false;
+                    this.loadLogs();
+                } else { this.showMessage('删除失败', 'error'); }
+            } catch (e) { this.showMessage('删除失败', 'error'); }
+        },
+
+        async clearOldLogs() {
+            if (!confirm('确定删除30天前的所有日志？')) return;
+            try {
+                const res = await fetch('/api/terminal-logs/clear?days=30', { 
+                    method: 'DELETE', 
+                    headers: { 'Authorization': 'Bearer ' + this.getToken() } 
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    this.showMessage('已清理 ' + data.count + ' 条日志', 'success');
+                    this.loadLogs();
+                } else { this.showMessage('清理失败', 'error'); }
+            } catch (e) { this.showMessage('清理失败', 'error'); }
+        },
+
+        toggleSelectAll() {
+            if (this.selectAllFlag) {
+                this.selectedIds = this.logs.map(l => l.id);
+            } else {
+                this.selectedIds = [];
+            }
+        },
+
+        formatTime(t) {
+            if (!t) return '-';
+            return new Date(t).toLocaleString('zh-CN');
+        },
+
+        formatDuration(start, end) {
+            if (!start || !end) return '-';
+            const s = new Date(start), e = new Date(end);
+            const diff = Math.floor((e - s) / 1000);
+            if (diff < 60) return diff + '秒';
+            if (diff < 3600) return Math.floor(diff / 60) + '分' + (diff % 60) + '秒';
+            return Math.floor(diff / 3600) + '时' + Math.floor((diff % 3600) / 60) + '分';
+        },
+
+        countCommands(cmds) {
+            if (!cmds) return 0;
+            try {
+                const arr = JSON.parse(cmds);
+                return arr.length;
+            } catch (e) { return 0; }
+        },
+
+        showMessage(msg, type = 'success') {
+            this.message = msg;
+            this.messageType = type;
+            setTimeout(() => this.message = '', 3000);
+        }
+    };
+}
+</script>
+</body>
+</html>
