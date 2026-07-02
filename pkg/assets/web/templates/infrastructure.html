@@ -5,6 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>基础设施 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
+    <style>
+body { font-size: 13px; }
+.dark .dark\:bg-gray-800 { background-color: #1f2937; }
+.dark .dark\:bg-gray-900 { background-color: #111827; }
+.dark .dark\:bg-gray-700 { background-color: #374151; }
+.dark .dark\:bg-gray-600 { background-color: #4b5563; }
+.dark .dark\:bg-blue-500 { background-color: #3b82f6; }
+.dark .dark\:bg-blue-900 { background-color: #1e3a5f; }
+.dark .dark\:bg-green-500 { background-color: #22c55e; }
+.dark .dark\:bg-green-900 { background-color: #14532d; }
+.dark .dark\:bg-purple-500 { background-color: #a855f7; }
+.dark .dark\:bg-purple-900 { background-color: #3b0764; }
+.dark .dark\:bg-red-500 { background-color: #ef4444; }
+.dark .dark\:bg-red-900 { background-color: #7f1d1d; }
+.dark .dark\:bg-yellow-900 { background-color: #713f12; }
+.dark .dark\:text-white { color: #fff; }
+.dark .dark\:text-gray-300 { color: #d1d5db; }
+.dark .dark\:text-gray-400 { color: #9ca3af; }
+.dark .dark\:text-blue-200 { color: #bfdbfe; }
+.dark .dark\:text-blue-400 { color: #60a5fa; }
+.dark .dark\:text-green-200 { color: #bbf7d0; }
+.dark .dark\:text-green-400 { color: #4ade80; }
+.dark .dark\:text-purple-200 { color: #e9d5ff; }
+.dark .dark\:text-red-200 { color: #fecaca; }
+.dark .dark\:text-red-400 { color: #f87171; }
+.dark .dark\:text-yellow-200 { color: #fef08a; }
+.dark .dark\:border-gray-600 { border-color: #4b5563; }
+.dark .dark\:border-gray-700 { border-color: #374151; }
+.dark .dark\:divide-gray-700 > * + * { border-color: #374151; }
+.dark .dark\:hover\:bg-gray-600:hover { background-color: #4b5563; }
+.dark .dark\:hover\:bg-gray-700:hover { background-color: #374151; }
+.dark .dark\:hover\:text-gray-200:hover { color: #e5e7eb; }
+.dark .dark\:hover\:text-gray-300:hover { color: #d1d5db; }
+.dark .dark\:hover\:text-white:hover { color: #fff; }
+</style>
     <script defer src="/static/js/alpine.min.js"></script>
     <script>
 (function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
@@ -259,6 +294,9 @@ function infrastructureApp() {
         execConfirmScenario: null,
         execConfirmServers: [],
         init() {
+            var _t = localStorage.getItem('access_token');
+            if (!_t) { window.location.href = '/login'; return; }
+            try { var _p = JSON.parse(atob(_t.split('.')[1])); if (_p.exp * 1000 < Date.now()) { localStorage.removeItem('access_token'); window.location.href = '/login'; return; } } catch(e) {}
             const params = new URLSearchParams(window.location.search);
             this.token = params.get('token');
             if (!this.token) { window.location.href = '/login'; return; }

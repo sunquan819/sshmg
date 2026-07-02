@@ -5,6 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>部署管理系统 v6</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
+    <style>
+body { font-size: 13px; }
+.dark .dark\:bg-gray-800 { background-color: #1f2937; }
+.dark .dark\:bg-gray-900 { background-color: #111827; }
+.dark .dark\:bg-gray-700 { background-color: #374151; }
+.dark .dark\:bg-gray-600 { background-color: #4b5563; }
+.dark .dark\:bg-blue-500 { background-color: #3b82f6; }
+.dark .dark\:bg-blue-900 { background-color: #1e3a5f; }
+.dark .dark\:bg-green-500 { background-color: #22c55e; }
+.dark .dark\:bg-green-900 { background-color: #14532d; }
+.dark .dark\:bg-purple-500 { background-color: #a855f7; }
+.dark .dark\:bg-purple-900 { background-color: #3b0764; }
+.dark .dark\:bg-red-500 { background-color: #ef4444; }
+.dark .dark\:bg-red-900 { background-color: #7f1d1d; }
+.dark .dark\:bg-yellow-900 { background-color: #713f12; }
+.dark .dark\:text-white { color: #fff; }
+.dark .dark\:text-gray-300 { color: #d1d5db; }
+.dark .dark\:text-gray-400 { color: #9ca3af; }
+.dark .dark\:text-blue-200 { color: #bfdbfe; }
+.dark .dark\:text-blue-400 { color: #60a5fa; }
+.dark .dark\:text-green-200 { color: #bbf7d0; }
+.dark .dark\:text-green-400 { color: #4ade80; }
+.dark .dark\:text-purple-200 { color: #e9d5ff; }
+.dark .dark\:text-red-200 { color: #fecaca; }
+.dark .dark\:text-red-400 { color: #f87171; }
+.dark .dark\:text-yellow-200 { color: #fef08a; }
+.dark .dark\:border-gray-600 { border-color: #4b5563; }
+.dark .dark\:border-gray-700 { border-color: #374151; }
+.dark .dark\:divide-gray-700 > * + * { border-color: #374151; }
+.dark .dark\:hover\:bg-gray-600:hover { background-color: #4b5563; }
+.dark .dark\:hover\:bg-gray-700:hover { background-color: #374151; }
+.dark .dark\:hover\:text-gray-200:hover { color: #e5e7eb; }
+.dark .dark\:hover\:text-gray-300:hover { color: #d1d5db; }
+.dark .dark\:hover\:text-white:hover { color: #fff; }
+</style>
+    <script>
+(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
+function toggleTheme(){var d=document.documentElement;if(d.classList.contains('dark')){d.classList.remove('dark');localStorage.setItem('theme','light')}else{d.classList.add('dark');localStorage.setItem('theme','dark')}}
+</script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <script defer src="/static/js/alpine.min.js"></script>
     <link rel="stylesheet" href="/static/css/xterm.css" />
     <script src="/static/js/xterm.min.js"></script>
@@ -16,10 +56,10 @@
         .nav-scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 min-h-screen" x-data="app()" x-init="init()" onload="checkAuth()">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-sm" x-data="app()" x-init="init()" onload="checkAuth()">
 <div class="flex h-screen overflow-hidden">
 <aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-    <div class="p-3 border-b border-gray-200 dark:border-gray-700"><h1 class="text-base font-bold text-gray-900 dark:text-white">部署管理系统 <span class="text-xs text-gray-400">v1.0.2</span></h1></div>
+    <div class="p-3 border-b border-gray-200 dark:border-gray-700"><h1 class="text-sm font-bold text-gray-900 dark:text-white">部署管理系统 <span class="text-xs text-gray-400">v1.0.2</span></h1></div>
         <nav class="p-3 space-y-1 flex-1 overflow-y-auto nav-scrollbar">
             <a href="#" @click.prevent="activeTab='servers'" :class="activeTab==='servers'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-3 py-1.5 rounded text-sm transition">🖥️ 服务器</a>
         <a :href="'/infrastructure?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">⚙️ 基础设施</a>
@@ -37,10 +77,13 @@
         <a :href="'/files?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📁 文件管理</a>
         <a href="/artifacts/rdp-agent.exe" download class="block px-3 py-1.5 rounded text-sm transition text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700">⬇️ RDP Agent</a>
     </nav>
-    <div class="p-3 border-t border-gray-200 dark:border-gray-700"><button @click="logout()" class="text-xs text-red-600 hover:text-red-700 w-full text-left">退出</button></div>
+    <div class="p-3 border-t border-gray-200 dark:border-gray-700">
+        <button @click="logout()" class="text-xs text-red-600 hover:text-red-700 w-full text-left">退出</button>
+        <button onclick="toggleTheme()" class="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-left px-3 py-1.5 mt-1">🌓 主题切换</button>
+    </div>
 </aside>
 <main class="flex-1 overflow-y-auto">
-    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex justify-between items-center"><h2 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="pageTitle"></h2><button @click="logout()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1 rounded text-sm">退出</button></header>
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex justify-between items-center"><h2 class="text-sm font-semibold text-gray-900 dark:text-white" x-text="pageTitle"></h2><button @click="logout()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1 rounded text-sm">退出</button></header>
     <div class="p-4">
         <div x-show="activeTab==='servers'">
             <div class="mb-4 flex items-center space-x-2 flex-wrap gap-2">
@@ -121,7 +164,7 @@
             </div>
             <div class="mt-8">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">📋 部署记录</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">📋 部署记录</h3>
                     <button @click="loadDeploymentRecords()" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">🔄 刷新</button>
                 </div>
                 <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
@@ -189,7 +232,7 @@
             <div x-show="filteredCommands.length === 0" class="text-center text-gray-500 py-8">暂无命令</div>
             <div x-show="showCmdModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-md">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white" x-text="cmdForm.id ? '编辑命令' : '新建命令'"></h3>
+                    <h3 class="text-sm font-semibold mb-4 text-gray-900 dark:text-white" x-text="cmdForm.id ? '编辑命令' : '新建命令'"></h3>
                     <div class="space-y-3">
                         <div><label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">名称</label><input type="text" x-model="cmdForm.name" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"></div>
                         <div><label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">命令</label><input type="text" x-model="cmdForm.command" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white font-mono"></div>
@@ -207,7 +250,7 @@
 </div>
 <div x-show="showAddServerModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4 w-full max-w-md text-sm">
-        <h3 class="text-lg font-semibold mb-3 text-gray-900 dark:text-white" x-text="editingServer ? '编辑服务器' : '添加服务器'"></h3>
+        <h3 class="text-sm font-semibold mb-3 text-gray-900 dark:text-white" x-text="editingServer ? '编辑服务器' : '添加服务器'"></h3>
         <div class="space-y-2">
             <div class="grid grid-cols-2 gap-2">
                 <div><label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">名称</label><input type="text" x-model="newServer.name" class="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"></div>
@@ -380,6 +423,9 @@ function app() {
             return [...new Set(groups)];
         },
         init() {
+            var _t = localStorage.getItem('access_token');
+            if (!_t) { window.location.href = '/login'; return; }
+            try { var _p = JSON.parse(atob(_t.split('.')[1])); if (_p.exp * 1000 < Date.now()) { localStorage.removeItem('access_token'); window.location.href = '/login'; return; } } catch(e) {}
             this.searchFilter = '';
             this.groupFilter = '';
             const userStr = localStorage.getItem('user');
@@ -988,7 +1034,7 @@ function app() {
 }</script>
 <div x-show="showComposeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <h3 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">编辑 compose.yml - <span x-text="editingService?.name"></span></h3>
+        <h3 class="text-sm font-semibold mb-2 text-gray-800 dark:text-white">编辑 compose.yml - <span x-text="editingService?.name"></span></h3>
         <div class="flex justify-between items-center mb-2">
             <span class="text-sm text-gray-500">docker-compose.yml</span>
             <div class="flex space-x-2">
@@ -1005,7 +1051,7 @@ function app() {
 <div x-show="showDeploymentDetail" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-3xl max-h-[80vh] flex flex-col">
         <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">部署详情 - ID: <span x-text="currentDeployment?.id"></span></h3>
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-white">部署详情 - ID: <span x-text="currentDeployment?.id"></span></h3>
             <button @click="showDeploymentDetail = false" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xl">&times;</button>
         </div>
         <div class="space-y-3 mb-4 overflow-y-auto flex-1">
@@ -1030,7 +1076,7 @@ function app() {
 </div>
 <div x-show="showAddServiceModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-3xl">
-        <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">添加服务</h3>
+        <h3 class="text-sm font-semibold mb-4 text-gray-800 dark:text-white">添加服务</h3>
         <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
                 <div>
@@ -1066,7 +1112,7 @@ function app() {
 <div x-show="showTerminalModal" @click="focusTerminal()" class="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col" style="display: none;">
     <div class="bg-gray-800 text-white px-4 py-2 flex justify-between items-center">
         <div>
-            <h3 class="text-lg font-semibold">Web 终端 - <span x-text="currentTerminalServer?.name"></span></h3>
+            <h3 class="text-sm font-semibold">Web 终端 - <span x-text="currentTerminalServer?.name"></span></h3>
             <p class="text-xs text-gray-400" x-text="currentTerminalServer?.ip"></p>
         </div>
         <button @click="closeTerminalModal()" class="text-gray-400 hover:text-white text-sm bg-gray-700 px-3 py-1 rounded">关闭</button>

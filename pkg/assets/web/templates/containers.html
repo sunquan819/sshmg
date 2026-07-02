@@ -5,18 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>容器管理</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
+    <style>
+body { font-size: 13px; }
+.dark .dark\:bg-gray-800 { background-color: #1f2937; }
+.dark .dark\:bg-gray-900 { background-color: #111827; }
+.dark .dark\:bg-gray-700 { background-color: #374151; }
+.dark .dark\:bg-gray-600 { background-color: #4b5563; }
+.dark .dark\:bg-blue-500 { background-color: #3b82f6; }
+.dark .dark\:bg-blue-900 { background-color: #1e3a5f; }
+.dark .dark\:bg-green-500 { background-color: #22c55e; }
+.dark .dark\:bg-green-900 { background-color: #14532d; }
+.dark .dark\:bg-purple-500 { background-color: #a855f7; }
+.dark .dark\:bg-purple-900 { background-color: #3b0764; }
+.dark .dark\:bg-red-500 { background-color: #ef4444; }
+.dark .dark\:bg-red-900 { background-color: #7f1d1d; }
+.dark .dark\:bg-yellow-900 { background-color: #713f12; }
+.dark .dark\:text-white { color: #fff; }
+.dark .dark\:text-gray-300 { color: #d1d5db; }
+.dark .dark\:text-gray-400 { color: #9ca3af; }
+.dark .dark\:text-blue-200 { color: #bfdbfe; }
+.dark .dark\:text-blue-400 { color: #60a5fa; }
+.dark .dark\:text-green-200 { color: #bbf7d0; }
+.dark .dark\:text-green-400 { color: #4ade80; }
+.dark .dark\:text-purple-200 { color: #e9d5ff; }
+.dark .dark\:text-red-200 { color: #fecaca; }
+.dark .dark\:text-red-400 { color: #f87171; }
+.dark .dark\:text-yellow-200 { color: #fef08a; }
+.dark .dark\:border-gray-600 { border-color: #4b5563; }
+.dark .dark\:border-gray-700 { border-color: #374151; }
+.dark .dark\:divide-gray-700 > * + * { border-color: #374151; }
+.dark .dark\:hover\:bg-gray-600:hover { background-color: #4b5563; }
+.dark .dark\:hover\:bg-gray-700:hover { background-color: #374151; }
+.dark .dark\:hover\:text-gray-200:hover { color: #e5e7eb; }
+.dark .dark\:hover\:text-gray-300:hover { color: #d1d5db; }
+.dark .dark\:hover\:text-white:hover { color: #fff; }
+</style>
+    <script>
+(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
+function toggleTheme(){var d=document.documentElement;if(d.classList.contains('dark')){d.classList.remove('dark');localStorage.setItem('theme','light')}else{d.classList.add('dark');localStorage.setItem('theme','dark')}}
+</script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <script defer src="/static/js/alpine.min.js"></script>
     <style>
         [x-cloak] { display: none !important; }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white text-sm">
     <div x-data="containerApp()" class="min-h-screen">
         <!-- 顶部导航 -->
         <nav class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
                 <div class="flex items-center space-x-4">
                     <a href="/" class="text-xl font-bold text-gray-800 dark:text-white">🏠 首页</a>
+                    <a onclick="toggleTheme()" class="cursor-pointer text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white">🌓</a>
                     <button @click="logout()" class="text-gray-600 dark:text-gray-300 hover:text-red-500">🚪 退出</button>
                 </div>
                 <div class="text-sm text-gray-500" x-text="user?.username"></div>
@@ -24,7 +65,7 @@
         </nav>
 
         <div class="max-w-7xl mx-auto px-4 py-6">
-            <h1 class="text-lg font-bold text-gray-800 dark:text-white mb-4">🐳 容器管理</h1>
+            <h1 class="text-sm font-bold text-gray-800 dark:text-white mb-4">🐳 容器管理</h1>
 
             <!-- 选择服务器 -->
             <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4 mb-6">
@@ -110,7 +151,7 @@
             <div x-show="showLogsModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded w-4/5 h-4/5 flex flex-col">
                     <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-white">容器日志 - <span x-text="selectedContainer?.name"></span></h3>
+                        <h3 class="text-sm font-bold text-gray-800 dark:text-white">容器日志 - <span x-text="selectedContainer?.name"></span></h3>
                         <button @click="showLogsModal = false" class="text-gray-500 hover:text-gray-700">&times;</button>
                     </div>
                     <div class="flex-1 p-4 overflow-auto">
@@ -133,7 +174,7 @@
             <div x-show="showExecModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded w-4/5 h-4/5 flex flex-col">
                     <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-white">容器终端 - <span x-text="selectedContainer?.name"></span></h3>
+                        <h3 class="text-sm font-bold text-gray-800 dark:text-white">容器终端 - <span x-text="selectedContainer?.name"></span></h3>
                         <button @click="showExecModal = false" class="text-gray-500 hover:text-gray-700">&times;</button>
                     </div>
                     <div class="flex-1 p-4">
@@ -177,6 +218,9 @@
                 logOffset: 0,
 
                 init() {
+                    var _t = localStorage.getItem('access_token');
+                    if (!_t) { window.location.href = '/login'; return; }
+                    try { var _p = JSON.parse(atob(_t.split('.')[1])); if (_p.exp * 1000 < Date.now()) { localStorage.removeItem('access_token'); window.location.href = '/login'; return; } } catch(e) {}
                     const userStr = localStorage.getItem('user');
                     const token = localStorage.getItem('access_token');
                     if (!userStr || !token) {

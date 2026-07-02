@@ -6,6 +6,46 @@
     <title>Web 终端 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/xterm.css">
     <link rel="stylesheet" href="/static/css/tailwind.css">
+    <style>
+body { font-size: 13px; }
+.dark .dark\:bg-gray-800 { background-color: #1f2937; }
+.dark .dark\:bg-gray-900 { background-color: #111827; }
+.dark .dark\:bg-gray-700 { background-color: #374151; }
+.dark .dark\:bg-gray-600 { background-color: #4b5563; }
+.dark .dark\:bg-blue-500 { background-color: #3b82f6; }
+.dark .dark\:bg-blue-900 { background-color: #1e3a5f; }
+.dark .dark\:bg-green-500 { background-color: #22c55e; }
+.dark .dark\:bg-green-900 { background-color: #14532d; }
+.dark .dark\:bg-purple-500 { background-color: #a855f7; }
+.dark .dark\:bg-purple-900 { background-color: #3b0764; }
+.dark .dark\:bg-red-500 { background-color: #ef4444; }
+.dark .dark\:bg-red-900 { background-color: #7f1d1d; }
+.dark .dark\:bg-yellow-900 { background-color: #713f12; }
+.dark .dark\:text-white { color: #fff; }
+.dark .dark\:text-gray-300 { color: #d1d5db; }
+.dark .dark\:text-gray-400 { color: #9ca3af; }
+.dark .dark\:text-blue-200 { color: #bfdbfe; }
+.dark .dark\:text-blue-400 { color: #60a5fa; }
+.dark .dark\:text-green-200 { color: #bbf7d0; }
+.dark .dark\:text-green-400 { color: #4ade80; }
+.dark .dark\:text-purple-200 { color: #e9d5ff; }
+.dark .dark\:text-red-200 { color: #fecaca; }
+.dark .dark\:text-red-400 { color: #f87171; }
+.dark .dark\:text-yellow-200 { color: #fef08a; }
+.dark .dark\:border-gray-600 { border-color: #4b5563; }
+.dark .dark\:border-gray-700 { border-color: #374151; }
+.dark .dark\:divide-gray-700 > * + * { border-color: #374151; }
+.dark .dark\:hover\:bg-gray-600:hover { background-color: #4b5563; }
+.dark .dark\:hover\:bg-gray-700:hover { background-color: #374151; }
+.dark .dark\:hover\:text-gray-200:hover { color: #e5e7eb; }
+.dark .dark\:hover\:text-gray-300:hover { color: #d1d5db; }
+.dark .dark\:hover\:text-white:hover { color: #fff; }
+</style>
+    <script>
+(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
+function toggleTheme(){var d=document.documentElement;if(d.classList.contains('dark')){d.classList.remove('dark');localStorage.setItem('theme','light')}else{d.classList.add('dark');localStorage.setItem('theme','dark')}}
+</script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <script src="/static/js/alpine.min.js" defer></script>
     <link rel="stylesheet" href="/static/css/codemirror/codemirror.min.css">
     <link rel="stylesheet" href="/static/css/codemirror/monokai.min.css">
@@ -34,11 +74,11 @@
         .scrollbar-always::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; min-height: 8px; }
     </style>
 </head>
-<body class="bg-gray-900 h-screen overflow-hidden" x-data="terminalApp()" x-init="init()">
+<body class="bg-gray-900 h-screen overflow-hidden text-sm" x-data="terminalApp()" x-init="init()">
 <div class="h-full flex flex-col">
     <header class="bg-gray-800 text-white px-4 py-2 flex justify-between items-center border-b border-gray-700 relative">
         <div class="flex items-center space-x-4">
-            <h1 class="text-lg font-semibold">
+            <h1 class="text-sm font-semibold">
                 <svg x-show="osType === 'windows'" class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0V3.449zm10.949-1.651L24 0v11.4H10.949V1.798zm-10.949 12.9l9.75 1.35v9.503H0V14.699zm10.949 1.35l13.051.301v10.05l-13.051.3v-10.65z"/></svg>
                 <svg x-show="osType !== 'windows'" class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg> Web 终端
             </h1>
@@ -64,6 +104,7 @@
                 </template>
             </div>
             <button @click="goHome()" class="text-gray-400 hover:text-white text-sm px-2">🏠主页</button>
+            <a onclick="toggleTheme()" class="cursor-pointer text-gray-400 hover:text-white text-sm px-2">🌓</a>
             <a :href="'/terminal-logs?token=' + token" class="text-gray-400 hover:text-white text-sm px-2">📋日志</a>
             <button @click="showNotes = false; showCommands = false; showSessionHistory = false" :class="!showNotes && !showCommands && !showSessionHistory ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📁文件</button>
             <button @click="showNotes = true; showCommands = false; showSessionHistory = false; activePanel = 'notes'" :class="showNotes && activePanel === 'notes' ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📝笔记</button>
@@ -1575,7 +1616,7 @@ function terminalApp() {
 <div x-show="showPreviewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50]" style="display: none;">
     <div class="bg-white dark:bg-gray-800 rounded-lg p-4 flex flex-col" style="width: 90vw; height: 85vh; min-width: 600px; min-height: 400px; resize: both; overflow: auto;">
         <div class="flex justify-between items-center mb-3">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">预览文件 - <span x-text="editingFile ? editingFile.name : ''"></span></h3>
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-white">预览文件 - <span x-text="editingFile ? editingFile.name : ''"></span></h3>
             <button @click="closeEditorModal()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
         </div>
         <div class="flex-1 flex flex-col overflow-hidden">
@@ -1592,7 +1633,7 @@ function terminalApp() {
 <div x-show="showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]" style="display: none;">
     <div class="bg-white dark:bg-gray-800 rounded-lg p-4 flex flex-col" style="width: 90vw; height: 85vh; min-width: 600px; min-height: 400px; resize: both; overflow: auto;">
         <div class="flex justify-between items-center mb-3">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">编辑文件 - <span x-text="editingFile ? editingFile.name : ''"></span></h3>
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-white">编辑文件 - <span x-text="editingFile ? editingFile.name : ''"></span></h3>
             <button @click="closeEditorModal()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
         </div>
         <div class="flex-1 flex flex-col overflow-hidden">
