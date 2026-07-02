@@ -40,6 +40,11 @@ body { font-size: 12px; }
 .dark .dark\:hover\:text-gray-300:hover { color: #d1d5db; }
 .dark .dark\:hover\:text-white:hover { color: #fff; }
 </style>
+    <script>
+(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
+function toggleTheme(){var d=document.documentElement;if(d.classList.contains('dark')){d.classList.remove('dark');localStorage.setItem('theme','light')}else{d.classList.add('dark');localStorage.setItem('theme','dark')}}
+</script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <script defer src="/static/js/alpine.min.js"></script>
     </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen text-sm" x-data="infrastructureApp()" x-init="init()">
