@@ -97,7 +97,7 @@
                                  @dblclick="openItem(file)"
                                  :class="selectedFiles.includes(file.path) ? 'selected' : ''"
                                  class="file-item border border-gray-700 rounded-lg flex items-center p-3">
-                                <span class="mr-3 text-2xl" x-text="getFileIcon(file)"></span>
+                                <span class="mr-2 text-lg" x-text="getFileIcon(file)"></span>
                                 <div class="flex-1 min-w-0">
                                     <p class="text-sm font-medium truncate" x-text="file.name"></p>
                                     <p class="text-xs text-gray-500">

@@ -1126,33 +1126,16 @@ function terminalApp() {
             const token = localStorage.getItem('access_token');
             if (!token) { alert('请先登录'); return; }
             
-            const agentRunning = await this.checkRdpAgent();
-            if (!agentRunning) {
-                const download = confirm('RDP Agent 未启动，是否下载？');
-                if (download) {
-                    window.open('/artifacts/rdp-agent.exe', '_blank');
-                }
-                return;
-            }
-            
             try {
                 const res = await fetch('/api/servers/' + server.id + '/full', { headers: { 'Authorization': 'Bearer ' + token } });
                 const data = await res.json();
-                
-                if (!res.ok) {
-                    alert('获取服务器信息失败');
-                    return;
-                }
+                if (!res.ok) { alert('获取服务器信息失败'); return; }
                 
                 const host = data.ip;
                 const port = data.port || 3389;
                 const username = data.username || 'administrator';
                 const password = data.password || '';
-                
-                if (!password) {
-                    alert('服务器未保存密码，无法自动连接');
-                    return;
-                }
+                if (!password) { alert('服务器未保存密码，无法自动连接'); return; }
                 
                 const jumpEnabled = data.jump_enabled || false;
                 const jumpIP = data.jump_ip || '';
@@ -1164,38 +1147,37 @@ function terminalApp() {
                 const proxyType = data.proxy_type || 'socks5';
                 const proxyHost = data.proxy_host || '';
                 const proxyPort = data.proxy_port || 1080;
-                
+
+                // 1) Desktop mode
                 if (window.runtime && window.runtime.LaunchRDP) {
                     try { await window.runtime.LaunchRDP(host, port, username, password); return; } catch(e) {}
                 }
 
-                const rdpRes = await fetch('http://localhost:8765/connect', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        host: host,
-                        port: port,
-                        username: username,
-                        password: password,
-                        jump_enabled: jumpEnabled,
-                        jump_host: jumpIP,
-                        jump_port: jumpPort,
-                        jump_user: jumpUser,
-                        jump_password: jumpPassword,
-                        jump_key: jumpKey,
-                        proxy_enabled: proxyEnabled,
-                        proxy_type: proxyType,
-                        proxy_host: proxyHost,
-                        proxy_port: proxyPort
-                    })
-                });
-                
-                if (rdpRes.ok) {
-                    this.showMessageCenter('RDP 连接已启动', 'success');
-                } else {
-                    const rdpData = await rdpRes.json();
-                    alert('RDP连接失败: ' + (rdpData.error || '未知错误'));
+                // 2) rdp-agent.exe
+                const agentRunning = await this.checkRdpAgent();
+                if (agentRunning) {
+                    const rdpRes = await fetch('http://localhost:8765/connect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            host, port, username, password,
+                            jump_enabled: jumpEnabled, jump_host: jumpIP, jump_port: jumpPort,
+                            jump_user: jumpUser, jump_password: jumpPassword, jump_key: jumpKey,
+                            proxy_enabled: proxyEnabled, proxy_type: proxyType,
+                            proxy_host: proxyHost, proxy_port: proxyPort
+                        })
+                    });
+                    if (rdpRes.ok) {
+                        this.showMessageCenter('RDP 连接已启动', 'success');
+                    } else {
+                        const rdpData = await rdpRes.json();
+                        alert('RDP连接失败: ' + (rdpData.error || '未知错误'));
+                    }
+                    return;
                 }
+
+                alert('未检测到 RDP Agent\n\n请下载并启动 rdp-agent.exe');
+                
             } catch (e) { alert('RDP连接失败: ' + e.message); }
         },
         toggleFullscreen() { if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); } else { document.exitFullscreen(); } },

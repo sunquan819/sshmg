@@ -19,29 +19,29 @@
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen" x-data="app()" x-init="init()" onload="checkAuth()">
 <div class="flex h-screen overflow-hidden">
 <aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-    <div class="p-4 border-b border-gray-200 dark:border-gray-700"><h1 class="text-xl font-bold text-gray-900 dark:text-white">部署管理系统 <span class="text-xs text-gray-400">v1.0.2</span></h1></div>
-    <nav class="p-4 space-y-2 flex-1 overflow-y-auto nav-scrollbar">
-        <a href="#" @click.prevent="activeTab='servers'" :class="activeTab==='servers'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-4 py-2 rounded-lg transition">🖥️ 服务器</a>
-        <a :href="'/infrastructure?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">⚙️ 基础设施</a>
-        <a href="#" @click.prevent="activeTab='services'" :class="activeTab==='services'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-4 py-2 rounded-lg transition">🚀 服务部署</a>
-        <a href="#" @click.prevent="activeTab='instances'" :class="activeTab==='instances'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-4 py-2 rounded-lg transition">📦 我的实例</a>
-        <a href="#" @click.prevent="activeTab='crons'" :class="activeTab==='crons'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-4 py-2 rounded-lg transition">⏰ 计划任务</a>
-        <a :href="'/containers?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🐳 容器管理</a>
-        <a :href="'/database?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🗄️ 数据库管理</a>
-        <a :href="'/projects?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🏗️ 项目部署</a>
-        <a :href="'/notes?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📝 笔记管理</a>
-        <a :href="'/tools?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🔧 常用工具</a>
-        <a href="#" @click.prevent="activeTab='commands'; loadCommands()" :class="activeTab==='commands'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-4 py-2 rounded-lg transition">⌨️ 常用命令</a>
-        <a :href="'/tunnels?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🔗 端口隧道</a>
-        <a :href="'/terminal-logs?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📋 终端日志</a>
-        <a :href="'/files?token=' + getToken()" class="block px-4 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📁 文件管理</a>
-        <a href="/artifacts/rdp-agent.exe" download class="block px-4 py-2 rounded-lg transition text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700">⬇️ RDP Agent</a>
+    <div class="p-3 border-b border-gray-200 dark:border-gray-700"><h1 class="text-base font-bold text-gray-900 dark:text-white">部署管理系统 <span class="text-xs text-gray-400">v1.0.2</span></h1></div>
+        <nav class="p-3 space-y-1 flex-1 overflow-y-auto nav-scrollbar">
+            <a href="#" @click.prevent="activeTab='servers'" :class="activeTab==='servers'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-3 py-1.5 rounded text-sm transition">🖥️ 服务器</a>
+        <a :href="'/infrastructure?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">⚙️ 基础设施</a>
+        <a href="#" @click.prevent="activeTab='services'" :class="activeTab==='services'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-3 py-1.5 rounded text-sm transition">🚀 服务部署</a>
+        <a href="#" @click.prevent="activeTab='instances'" :class="activeTab==='instances'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-3 py-1.5 rounded text-sm transition">📦 我的实例</a>
+        <a href="#" @click.prevent="activeTab='crons'" :class="activeTab==='crons'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-3 py-1.5 rounded text-sm transition">⏰ 计划任务</a>
+        <a :href="'/containers?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🐳 容器管理</a>
+        <a :href="'/database?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🗄️ 数据库管理</a>
+        <a :href="'/projects?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🏗️ 项目部署</a>
+        <a :href="'/notes?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📝 笔记管理</a>
+        <a :href="'/tools?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🔧 常用工具</a>
+        <a href="#" @click.prevent="activeTab='commands'; loadCommands()" :class="activeTab==='commands'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-3 py-1.5 rounded text-sm transition">⌨️ 常用命令</a>
+        <a :href="'/tunnels?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🔗 端口隧道</a>
+        <a :href="'/terminal-logs?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📋 终端日志</a>
+        <a :href="'/files?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📁 文件管理</a>
+        <a href="/artifacts/rdp-agent.exe" download class="block px-3 py-1.5 rounded text-sm transition text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700">⬇️ RDP Agent</a>
     </nav>
-    <div class="p-4 border-t border-gray-200 dark:border-gray-700"><button @click="logout()" class="text-sm text-red-600 hover:text-red-700 w-full text-left">退出</button></div>
+    <div class="p-3 border-t border-gray-200 dark:border-gray-700"><button @click="logout()" class="text-xs text-red-600 hover:text-red-700 w-full text-left">退出</button></div>
 </aside>
 <main class="flex-1 overflow-y-auto">
-    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center"><h2 class="text-2xl font-semibold text-gray-900 dark:text-white" x-text="pageTitle"></h2><button @click="logout()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1 rounded text-sm">退出</button></header>
-    <div class="p-6">
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex justify-between items-center"><h2 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="pageTitle"></h2><button @click="logout()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1 rounded text-sm">退出</button></header>
+    <div class="p-4">
         <div x-show="activeTab==='servers'">
             <div class="mb-4 flex items-center space-x-2 flex-wrap gap-2">
                 <button @click="showAddServerModal=true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">➕ 添加服务器</button>
@@ -63,16 +63,16 @@
                 </select>
                 <span x-show="filteredServers.length === 0" class="text-gray-500 text-sm">没有匹配的服务器</span>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <template x-for="server in filteredServers" :key="server.id">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-3">
                         <div class="flex justify-between items-start mb-3">
                             <div class="flex items-center space-x-2 cursor-pointer" @click="server.os_type === 'windows' ? connectRDP(server) : openTerminalFull(server)">
-                                <svg x-show="server.os_type === 'windows'" class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0V3.449zm10.949-1.651L24 0v11.4H10.949V1.798zm-10.949 12.9l9.75 1.35v9.503H0V14.699zm10.949 1.35l13.051.301v10.05l-13.051.3v-10.65z"/></svg>
-                                <svg x-show="server.os_type !== 'windows'" class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
+                                <svg x-show="server.os_type === 'windows'" class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0V3.449zm10.949-1.651L24 0v11.4H10.949V1.798zm-10.949 12.9l9.75 1.35v9.503H0V14.699zm10.949 1.35l13.051.301v10.05l-13.051.3v-10.65z"/></svg>
+                                <svg x-show="server.os_type !== 'windows'" class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
                                 <div>
-                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white hover:text-blue-500" x-text="server.name"></h3>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-500" x-text="server.ip+':'+server.port"></p>
+                                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white hover:text-blue-500" x-text="server.name"></h3>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-500" x-text="server.ip+':'+server.port"></p>
                                 </div>
                             </div>
                             <span :class="server.status==='online'?'bg-green-100 text-green-800':'bg-red-100 text-red-800'" class="px-2 py-1 rounded text-xs" x-text="server.status==='online'?'在线':'离线'"></span>
@@ -801,37 +801,19 @@ function app() {
             const token = localStorage.getItem('access_token');
             if (!token) { alert('请先登录'); return; }
             
-            const agentRunning = await this.checkRdpAgent();
-            if (!agentRunning) {
-                const download = confirm('RDP Agent 未启动，是否下载？');
-                if (download) {
-                    window.open('/artifacts/rdp-agent.exe', '_blank');
-                }
-                return;
-            }
-            
             try {
                 const res = await fetch('/api/servers/' + server.id + '/full', {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 const data = await res.json();
-                
-                if (!res.ok) {
-                    alert('获取服务器信息失败');
-                    return;
-                }
+                if (!res.ok) { alert('获取服务器信息失败'); return; }
                 
                 const host = data.ip;
                 const port = data.port || 3389;
                 const username = data.username || 'administrator';
                 const password = data.password || '';
+                if (!password) { alert('服务器未保存密码，无法自动连接'); return; }
                 
-                if (!password) {
-                    alert('服务器未保存密码，无法自动连接');
-                    return;
-                }
-                
-                // 调用本地 RDP Agent
                 const jumpEnabled = data.jump_enabled || false;
                 const jumpIP = data.jump_ip || '';
                 const jumpPort = data.jump_port || 22;
@@ -843,59 +825,51 @@ function app() {
                 const proxyHost = data.proxy_host || '';
                 const proxyPort = data.proxy_port || 1080;
 
+                // 1) Desktop mode: 通过 Wails 直接调本地 RDP 客户端
                 if (window.runtime && window.runtime.LaunchRDP) {
                     try { await window.runtime.LaunchRDP(host, port, username, password); return; } catch(e) {}
                 }
 
-                const rdpRes = await fetch('http://localhost:8765/connect', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        host: host,
-                        port: port,
-                        username: username,
-                        password: password,
-                        jump_enabled: jumpEnabled,
-                        jump_ip: jumpIP,
-                        jump_port: jumpPort,
-                        jump_user: jumpUser,
-                        jump_password: jumpPassword,
-                        jump_key: jumpKey,
-                        proxy_enabled: proxyEnabled,
-                        proxy_type: proxyType,
-                        proxy_host: proxyHost,
-                        proxy_port: proxyPort
-                    })
-                });
-                
-                if (!rdpRes.ok) {
+                // 2) 本地 rdp-agent.exe
+                const agentRunning = await this.checkRdpAgent();
+                if (agentRunning) {
+                    const rdpRes = await fetch('http://localhost:8765/connect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            host, port, username, password,
+                            jump_enabled: jumpEnabled, jump_ip: jumpIP, jump_port: jumpPort,
+                            jump_user: jumpUser, jump_password: jumpPassword, jump_key: jumpKey,
+                            proxy_enabled: proxyEnabled, proxy_type: proxyType,
+                            proxy_host: proxyHost, proxy_port: proxyPort
+                        })
+                    });
+                    if (rdpRes.ok) {
+                        console.log('RDP 连接已启动:', host + ':' + port, '用户名:', username);
+                        return;
+                    }
                     const err = await rdpRes.text();
                     alert('RDP 连接失败: ' + err + '\n\n请确保 RDP Agent 已启动');
                     return;
                 }
-                
-                console.log('RDP 连接已启动:', host + ':' + port, '用户名:', username);
-                
-            } catch(e) {
-                console.error(e);
-                // 回退到下载 RDP 文件
+
+                // 3) 回退: 下载 .rdp 文件
                 const rdpContent = 
 'full address:s:' + host + ':' + port + '\r\n' +
 'username:s:' + username + '\r\n' +
 'prompt for credentials:i:0\r\n' +
 'authentication level:i:0\r\n';
-                
                 const blob = new Blob([rdpContent], { type: 'application/x-rdp' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
-                a.download = (server.name || host) + '.rdp';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                a.href = url; a.download = (server.name || host) + '.rdp';
+                document.body.appendChild(a); a.click();
+                document.body.removeChild(a); URL.revokeObjectURL(url);
+                alert('已下载 RDP 文件\n\n双击打开，输入密码即可登录\n\n服务器: ' + host + ':' + port + '\n用户名: ' + username);
                 
-                alert('RDP Agent 连接失败，已下载 RDP 文件\n\n双击打开，输入密码即可登录\n\n服务器: ' + host + ':' + port + '\n用户名: ' + username);
+            } catch(e) {
+                console.error(e);
+                alert('RDP 连接失败');
             }
         },
         initTerminalInstance(server) {

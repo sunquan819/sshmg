@@ -5,3 +5,7 @@
 export function LaunchRDP(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['LaunchRDP'](arg1, arg2, arg3, arg4);
 }
+
+export function Quit() {
+  return window['go']['main']['App']['Quit']();
+}
