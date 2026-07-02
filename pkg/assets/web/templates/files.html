@@ -6,7 +6,7 @@
     <title>文件管理 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <style>
-body { font-size: 13px; }
+body { font-size: 10px; }
 .dark .dark\:bg-gray-800 { background-color: #1f2937; }
 .dark .dark\:bg-gray-900 { background-color: #111827; }
 .dark .dark\:bg-gray-700 { background-color: #374151; }
@@ -49,6 +49,10 @@ body { font-size: 13px; }
         .drop-zone.dragover { border-color: #10b981; background: rgba(16,185,129,0.2); }
     </style>
     <script src="/static/js/alpine.min.js" defer></script>
+
+<script>
+window.addEventListener('beforeunload',function(){localStorage.removeItem('access_token');localStorage.removeItem('user');});
+</script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white" x-data="filesApp()" x-init="init()">
     <div class="min-h-screen flex flex-col">

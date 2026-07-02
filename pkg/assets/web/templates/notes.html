@@ -6,7 +6,7 @@
     <title>笔记管理 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <style>
-body { font-size: 13px; }
+body { font-size: 10px; }
 .dark .dark\:bg-gray-800 { background-color: #1f2937; }
 .dark .dark\:bg-gray-900 { background-color: #111827; }
 .dark .dark\:bg-gray-700 { background-color: #374151; }
@@ -46,6 +46,10 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
 </script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <script src="/static/js/alpine.min.js" defer></script>
+
+<script>
+window.addEventListener('beforeunload',function(){localStorage.removeItem('access_token');localStorage.removeItem('user');});
+</script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white text-sm" x-data="noteApp()" x-init="init()">
     <div id="copyToast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#16a34a;color:white;padding:8px 16px;border-radius:4px;font-size:14px;z-index:9999;">已复制</div>

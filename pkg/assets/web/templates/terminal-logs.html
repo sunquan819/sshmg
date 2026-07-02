@@ -6,7 +6,7 @@
     <title>终端日志 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <style>
-body { font-size: 13px; }
+body { font-size: 10px; }
 .dark .dark\:bg-gray-800 { background-color: #1f2937; }
 .dark .dark\:bg-gray-900 { background-color: #111827; }
 .dark .dark\:bg-gray-700 { background-color: #374151; }
@@ -63,6 +63,10 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
         .cmd-index { color: #6b7280; font-size: 11px; min-width: 24px; }
         .terminal-output { background: #111827; border-radius: 4px; padding: 8px; margin-top: 4px; }
     </style>
+
+<script>
+window.addEventListener('beforeunload',function(){localStorage.removeItem('access_token');localStorage.removeItem('user');});
+</script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white text-sm" x-data="terminalLogApp()" x-init="init()">
     <div class="min-h-screen flex flex-col">

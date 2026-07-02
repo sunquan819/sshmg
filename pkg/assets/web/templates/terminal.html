@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/static/css/xterm.css">
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <style>
-body { font-size: 13px; }
+body { font-size: 10px; }
 .dark .dark\:bg-gray-800 { background-color: #1f2937; }
 .dark .dark\:bg-gray-900 { background-color: #111827; }
 .dark .dark\:bg-gray-700 { background-color: #374151; }
@@ -73,6 +73,10 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
         .scrollbar-always::-webkit-scrollbar-track { background: transparent; }
         .scrollbar-always::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; min-height: 8px; }
     </style>
+
+<script>
+window.addEventListener('beforeunload',function(){localStorage.removeItem('access_token');localStorage.removeItem('user');});
+</script>
 </head>
 <body class="bg-gray-900 h-screen overflow-hidden text-sm" x-data="terminalApp()" x-init="init()">
 <div class="h-full flex flex-col">
