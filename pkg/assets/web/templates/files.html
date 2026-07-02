@@ -50,22 +50,6 @@ body { font-size: 10px; }
     </style>
     <script src="/static/js/alpine.min.js" defer></script>
 
-<script>
-(function(){
-var f=window.fetch;
-window.fetch=function(u,o){
-return f(u,o).then(function(r){
-if(r.status===401&&!window.location.pathname.startsWith('/login')){
-localStorage.removeItem('access_token');
-localStorage.removeItem('user');
-window.location.href='/login';
-throw new Error('Unauthorized');
-}
-return r;
-});
-};
-})();
-</script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white" x-data="filesApp()" x-init="init()">
     <div class="min-h-screen flex flex-col">

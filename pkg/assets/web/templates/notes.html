@@ -40,30 +40,7 @@ body { font-size: 10px; }
 .dark .dark\:hover\:text-gray-300:hover { color: #d1d5db; }
 .dark .dark\:hover\:text-white:hover { color: #fff; }
 </style>
-    <script>
-(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
-function toggleTheme(){var d=document.documentElement;if(d.classList.contains('dark')){d.classList.remove('dark');localStorage.setItem('theme','light')}else{d.classList.add('dark');localStorage.setItem('theme','dark')}}
-</script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
-    <script src="/static/js/alpine.min.js" defer></script>
-
-<script>
-(function(){
-var f=window.fetch;
-window.fetch=function(u,o){
-return f(u,o).then(function(r){
-if(r.status===401&&!window.location.pathname.startsWith('/login')){
-localStorage.removeItem('access_token');
-localStorage.removeItem('user');
-window.location.href='/login';
-throw new Error('Unauthorized');
-}
-return r;
-});
-};
-})();
-</script>
-</head>
+    </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white text-sm" x-data="noteApp()" x-init="init()">
     <div id="copyToast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#16a34a;color:white;padding:8px 16px;border-radius:4px;font-size:14px;z-index:9999;">已复制</div>
     <div class="min-h-screen flex flex-col">

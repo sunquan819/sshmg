@@ -40,47 +40,7 @@ body { font-size: 10px; }
 .dark .dark\:hover\:text-gray-300:hover { color: #d1d5db; }
 .dark .dark\:hover\:text-white:hover { color: #fff; }
 </style>
-    <script>
-(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
-function toggleTheme(){var d=document.documentElement;if(d.classList.contains('dark')){d.classList.remove('dark');localStorage.setItem('theme','light')}else{d.classList.add('dark');localStorage.setItem('theme','dark')}}
-</script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
-    <script src="/static/js/alpine.min.js" defer></script>
-    <style>
-        [x-cloak] { display: none !important; }
-        .log-block { border-left: 3px solid #3b82f6; margin-bottom: 4px; padding-left: 10px; }
-        .log-block:hover { background: rgba(59, 130, 246, 0.08); }
-        .cmd-text { color: #22c55e; font-family: 'Courier New', monospace; }
-        .output-text { color: #9ca3af; white-space: pre-wrap; word-break: break-all; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; }
-        .timestamp { color: #6b7280; font-size: 11px; }
-        .cmd-collapsed { max-height: 80px; overflow: hidden; position: relative; }
-        .cmd-collapsed::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 24px; background: linear-gradient(transparent, #1f2937); }
-        .cmd-expanded { max-height: none; }
-        .cmd-toggle { cursor: pointer; color: #60a5fa; font-size: 11px; margin-top: 2px; }
-        .cmd-toggle:hover { color: #93c5fd; }
-        .cmd-search-highlight { background: #fbbf24; color: #000; padding: 0 2px; border-radius: 2px; }
-        .cmd-header { display: flex; align-items: center; gap: 8px; }
-        .cmd-index { color: #6b7280; font-size: 11px; min-width: 24px; }
-        .terminal-output { background: #111827; border-radius: 4px; padding: 8px; margin-top: 4px; }
-    </style>
-
-<script>
-(function(){
-var f=window.fetch;
-window.fetch=function(u,o){
-return f(u,o).then(function(r){
-if(r.status===401&&!window.location.pathname.startsWith('/login')){
-localStorage.removeItem('access_token');
-localStorage.removeItem('user');
-window.location.href='/login';
-throw new Error('Unauthorized');
-}
-return r;
-});
-};
-})();
-</script>
-</head>
+    </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white text-sm" x-data="terminalLogApp()" x-init="init()">
     <div class="min-h-screen flex flex-col">
         <header class=" bg-white dark:bg-gray-800  px-4 py-3 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
