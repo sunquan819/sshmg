@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>笔记管理 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
+    <script>tailwind.config={darkMode:'media'}</script>
     <script src="/static/js/alpine.min.js" defer></script>
 </head>
-<body class="bg-gray-900 text-white" x-data="noteApp()" x-init="init()">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white" x-data="noteApp()" x-init="init()">
     <div id="copyToast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#16a34a;color:white;padding:8px 16px;border-radius:4px;font-size:14px;z-index:9999;">已复制</div>
     <div class="min-h-screen flex flex-col">
-        <header class="bg-gray-800 px-4 py-3 flex justify-between items-center border-b border-gray-700">
+        <header class=" bg-white dark:bg-gray-800  px-4 py-3 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
             <div class="flex items-center space-x-4">
                 <a href="/" class="text-gray-400 hover:text-white">🏠主页</a>
                 <h1 class="text-xl font-semibold">📝 笔记管理</h1>
@@ -21,20 +22,20 @@
         <main class="flex-1 p-6 overflow-auto">
             <div class="mb-4 flex justify-between items-center flex-wrap gap-2">
                 <div class="flex items-center space-x-2">
-                    <input type="text" x-model="search" @input="loadNotes()" placeholder="搜索..." class="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm w-48">
-                    <select x-model="categoryFilter" @change="loadNotes()" class="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm">
+                    <input type="text" x-model="search" @input="loadNotes()" placeholder="搜索..." class=" bg-white dark:bg-gray-800  border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm w-48">
+                    <select x-model="categoryFilter" @change="loadNotes()" class=" bg-white dark:bg-gray-800  border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm">
                         <option value="">全部分类</option>
                         <template x-for="cat in categories" :key="cat"><template x-if="cat">
                             <option :value="cat" x-text="cat"></option>
                         </template></template>
                     </select>
                 </div>
-                <button @click="showAddModal=true" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">➕ 新建笔记</button>
+                <button @click="showAddModal=true" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white">➕ 新建笔记</button>
             </div>
 
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 <template x-for="note in notes" :key="note.id">
-                    <div class="bg-gray-800 rounded border border-gray-700 hover:border-blue-500 cursor-pointer" style="padding:0.5rem" @click="viewNote(note)">
+                    <div class=" bg-white dark:bg-gray-800  rounded border border-gray-200 dark:border-gray-700 hover:border-blue-500 cursor-pointer" style="padding:0.5rem" @click="viewNote(note)">
                         <div class="flex justify-between items-start">
                             <h3 class="text-sm font-medium truncate" style="width:4rem" x-text="note.title"></h3>
                             <div class="flex items-center space-x-1">
@@ -55,16 +56,16 @@
     </div>
 
     <div x-show="showAddModal || showEditModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-2xl border border-gray-700">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-2xl border border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-semibold mb-4" x-text="showEditModal ? '编辑笔记' : '新建笔记'"></h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">标题 *</label>
-                    <input type="text" x-model="noteForm.title" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white">
+                    <input type="text" x-model="noteForm.title" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-gray-900 dark:text-white">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">分类</label>
-                    <input type="text" x-model="noteForm.category" list="categoryList" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white">
+                    <input type="text" x-model="noteForm.category" list="categoryList" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-gray-900 dark:text-white">
                     <datalist id="categoryList">
                         <template x-for="cat in categories" :key="cat"><template x-if="cat">
                             <option :value="cat"></option>
@@ -73,18 +74,18 @@
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">内容</label>
-                    <textarea x-model="noteForm.content" rows="10" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white font-mono text-sm"></textarea>
+                    <textarea x-model="noteForm.content" rows="10" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-gray-900 dark:text-white font-mono text-sm"></textarea>
                 </div>
             </div>
             <div class="flex justify-end space-x-2 mt-6">
                 <button @click="closeModal()" class="px-4 py-2 text-gray-400 hover:text-white">取消</button>
-                <button @click="saveNote()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded">保存</button>
+                <button @click="saveNote()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white">保存</button>
             </div>
         </div>
     </div>
 
     <div x-show="showViewModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-3xl border border-gray-700 max-h-[80vh] overflow-auto">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-3xl border border-gray-200 dark:border-gray-700 max-h-[80vh] overflow-auto">
             <div class="flex justify-between items-start mb-4">
                 <h3 class="text-xl font-semibold" x-text="currentNote?.title"></h3>
                 <div class="flex items-center space-x-2">
@@ -97,9 +98,9 @@
                     <span x-show="currentNote?.category" class="bg-gray-700 px-2 py-0.5 rounded mr-2" x-text="currentNote?.category"></span>
                     <span x-text="'更新于 ' + new Date(currentNote?.updated_at).toLocaleString('zh-CN')"></span>
                 </div>
-                <button @click="copyContent()" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">📋 复制</button>
+                <button @click="copyContent()" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-white">📋 复制</button>
             </div>
-            <div class="bg-gray-900 rounded text-white whitespace-pre-wrap font-mono text-sm" style="padding:1rem;max-height:50vh;overflow-y:auto" x-text="currentNote?.content || '暂无内容'"></div>
+            <div class="bg-gray-900 rounded text-gray-900 dark:text-white whitespace-pre-wrap font-mono text-sm" style="padding:1rem;max-height:50vh;overflow-y:auto" x-text="currentNote?.content || '暂无内容'"></div>
         </div>
     </div>
 

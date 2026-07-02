@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文件管理 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
+    <script>tailwind.config={darkMode:'media'}</script>
     <style>
         .file-item { cursor: pointer; padding: 6px 12px; border-radius: 4px; }
         .file-item:hover { background-color: rgba(255,255,255,0.1); }
@@ -14,23 +15,23 @@
     </style>
     <script src="/static/js/alpine.min.js" defer></script>
 </head>
-<body class="bg-gray-900 text-white" x-data="filesApp()" x-init="init()">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white" x-data="filesApp()" x-init="init()">
     <div class="min-h-screen flex flex-col">
-        <header class="bg-gray-800 px-4 py-3 flex justify-between items-center border-b border-gray-700">
+        <header class="bg-white dark:bg-gray-800 px-4 py-3 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
             <div class="flex items-center space-x-4">
                 <a href="/" class="text-gray-400 hover:text-white">🏠主页</a>
                 <h1 class="text-xl font-semibold">📁 文件管理</h1>
             </div>
             <div class="flex items-center space-x-2">
-                <button @click="showUploadModal = true; uploadTargetPath = currentPath" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm">⬆️ 上传文件</button>
-                <button @click="showNewFolderModal = true" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm">📁 新建目录</button>
+                <button @click="showUploadModal = true; uploadTargetPath = currentPath" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm text-white">⬆️ 上传文件</button>
+                <button @click="showNewFolderModal = true" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm text-white">📁 新建目录</button>
                 <button @click="logout()" class="text-gray-400 hover:text-red-400">🚪退出</button>
             </div>
         </header>
 
         <div class="flex-1 flex overflow-hidden">
-            <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
-                <div class="p-3 border-b border-gray-700">
+            <aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+                <div class="p-3 border-b border-gray-200 dark:border-gray-700">
                     <h2 class="text-sm font-semibold text-gray-300">目录</h2>
                 </div>
                 <div class="flex-1 overflow-y-auto p-2">
@@ -52,7 +53,7 @@
             </aside>
 
             <main class="flex-1 flex flex-col overflow-hidden">
-                <div class="bg-gray-800 px-4 py-2 border-b border-gray-700 flex items-center justify-between">
+                <div class="bg-white dark:bg-gray-800 px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <div class="flex items-center space-x-2">
                         <button @click="goUp()" class="text-gray-400 hover:text-white px-2 py-1 rounded" :disabled="currentPath === '/'">
                             ⬆️ 上级
@@ -71,7 +72,7 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto p-4">
-                    <div class="drop-zone rounded-lg p-4 mb-4 text-center text-gray-400"
+                    <div class="drop-zone rounded p-4 mb-4 text-center text-gray-400"
                          @dragover.prevent="dragover = true" 
                          @dragleave.prevent="dragover = false"
                          @drop.prevent="handleDrop($event)"
@@ -96,7 +97,7 @@
                             <div @click="selectFile(file)"
                                  @dblclick="openItem(file)"
                                  :class="selectedFiles.includes(file.path) ? 'selected' : ''"
-                                 class="file-item border border-gray-700 rounded-lg flex items-center p-3">
+                                 class="file-item border border-gray-200 dark:border-gray-700 rounded flex items-center p-3">
                                 <span class="mr-2 text-lg" x-text="getFileIcon(file)"></span>
                                 <div class="flex-1 min-w-0">
                                     <p class="text-sm font-medium truncate" x-text="file.name"></p>
@@ -115,7 +116,7 @@
                     </div>
                 </div>
 
-                <div class="bg-gray-800 px-4 py-2 border-t border-gray-700 flex items-center justify-between">
+                <div class="bg-white dark:bg-gray-800 px-4 py-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <div class="flex items-center space-x-2">
                         <button @click="selectAll()" class="text-gray-400 hover:text-white text-sm px-2 py-1 rounded">全选</button>
                         <button @click="selectedFiles = []" class="text-gray-400 hover:text-white text-sm px-2 py-1 rounded">取消</button>
@@ -124,8 +125,8 @@
                         </span>
                     </div>
                     <div class="flex items-center space-x-2">
-                        <button @click="downloadSelected()" x-show="selectedFiles.length > 0" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm">⬇️ 下载选中</button>
-                        <button @click="deleteSelected()" x-show="selectedFiles.length > 0" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded text-sm">🗑️ 删除选中</button>
+                        <button @click="downloadSelected()" x-show="selectedFiles.length > 0" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm text-white">⬇️ 下载选中</button>
+                        <button @click="deleteSelected()" x-show="selectedFiles.length > 0" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded text-sm text-white">🗑️ 删除选中</button>
                     </div>
                 </div>
             </main>
@@ -133,12 +134,12 @@
     </div>
 
     <div x-show="showUploadModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+        <div class="bg-white dark:bg-gray-800 rounded p-6 w-full max-w-md border border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-semibold mb-4">上传文件</h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">目标目录</label>
-                    <input type="text" x-model="uploadTargetPath" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white">
+                    <input type="text" x-model="uploadTargetPath" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">选择文件</label>
@@ -152,49 +153,49 @@
                 </div>
             </div>
             <div class="flex justify-end space-x-3 mt-6">
-                <button @click="showUploadModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button @click="uploadFiles()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700">上传</button>
+                <button @click="showUploadModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button @click="uploadFiles()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700 text-white">上传</button>
             </div>
         </div>
     </div>
 
     <div x-show="showNewFolderModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm border border-gray-700">
+        <div class="bg-white dark:bg-gray-800 rounded p-6 w-full max-w-sm border border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-semibold mb-4">新建目录</h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">父目录</label>
-                    <input type="text" x-model="currentPath" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" readonly>
+                    <input type="text" x-model="currentPath" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" readonly>
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">目录名称</label>
-                    <input type="text" x-model="newFolderName" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="输入目录名">
+                    <input type="text" x-model="newFolderName" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="输入目录名">
                 </div>
             </div>
             <div class="flex justify-end space-x-3 mt-6">
-                <button @click="showNewFolderModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button @click="createFolder()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">创建</button>
+                <button @click="showNewFolderModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button @click="createFolder()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 text-white">创建</button>
             </div>
         </div>
     </div>
 
     <div x-show="showRenameModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm border border-gray-700">
+        <div class="bg-white dark:bg-gray-800 rounded p-6 w-full max-w-sm border border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-semibold mb-4">重命名</h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">新名称</label>
-                    <input type="text" x-model="renameNewName" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white">
+                    <input type="text" x-model="renameNewName" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white">
                 </div>
             </div>
             <div class="flex justify-end space-x-3 mt-6">
-                <button @click="showRenameModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button @click="doRename()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">确定</button>
+                <button @click="showRenameModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button @click="doRename()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 text-white">确定</button>
             </div>
         </div>
     </div>
 
-    <div x-show="showMessage" class="fixed top-4 right-4 px-4 py-2 rounded text-white z-50"
+    <div x-show="showMessage" class="fixed top-4 right-4 px-4 py-2 rounded text-gray-900 dark:text-white z-50"
          :class="messageType === 'error' ? 'bg-red-600' : 'bg-green-600'" style="display: none;" x-text="message"></div>
 
 <script>

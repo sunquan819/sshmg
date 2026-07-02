@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>项目部署 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
+    <script>tailwind.config={darkMode:'media'}</script>
     <style>
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #374151; border-radius: 3px; }
@@ -13,9 +14,9 @@
     </style>
     <script src="/static/js/alpine.min.js" defer></script>
 </head>
-<body class="bg-gray-900 text-white" x-data="projectApp()" x-init="init()">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white" x-data="projectApp()" x-init="init()">
     <div class="min-h-screen flex flex-col">
-        <header class="bg-gray-800 px-4 py-3 flex justify-between items-center border-b border-gray-700">
+        <header class=" bg-white dark:bg-gray-800  px-4 py-3 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
             <div class="flex items-center space-x-4">
                 <a href="/" class="text-gray-400 hover:text-white">🏠主页</a>
                 <h1 class="text-xl font-semibold">📂 项目部署</h1>
@@ -26,12 +27,12 @@
         <main class="flex-1 p-6 overflow-auto">
             <div class="mb-4 flex justify-between items-center">
                 <h2 class="text-lg font-semibold">项目列表</h2>
-                <button @click="showAddProjectModal=true" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">➕ 新建项目</button>
+                <button @click="showAddProjectModal=true" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white">➕ 新建项目</button>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <template x-for="project in projects" :key="project.id">
-                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-blue-500">
+                    <div class=" bg-white dark:bg-gray-800  rounded p-4 border border-gray-200 dark:border-gray-700 hover:border-blue-500">
                         <div class="flex justify-between items-start mb-2">
                             <h3 class="text-lg font-semibold cursor-pointer hover:text-blue-400" @click="selectProject(project)" x-text="project.name"></h3>
                             <div class="flex items-center space-x-2">
@@ -49,18 +50,18 @@
             </div>
 
             <div x-show="selectedProject" class="mt-8">
-                <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class=" bg-white dark:bg-gray-800  rounded p-6 border border-gray-200 dark:border-gray-700">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-xl font-semibold" x-text="selectedProject?.name"></h3>
                         <div class="flex space-x-2">
                             <input type="file" id="importProjectCSVFile" @change="importProjectCSV($event)" accept=".csv" class="hidden">
-                            <button @click="document.getElementById('importProjectCSVFile').click()" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm whitespace-nowrap">导入 CSV</button>
-                            <button @click="exportProjectCSV()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm whitespace-nowrap">导出 CSV</button>
-                            <button @click="refreshAllVersions()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm whitespace-nowrap" title="并发执行所有配置了「获取版本命令」的组件,自动写入版本号到 DB">
+                            <button @click="document.getElementById('importProjectCSVFile').click()" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm whitespace-nowrap text-white">导入 CSV</button>
+                            <button @click="exportProjectCSV()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm whitespace-nowrap text-white">导出 CSV</button>
+                            <button @click="refreshAllVersions()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm whitespace-nowrap text-white" title="并发执行所有配置了「获取版本命令」的组件,自动写入版本号到 DB">
                                 <span x-show="!refreshingAllVersions">刷新所有版本</span>
                                 <span x-show="refreshingAllVersions">刷新中...</span>
                             </button>
-                            <button @click="showAddComponentModal=true" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm whitespace-nowrap">添加组件</button>
+                            <button @click="showAddComponentModal=true" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm whitespace-nowrap text-white">添加组件</button>
                         </div>
                     </div>
                     </div>
@@ -68,7 +69,7 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr class="text-left text-gray-400 border-b border-gray-700">
+                                <tr class="text-left text-gray-400 border-b border-gray-200 dark:border-gray-700">
                                     <th class="pb-2">组件名称</th>
                                     <th class="pb-2">类型</th>
                                     <th class="pb-2">版本</th>
@@ -83,7 +84,7 @@
                             </thead>
                             <tbody>
                                 <template x-for="comp in (selectedProject?.components || [])" :key="comp.id">
-                                    <tr class="border-b border-gray-700 hover:bg-gray-700">
+                                    <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-700">
                                         <td class="py-3" x-text="comp.name"></td>
                                         <td class="py-3" x-text="comp.type"></td>
                                         <td class="py-3 text-xs">
@@ -104,7 +105,7 @@
                                         </td>
                                         <td class="py-3">
                                             <select @change="updateComponentStatus(comp, $event.target.value)"
-                                                    class="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm"
+                                                    class=" bg-white dark:bg-gray-800  border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
                                                     :class="{'text-green-400': comp.status === 'deployed', 'text-gray-500': comp.status !== 'deployed'}">
                                                 <option value="not_deployed" :selected="comp.status === 'not_deployed'">未部署</option>
                                                 <option value="deployed" :selected="comp.status === 'deployed'">已部署</option>
@@ -164,37 +165,37 @@
     </div>
 
     <div x-show="showAddProjectModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-md">
             <h3 class="text-lg font-semibold mb-4" x-text="editingProject ? '编辑项目' : '新建项目'"></h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">项目名称</label>
-                    <input type="text" x-model="newProject.name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white">
+                    <input type="text" x-model="newProject.name" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">描述</label>
-                    <textarea x-model="newProject.description" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" rows="3"></textarea>
+                    <textarea x-model="newProject.description" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" rows="3"></textarea>
                 </div>
             </div>
             <div class="flex justify-end space-x-3 mt-6">
-                <button @click="closeProjectModal()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button @click="saveProject()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700" x-text="editingProject ? '保存' : '创建'"></button>
+                <button @click="closeProjectModal()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button @click="saveProject()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 text-white" x-text="editingProject ? '保存' : '创建'"></button>
             </div>
         </div>
     </div>
 
     <div x-show="showAddComponentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
             <h3 class="text-lg font-semibold mb-4" x-text="editingComponent ? '编辑组件' : '添加组件'"></h3>
             <div class="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar" style="max-height: calc(80vh - 120px);">
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">组件名称</label>
-                    <input type="text" x-model="newComponent.name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white">
+                    <input type="text" x-model="newComponent.name" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">类型</label>
-                        <select x-model="newComponent.type" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white">
+                        <select x-model="newComponent.type" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white">
                             <option value="database">数据库</option>
                             <option value="messagequeue">消息队列</option>
                             <option value="compute">计算引擎</option>
@@ -208,7 +209,7 @@
                     </div>
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">获取版本命令</label>
-                        <input type="text" x-model="newComponent.version_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: cat VERSION  或  java -version 2>&1 | head -1">
+                        <input type="text" x-model="newComponent.version_cmd" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="如: cat VERSION  或  java -version 2>&1 | head -1">
                         <p class="text-xs text-gray-500 mt-1">命令会在已部署或已配置的服务器上执行,取首行非空输出作为版本号,自动写入 DB。组件需先保存,否则没有可用的服务器。</p>
                         <p class="text-xs text-gray-400 mt-1" x-show="newComponent.version || editingComponent?.version">
                             当前版本: <span class="text-cyan-400" x-text="newComponent.version || editingComponent?.version || '-'"></span>
@@ -217,29 +218,29 @@
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">部署目录</label>
-                    <input type="text" x-model="newComponent.deploy_dir" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: /opt/app/myapp (自动创建)">
+                    <input type="text" x-model="newComponent.deploy_dir" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="如: /opt/app/myapp (自动创建)">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">状态查看命令</label>
-                    <input type="text" x-model="newComponent.status_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: systemctl status myapp">
+                    <input type="text" x-model="newComponent.status_cmd" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="如: systemctl status myapp">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">服务日志命令</label>
-                    <input type="text" x-model="newComponent.log_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: docker logs -f myapp">
+                    <input type="text" x-model="newComponent.log_cmd" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="如: docker logs -f myapp">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">访问地址</label>
-                    <input type="text" x-model="newComponent.access_url" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: http://192.168.1.100:8080">
+                    <input type="text" x-model="newComponent.access_url" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="如: http://192.168.1.100:8080">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">访问用户</label>
-                        <input type="text" x-model="newComponent.access_user" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: admin">
+                        <input type="text" x-model="newComponent.access_user" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="如: admin">
                     </div>
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">访问密码</label>
                         <div class="relative">
-                            <input :type="showPassword ? 'text' : 'password'" x-model="newComponent.access_password" class="w-full px-3 py-2 pr-10 bg-gray-700 border border-gray-600 rounded text-white" placeholder="密码">
+                            <input :type="showPassword ? 'text' : 'password'" x-model="newComponent.access_password" class="w-full px-3 py-2 pr-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="密码">
                             <button type="button" @click="showPassword = !showPassword" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
                                 <span x-show="!showPassword">👁</span>
                                 <span x-show="showPassword">🙈</span>
@@ -249,34 +250,34 @@
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">安装命令</label>
-                    <input type="text" x-model="newComponent.install_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: ./install.sh">
+                    <input type="text" x-model="newComponent.install_cmd" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="如: ./install.sh">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">启动命令</label>
-                    <input type="text" x-model="newComponent.start_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: ./start.sh">
+                    <input type="text" x-model="newComponent.start_cmd" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="如: ./start.sh">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">停止命令</label>
-                    <input type="text" x-model="newComponent.stop_cmd" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: ./stop.sh">
+                    <input type="text" x-model="newComponent.stop_cmd" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="如: ./stop.sh">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">配置文件</label>
-                    <input type="text" x-model="newComponent.config_file" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="如: /opt/app/conf/app.conf">
+                    <input type="text" x-model="newComponent.config_file" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white" placeholder="如: /opt/app/conf/app.conf">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">目标服务器（多选）</label>
                     <div class="flex items-center space-x-2 mb-2">
-                        <select x-model="serverGroupFilter" class="flex-1 px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                        <select x-model="serverGroupFilter" class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm">
                             <option value="">所有分组</option>
                             <template x-for="g in getServerGroups()" :key="g">
                                 <option :value="g" x-text="g || '(未分组)'"></option>
                             </template>
                         </select>
-                        <input type="text" x-model="serverKeywordFilter" placeholder="搜索名称/IP" class="flex-1 px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-white text-sm">
-                        <button type="button" @click="selectAllFilteredServers()" class="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm whitespace-nowrap">全选</button>
-                        <button type="button" @click="clearAllServerSelection()" class="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm whitespace-nowrap">清空</button>
+                        <input type="text" x-model="serverKeywordFilter" placeholder="搜索名称/IP" class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm">
+                        <button type="button" @click="selectAllFilteredServers()" class="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm whitespace-nowrap text-white">全选</button>
+                        <button type="button" @click="clearAllServerSelection()" class="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm whitespace-nowrap text-white">清空</button>
                     </div>
-                    <div class="max-h-32 overflow-y-auto border border-gray-600 rounded p-2">
+                    <div class="max-h-32 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded p-2">
                         <template x-for="server in getFilteredServers()" :key="server.id">
                             <label class="flex items-center space-x-2 text-sm text-gray-300 py-1 cursor-pointer">
                                 <input type="checkbox" :value="server.id" x-model="newComponent.server_ids" class="w-4 h-4">
@@ -294,10 +295,10 @@
                     <label class="block text-sm text-gray-400 mb-1">安装包</label>
                     <div class="flex items-center space-x-2 mb-2">
                         <input type="file" id="packageFile" multiple class="text-sm text-gray-400">
-                        <button @click="uploadPackages()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-sm whitespace-nowrap">⬆️ 上传</button>
-                        <button @click="showFileSelectorModal = true; fileSelectorPath = '/'; loadAvailableFiles(); loadRootDirectories()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm whitespace-nowrap">📁 选择文件</button>
+                        <button @click="uploadPackages()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-sm whitespace-nowrap text-white">⬆️ 上传</button>
+                        <button @click="showFileSelectorModal = true; fileSelectorPath = '/'; loadAvailableFiles(); loadRootDirectories()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm whitespace-nowrap text-white">📁 选择文件</button>
                     </div>
-                    <div x-show="editingComponent?.install_pkg" class="mt-1 border border-gray-600 rounded p-2">
+                    <div x-show="editingComponent?.install_pkg" class="mt-1 border border-gray-300 dark:border-gray-600 rounded p-2">
                         <template x-for="pkg in getPackages()" :key="pkg">
                             <div class="flex items-center text-xs text-gray-300 py-1">
                                 <span class="mr-2">📦</span>
@@ -315,14 +316,14 @@
                 </div>
             </div>
             <div class="flex justify-end space-x-3 mt-6">
-                <button @click="closeComponentModal()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button @click="saveComponent()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">保存</button>
+                <button @click="closeComponentModal()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button @click="saveComponent()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 text-white">保存</button>
             </div>
         </div>
     </div>
 
     <div x-show="showDeployConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-lg">
             <h3 class="text-lg font-semibold mb-4">部署确认: <span x-text="deployingComponent?.name"></span></h3>
             <div class="space-y-3">
                 <div class="text-gray-400 text-sm">
@@ -334,21 +335,21 @@
                 <div class="text-gray-400 text-sm">
                     <span class="font-semibold">目标服务器:</span>
                 </div>
-                <div class="max-h-40 overflow-y-auto border border-gray-600 rounded p-2">
+                <div class="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded p-2">
                     <template x-for="server in deployConfirmServers" :key="server.id">
                         <div class="text-sm text-gray-300 py-1" x-text="server.name + ' (' + server.ip + ')'"></div>
                     </template>
                 </div>
             </div>
             <div class="flex justify-end space-x-3 mt-6">
-                <button @click="showDeployConfirmModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button @click="confirmDeploy()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700">确认部署</button>
+                <button @click="showDeployConfirmModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button @click="confirmDeploy()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700 text-white">确认部署</button>
             </div>
         </div>
     </div>
 
     <div x-show="showUpdateConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto border border-yellow-600">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto border border-yellow-600">
             <h3 class="text-lg font-semibold mb-4 flex items-center">
                 <span class="mr-2" :class="updateConfirmInfo?.anyRunning ? 'text-yellow-400' : 'text-gray-400'">
                     <span x-text="updateConfirmInfo?.anyRunning ? '⚠️' : 'ℹ️'"></span>
@@ -387,7 +388,7 @@
                 <div>关键字: <span class="text-cyan-300" x-text="updateConfirmInfo?.check?.fallback_keyword || '-'"></span></div>
                 <div>running_count: <span class="text-cyan-300" x-text="updateConfirmInfo?.check?.running_count || 0"></span> / <span x-text="updateConfirmInfo?.check?.server_count || 0"></span></div>
                 <template x-for="r in (updateConfirmInfo?.check?.results || [])" :key="r.server_id">
-                    <div class="mt-2 border-t border-gray-700 pt-1">
+                    <div class="mt-2 border-t border-gray-200 dark:border-gray-700 pt-1">
                         <div>服务器 <span class="text-cyan-300" x-text="r.server_ip"></span>:
                             <span :class="r.running ? 'text-green-400' : 'text-red-400'" x-text="r.running ? '✓ 在运行' : '✗ 未运行'"></span>
                         </div>
@@ -399,19 +400,19 @@
             <p class="text-gray-500 text-xs mb-4">如果选择「取消」，将不会进行任何部署操作。</p>
 
             <div class="flex justify-end space-x-3">
-                <button @click="cancelUpdateMode()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button x-show="updateConfirmInfo?.anyRunning" @click="proceedWithDeploy()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">确定，走更新流程</button>
-                <button x-show="!updateConfirmInfo?.anyRunning" @click="proceedWithDeploy()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700">继续标准部署</button>
+                <button @click="cancelUpdateMode()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button x-show="updateConfirmInfo?.anyRunning" @click="proceedWithDeploy()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 text-white">确定，走更新流程</button>
+                <button x-show="!updateConfirmInfo?.anyRunning" @click="proceedWithDeploy()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700 text-white">继续标准部署</button>
             </div>
         </div>
     </div>
 
     <div x-show="showDeployModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-lg">
             <h3 class="text-lg font-semibold mb-4">部署组件: <span x-text="deployingComponent?.name"></span></h3>
             <div>
                 <label class="block text-sm text-gray-400 mb-2">选择目标服务器</label>
-                <div class="max-h-60 overflow-y-auto border border-gray-600 rounded">
+                <div class="max-h-60 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded">
                     <template x-for="server in servers" :key="server.id">
                         <label class="flex items-center p-2 hover:bg-gray-700 cursor-pointer">
                             <input type="checkbox" :value="server.id" x-model="selectedServers" class="mr-2">
@@ -421,37 +422,37 @@
                 </div>
             </div>
             <div class="flex justify-end space-x-3 mt-6">
-                <button @click="showDeployModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button @click="confirmDeploy()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700">确认部署</button>
+                <button @click="showDeployModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button @click="confirmDeploy()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700 text-white">确认部署</button>
             </div>
         </div>
     </div>
 
     <div x-show="showDeployLogModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <h3 class="text-lg font-semibold mb-4">部署日志: <span x-text="deployingComponent?.name"></span></h3>
             <div class="bg-gray-900 p-4 rounded text-sm text-gray-300 whitespace-pre-wrap font-mono h-64 overflow-y-auto" x-text="deployLogContent || '暂无日志'"></div>
             <div class="flex justify-end mt-4">
-                <button @click="showDeployLogModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">关闭</button>
+                <button @click="showDeployLogModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">关闭</button>
             </div>
         </div>
     </div>
 
     <div x-show="showConfigModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
             <h3 class="text-lg font-semibold mb-2">配置文件: <span x-text="editingConfigComponent?.config_file"></span></h3>
             <div class="text-xs text-gray-400 mb-2">会自动生成带时间戳的备份文件</div>
-            <textarea x-model="configFileContent" class="flex-1 w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white font-mono text-sm resize-none" rows="20" placeholder="配置文件内容..."></textarea>
+            <textarea x-model="configFileContent" class="flex-1 w-full px-3 py-2 bg-gray-900 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white font-mono text-sm resize-none" rows="20" placeholder="配置文件内容..."></textarea>
             <div class="flex justify-end space-x-3 mt-4">
-                <button @click="showConfigModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button @click="saveConfigFile()" class="px-4 py-2 bg-purple-600 rounded hover:bg-purple-700">保存</button>
+                <button @click="showConfigModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button @click="saveConfigFile()" class="px-4 py-2 bg-purple-600 rounded hover:bg-purple-700 text-white">保存</button>
             </div>
         </div>
     </div>
 
     <div x-show="showStatusModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-4/5 h-4/5 flex flex-col">
-            <div class="flex items-center justify-between mb-2 pb-2 border-b border-gray-700">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-4/5 h-4/5 flex flex-col">
+            <div class="flex items-center justify-between mb-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                 <h3 class="text-lg font-semibold">
                     <span x-text="actionType === 'log' ? '日志：' + (actionComponent?.name || '') + ' - ' + (logServerName || '') : (actionType === 'version' ? '版本结果：' : '操作结果：') + (deployingComponent?.name || '')"></span>
                 </h3>
@@ -459,20 +460,20 @@
             </div>
             <div class="flex items-center space-x-2 mb-4">
                 <button @click="loadComponentLog(logTail, false)" class="px-3 py-1 bg-green-500 text-white rounded text-sm">最新</button>
-                <button @click="loadComponentLog(logTail, true)" :disabled="logLoading" class="px-3 py-1 bg-blue-500 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                <button @click="loadComponentLog(logTail, true)" :disabled="logLoading" class="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                     <span x-show="!logLoading">更多（再加载 <span x-text="logTail"></span> 行老日志）</span>
                     <span x-show="logLoading">加载中...</span>
                 </button>
             </div>
             <div id="statusOutputArea" class="flex-1 bg-gray-900 p-4 rounded text-sm text-gray-300 whitespace-pre-wrap font-mono overflow-y-auto" x-text="(actionType === 'log' ? logOutput : statusOutput) || '无输出'"></div>
-            <div class="flex justify-end mt-4 pt-2 border-t border-gray-700">
-                <button @click="closeStatusModal()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">关闭</button>
+            <div class="flex justify-end mt-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <button @click="closeStatusModal()" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">关闭</button>
             </div>
         </div>
     </div>
 
     <div x-show="showActionServerModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-lg">
             <h3 class="text-lg font-semibold mb-4" x-text="actionType === 'start' ? '启动' : actionType === 'stop' ? '停止' : actionType === 'status' ? '查看状态' : '查看日志' + ' - ' + (actionComponent?.name || '')"></h3>
             <div>
                 <div class="flex items-center justify-between mb-2">
@@ -481,7 +482,7 @@
                         <button @click="selectedActionServers = actionServers.map(s => s.id)" class="text-sm text-blue-400 hover:text-blue-300">全选</button>
                     </template>
                 </div>
-                <div class="max-h-60 overflow-y-auto border border-gray-600 rounded">
+                <div class="max-h-60 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded">
                     <template x-for="server in actionServers" :key="server.id">
                         <label class="flex items-center p-2 hover:bg-gray-700 cursor-pointer">
                             <input x-show="actionType === 'log'" type="radio" :value="server.id" @change="selectedActionServers = [server.id]" :checked="selectedActionServers.includes(server.id)" name="actionServer" class="mr-2">
@@ -492,49 +493,49 @@
                 </div>
             </div>
             <div class="flex justify-end space-x-3 mt-6">
-                <button @click="showActionServerModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button @click="confirmAction()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">确认</button>
+                <button @click="showActionServerModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button @click="confirmAction()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 text-white">确认</button>
             </div>
         </div>
     </div>
 
     <div x-show="showVerifyModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-sm">
             <h3 class="text-lg font-semibold mb-4">验证管理员</h3>
             <div>
                 <label class="block text-sm text-gray-400 mb-1">请输入管理员密码</label>
-                <input type="password" x-model="verifyPassword" @keyup.enter="confirmVerify()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white">
+                <input type="password" x-model="verifyPassword" @keyup.enter="confirmVerify()" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white">
             </div>
             <div class="flex justify-end space-x-3 mt-4">
-                <button @click="showVerifyModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button @click="confirmVerify()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">确认</button>
+                <button @click="showVerifyModal=false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button @click="confirmVerify()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 text-white">确认</button>
             </div>
         </div>
     </div>
 
     <div x-show="showDeleteConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" style="display: none; z-index: 100;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm border border-gray-700">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-sm border border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-semibold mb-2">确认删除</h3>
             <p class="text-gray-400 text-sm mb-6" x-text="deleteConfirmMessage"></p>
             <div class="flex justify-end space-x-3">
-                <button @click="showDeleteConfirmModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                <button @click="confirmDeletePackage()" class="px-4 py-2 bg-red-600 rounded hover:bg-red-700">删除</button>
+                <button @click="showDeleteConfirmModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                <button @click="confirmDeletePackage()" class="px-4 py-2 bg-red-600 rounded hover:bg-red-700 text-white">删除</button>
             </div>
         </div>
     </div>
 
-    <div x-show="showMessage" class="fixed top-4 right-4 px-4 py-2 rounded text-white z-50"
+    <div x-show="showMessage" class="fixed top-4 right-4 px-4 py-2 rounded text-gray-900 dark:text-white z-50"
          :class="messageType === 'error' ? 'bg-red-600' : 'bg-green-600'" style="display: none;" x-text="message"></div>
 
     <div x-show="showFileSelectorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col border border-gray-700">
+        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-semibold">从文件管理选择安装包</h3>
                 <button @click="showFileSelectorModal = false" class="text-gray-500 hover:text-white">&times;</button>
             </div>
             <div class="flex items-center space-x-2 mb-4">
                 <span class="text-sm text-gray-400">目录:</span>
-                <select x-model="fileSelectorPath" @change="loadAvailableFiles()" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white">
+                <select x-model="fileSelectorPath" @change="loadAvailableFiles()" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm text-gray-900 dark:text-white">
                     <option value="/">根目录</option>
                     <template x-for="dir in rootDirectories" :key="dir.path">
                         <option :value="dir.path" x-text="'/' + dir.name"></option>
@@ -542,11 +543,11 @@
                 </select>
                 <button @click="goUpFileSelector()" :disabled="fileSelectorPath === '/'" class="text-gray-400 hover:text-white px-2 py-1 text-sm">⬆️</button>
             </div>
-            <div class="flex-1 overflow-y-auto border border-gray-600 rounded p-2 mb-4">
+            <div class="flex-1 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded p-2 mb-4">
                 <template x-for="file in availableFiles" :key="file.path">
                     <div @click="toggleFileSelection(file)"
                          :class="selectedFilesToAdd.includes(file.path) ? 'bg-blue-900 border-blue-500' : 'hover:bg-gray-700'"
-                         class="flex items-center p-2 rounded cursor-pointer border border-gray-600 mb-1">
+                         class="flex items-center p-2 rounded cursor-pointer border border-gray-300 dark:border-gray-600 mb-1">
                         <span class="mr-2" x-text="file.is_dir ? '📁' : '📄'"></span>
                         <span class="flex-1 text-sm truncate" x-text="file.name"></span>
                         <span class="text-xs text-gray-500 mr-2" x-show="!file.is_dir" x-text="formatFileSize(file.size)"></span>
@@ -558,8 +559,8 @@
             <div class="flex justify-between items-center">
                 <span class="text-sm text-gray-400">已选择 <span x-text="selectedFilesToAdd.length"></span> 个文件</span>
                 <div class="flex space-x-3">
-                    <button @click="showFileSelectorModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">取消</button>
-                    <button @click="addSelectedFiles()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">添加</button>
+                    <button @click="showFileSelectorModal = false" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-white">取消</button>
+                    <button @click="addSelectedFiles()" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 text-white">添加</button>
                 </div>
             </div>
         </div>

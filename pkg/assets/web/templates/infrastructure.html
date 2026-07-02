@@ -11,30 +11,30 @@
         .log-output { font-family: 'Consolas', monospace; font-size: 12px; white-space: pre-wrap; }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 min-h-screen" x-data="infrastructureApp()" x-init="init()">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen" x-data="infrastructureApp()" x-init="init()">
 <div class="container mx-auto p-4">
-    <div x-show="toastMessage" x-transition class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-semibold" :class="toastType === 'success' ? 'bg-green-500' : 'bg-red-500'" x-text="toastMessage" @click="toastMessage = ''"></div>
+    <div x-show="toastMessage" x-transition class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded shadow-lg text-white font-semibold" :class="toastType === 'success' ? 'bg-green-500' : 'bg-red-500'" x-text="toastMessage" @click="toastMessage = ''"></div>
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center space-x-4">
             <a href="/" class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white">🏠 首页</a>
             <h1 class="text-lg font-bold text-gray-800 dark:text-white">基础设施</h1>
         </div>
         <div class="space-x-2">
-            <button @click="activeTab = 'scenarios'" :class="activeTab === 'scenarios' ? 'bg-blue-600' : 'bg-gray-600'" class="px-4 py-2 text-white rounded">场景管理</button>
-            <button @click="activeTab = 'executions'" :class="activeTab === 'executions' ? 'bg-blue-600' : 'bg-gray-600'" class="px-4 py-2 text-white rounded">执行记录</button>
-            <button @click="activeTab = 'execute'" :class="activeTab === 'execute' ? 'bg-blue-600' : 'bg-gray-600'" class="px-4 py-2 text-white rounded">批量执行</button>
+            <button @click="activeTab = 'scenarios'" :class="activeTab === 'scenarios' ? 'bg-blue-600' : 'bg-gray-600'" class="hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">场景管理</button>
+            <button @click="activeTab = 'executions'" :class="activeTab === 'executions' ? 'bg-blue-600' : 'bg-gray-600'" class="hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">执行记录</button>
+            <button @click="activeTab = 'execute'" :class="activeTab === 'execute' ? 'bg-blue-600' : 'bg-gray-600'" class="hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">批量执行</button>
         </div>
     </div>
 
     <div x-show="activeTab === 'scenarios'" class="space-y-4">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-white">场景列表</h2>
                 <button @click="showAddModal = true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">添加场景</button>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <template x-for="scenario in scenarios" :key="scenario.id">
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
                         <h3 class="font-semibold text-gray-800 dark:text-white" x-text="scenario.name"></h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1" x-text="scenario.description || '无描述'"></p>
                         <p class="text-xs text-gray-400 mt-2" x-text="'创建于: ' + new Date(scenario.created_at).toLocaleString()"></p>
@@ -51,11 +51,11 @@
     </div>
 
     <div x-show="activeTab === 'executions'" class="space-y-4">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">执行记录</h2>
             <div class="space-y-3">
                 <template x-for="exec in executions" :key="exec.id">
-                    <div class="border dark:border-gray-600 rounded p-3">
+                    <div class="border border-gray-300 dark:border-gray-600 rounded p-3">
                         <div class="flex justify-between items-start">
                             <div>
                                 <span class="font-medium text-gray-800 dark:text-white" x-text="'执行 #' + exec.id"></span>
@@ -72,12 +72,12 @@
     </div>
 
     <div x-show="activeTab === 'execute'" class="space-y-4">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">批量执行</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-2">选择场景</label>
-                    <select x-model="selectedScenarioId" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white">
+                    <select x-model="selectedScenarioId" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
                         <option value="">-- 选择场景 --</option>
                         <template x-for="s in scenarios" :key="s.id">
                             <option :value="s.id" x-text="s.name"></option>
@@ -86,7 +86,7 @@
                 </div>
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-2">选择服务器（可多选）</label>
-                    <div class="border rounded max-h-48 overflow-y-auto p-2 space-y-1">
+                    <div class="border border-gray-300 dark:border-gray-600 rounded max-h-48 overflow-y-auto p-2 space-y-1">
                         <template x-for="server in servers" :key="server.id">
                             <label class="flex items-center space-x-2 cursor-pointer">
                                 <input type="checkbox" :value="server.id" x-model="selectedServers" class="w-4 h-4">
@@ -101,24 +101,24 @@
     </div>
 
     <div x-show="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg" style="max-height: 80vh; overflow-y: auto;">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-lg" style="max-height: 80vh; overflow-y: auto;">
             <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white" x-text="editingScenario ? '编辑场景' : '添加场景'"></h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">名称</label>
-                    <input type="text" x-model="formData.name" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white">
+                    <input type="text" x-model="formData.name" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">描述</label>
-                    <input type="text" x-model="formData.description" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white">
+                    <input type="text" x-model="formData.description" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">执行命令</label>
-                    <textarea x-model="formData.playbook" rows="3" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white font-mono text-sm" placeholder="例如: bash install.sh 或 ./setup.sh"></textarea>
+                    <textarea x-model="formData.playbook" rows="3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white font-mono text-sm" placeholder="例如: bash install.sh 或 ./setup.sh"></textarea>
                 </div>
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">目标服务器（多选）</label>
-                    <div class="max-h-40 overflow-y-auto border rounded dark:bg-gray-700 p-2">
+                    <div class="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 p-2">
                         <template x-for="server in servers" :key="server.id">
                             <label class="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300 py-1 cursor-pointer">
                                 <input type="checkbox" :value="server.id" x-model="formData.server_ids" class="w-4 h-4">
@@ -130,7 +130,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">安装脚本 (.sh, .py 等)</label>
-                        <input type="file" id="scriptFiles" multiple class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white text-sm">
+                        <input type="file" id="scriptFiles" multiple class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white text-sm">
                         <div x-show="editingScenario && scriptFileList.length > 0" class="mt-2 space-y-1">
                             <template x-for="(file, idx) in scriptFileList" :key="idx">
                                 <div class="flex items-center justify-between text-xs bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">
@@ -142,7 +142,7 @@
                     </div>
                     <div>
                         <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">安装包 (.tar.gz, .zip 等)</label>
-                        <input type="file" id="packageFiles" multiple class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white text-sm">
+                        <input type="file" id="packageFiles" multiple class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white text-sm">
                         <div x-show="editingScenario && packageFileList.length > 0" class="mt-2 space-y-1">
                             <template x-for="(file, idx) in packageFileList" :key="idx">
                                 <div class="flex items-center justify-between text-xs bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">
@@ -162,9 +162,9 @@
     </div>
 
     <div x-show="showEditFileModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-3xl max-h-[80vh] flex flex-col">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-3xl max-h-[80vh] flex flex-col">
             <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">编辑文件: <span x-text="editingFileName"></span></h3>
-            <textarea x-model="editingFileContent" class="flex-1 w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white font-mono text-sm resize-none" rows="20"></textarea>
+            <textarea x-model="editingFileContent" class="flex-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white font-mono text-sm resize-none" rows="20"></textarea>
             <div class="flex justify-end space-x-2 mt-4">
                 <button @click="showEditFileModal = false" class="px-4 py-2 text-gray-700 dark:text-gray-300">取消</button>
                 <button @click="saveFile()" class="px-4 py-2 bg-blue-600 text-white rounded">保存</button>
@@ -173,23 +173,23 @@
     </div>
 
     <div x-show="showTemplateModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
             <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white" x-text="editingTemplate ? '编辑模板' : '添加模板'"></h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">名称</label>
-                    <input type="text" x-model="templateForm.name" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white">
+                    <input type="text" x-model="templateForm.name" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">描述</label>
-                    <input type="text" x-model="templateForm.description" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white">
+                    <input type="text" x-model="templateForm.description" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
                 </div>
                 <div class="flex-1 flex flex-col">
                     <div class="flex justify-between items-center mb-1">
                         <label class="block text-sm text-gray-700 dark:text-gray-300">docker-compose.yml 内容</label>
                         <button @click="validateTemplate()" class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded">验证语法</button>
                     </div>
-                    <textarea x-model="templateForm.content" class="flex-1 w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white font-mono text-sm resize-none" rows="20" placeholder="version: '3.8'&#10;services:&#10;  web:&#10;    image: nginx"></textarea>
+                    <textarea x-model="templateForm.content" class="flex-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white font-mono text-sm resize-none" rows="20" placeholder="version: '3.8'&#10;services:&#10;  web:&#10;    image: nginx"></textarea>
                     <div x-show="templateValidationResult !== null" class="mt-2 text-sm" :class="templateValidationResult?.valid ? 'text-green-600' : 'text-red-600'" x-text="templateValidationResult?.errors?.join(', ')"></div>
                 </div>
             </div>
@@ -201,7 +201,7 @@
     </div>
 
     <div x-show="showExecConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-lg">
             <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">执行确认</h3>
             <div class="space-y-3">
                 <div class="text-gray-700 dark:text-gray-300">

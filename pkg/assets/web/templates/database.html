@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>数据库管理</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
+    <script>tailwind.config={darkMode:'media'}</script>
     <script defer src="/static/js/alpine.min.js"></script>
     <style>
         .cm-editor { height: 180px; font-size: 13px; }
@@ -19,11 +20,11 @@
         .resizer:hover { background: #1976d2; }
     </style>
 </head>
-<body class="bg-gray-900 text-white" x-data="dbApp()" x-init="init()">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white" x-data="dbApp()" x-init="init()">
 <div class="flex h-screen">
     <!-- 左侧数据库列表 -->
-    <div class="w-64 bg-gray-800 flex flex-col border-r border-gray-700">
-        <div class="p-3 border-b border-gray-700 flex items-center justify-between">
+    <div class="w-64 bg-white dark:bg-gray-800 flex flex-col border-r border-gray-200 dark:border-gray-700">
+        <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <span class="font-medium">数据库</span>
             <div class="flex gap-2">
                 <a :href="'/?token=' + getToken()" class="text-gray-400 hover:text-white" title="返回首页">🏠</a>
@@ -77,69 +78,69 @@
     <!-- 中间 SQL 编辑器 -->
     <div class="flex-1 flex flex-col min-w-0">
         <!-- Redis 预设命令 -->
-        <div x-show="selectedDb && selectedDb.type === 'redis'" class="px-3 py-2 bg-gray-800 border-b border-gray-700">
+        <div x-show="selectedDb && selectedDb.type === 'redis'" class="px-3 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <div class="text-xs text-gray-400 mb-2">预设命令（点击填写命令）：</div>
             <div class="flex flex-wrap gap-2">
-                <button @click="setEditorValue('SCAN')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">SCAN</button>
-                <button @click="setEditorValue('GET key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">GET</button>
-                <button @click="setEditorValue('SET key value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">SET</button>
-                <button @click="setEditorValue('DEL key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">DEL</button>
-                <button @click="setEditorValue('HGETALL hash')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">HGETALL</button>
-                <button @click="setEditorValue('HSET hash field value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">HSET</button>
-                <button @click="setEditorValue('LRANGE list 0 -1')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">LRANGE</button>
-                <button @click="setEditorValue('RPUSH list value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">RPUSH</button>
-                <button @click="setEditorValue('SMEMBERS set')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">SMEMBERS</button>
-                <button @click="setEditorValue('SADD set member')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">SADD</button>
-                <button @click="setEditorValue('TYPE key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">TYPE</button>
-                <button @click="setEditorValue('TTL key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">TTL</button>
-                <button @click="setEditorValue('EXPIRE key 60')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">EXPIRE</button>
-                <button @click="setEditorValue('DBSIZE')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">DBSIZE</button>
-                <button @click="setEditorValue('INFO')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">INFO</button>
-                <button @click="setEditorValue('CLIENT LIST')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">CLIENT</button>
-                <button @click="setEditorValue('SLOWLOG GET 10')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">SLOWLOG</button>
-                <button @click="setEditorValue('CONFIG GET maxmemory')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">CONFIG</button>
-                <button @click="setEditorValue('MEMORY STATS')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">MEMORY</button>
-                <button @click="setEditorValue('CLUSTER INFO')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">CLUSTER</button>
+                <button @click="setEditorValue('SCAN')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">SCAN</button>
+                <button @click="setEditorValue('GET key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">GET</button>
+                <button @click="setEditorValue('SET key value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">SET</button>
+                <button @click="setEditorValue('DEL key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">DEL</button>
+                <button @click="setEditorValue('HGETALL hash')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">HGETALL</button>
+                <button @click="setEditorValue('HSET hash field value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">HSET</button>
+                <button @click="setEditorValue('LRANGE list 0 -1')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">LRANGE</button>
+                <button @click="setEditorValue('RPUSH list value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">RPUSH</button>
+                <button @click="setEditorValue('SMEMBERS set')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">SMEMBERS</button>
+                <button @click="setEditorValue('SADD set member')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">SADD</button>
+                <button @click="setEditorValue('TYPE key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">TYPE</button>
+                <button @click="setEditorValue('TTL key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">TTL</button>
+                <button @click="setEditorValue('EXPIRE key 60')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">EXPIRE</button>
+                <button @click="setEditorValue('DBSIZE')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">DBSIZE</button>
+                <button @click="setEditorValue('INFO')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">INFO</button>
+                <button @click="setEditorValue('CLIENT LIST')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">CLIENT</button>
+                <button @click="setEditorValue('SLOWLOG GET 10')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">SLOWLOG</button>
+                <button @click="setEditorValue('CONFIG GET maxmemory')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">CONFIG</button>
+                <button @click="setEditorValue('MEMORY STATS')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">MEMORY</button>
+                <button @click="setEditorValue('CLUSTER INFO')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">CLUSTER</button>
             </div>
         </div>
         <!-- Kafka 预设命令 -->
-        <div x-show="selectedDb && selectedDb.type === 'kafka'" class="px-3 py-2 bg-gray-800 border-b border-gray-700">
+        <div x-show="selectedDb && selectedDb.type === 'kafka'" class="px-3 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <div class="text-xs text-gray-400 mb-2">预设命令：</div>
             <div class="flex flex-wrap gap-2">
-                <button @click="setEditorValue('LIST_TOPICS')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded">LIST_TOPICS</button>
-                <button @click="setEditorValue('BROKERS')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded">BROKERS</button>
-                <button @click="setEditorValue('TOPIC_INFO ' + (selectedSchema || 'your-topic'))" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded">TOPIC_INFO</button>
-                <button @click="setEditorValue('CREATE_TOPIC your-topic 3 1')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded">CREATE_TOPIC</button>
-                <button @click="setEditorValue('CONSUME ' + (selectedSchema || 'your-topic') + ' 10')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded">CONSUME</button>
+                <button @click="setEditorValue('LIST_TOPICS')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-white">LIST_TOPICS</button>
+                <button @click="setEditorValue('BROKERS')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-white">BROKERS</button>
+                <button @click="setEditorValue('TOPIC_INFO ' + (selectedSchema || 'your-topic'))" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-white">TOPIC_INFO</button>
+                <button @click="setEditorValue('CREATE_TOPIC your-topic 3 1')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-white">CREATE_TOPIC</button>
+                <button @click="setEditorValue('CONSUME ' + (selectedSchema || 'your-topic') + ' 10')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-white">CONSUME</button>
             </div>
             <div class="text-xs text-gray-500 mt-1">用法: LIST_TOPICS | BROKERS | TOPIC_INFO &lt;topic&gt; | CREATE_TOPIC &lt;topic&gt; [partitions] [replication] | CONSUME &lt;topic&gt; [count]</div>
         </div>
-        <div class="h-1/3 flex flex-col border-b border-gray-700">
-            <div class="flex items-center justify-between px-3 py-2 bg-gray-800">
+        <div class="h-1/3 flex flex-col border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-800">
                 <span class="text-sm">SQL 编辑器</span>
                 <div class="flex gap-2">
-                    <button @click="loadTables()" x-show="selectedDb" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">🔄 刷新表</button>
-                    <button @click="executeQuery()" :disabled="!selectedDb || executing" class="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-3 py-1 rounded text-sm">▶ 执行</button>
-                    <button @click="formatSql()" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-sm">格式化</button>
-                    <button @click="clearEditor()" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-sm">清空</button>
+                    <button @click="loadTables()" x-show="selectedDb" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-white">🔄 刷新表</button>
+                    <button @click="executeQuery()" :disabled="!selectedDb || executing" class="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-3 py-1 rounded text-sm text-white">▶ 执行</button>
+                    <button @click="formatSql()" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-sm text-white">格式化</button>
+                    <button @click="clearEditor()" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-sm text-white">清空</button>
                 </div>
             </div>
-            <textarea x-ref="editor" class="flex-1 bg-gray-800 text-white p-2 font-mono text-sm resize-none border-0 focus:outline-none"></textarea>
+            <textarea x-ref="editor" class="flex-1 bg-white dark:bg-gray-800 text-white p-2 font-mono text-sm resize-none border-0 focus:outline-none"></textarea>
         </div>
 
         <!-- 结果集 -->
         <div class="flex-1 flex flex-col min-h-0">
-            <div class="flex items-center justify-between px-3 py-2 bg-gray-800">
+            <div class="flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-800">
                 <div class="flex items-center gap-4">
                     <span class="text-sm">结果集</span>
                     <span x-show="queryDuration > 0" class="text-xs text-gray-400" x-text="`查询耗时: ${queryDuration}ms | 返回: ${queryRows} 行`"></span>
                 </div>
                 <div class="flex gap-2">
-                    <button @click="addRow()" x-show="selectedTable" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">➕ 添加行</button>
-                    <button @click="deleteRow()" x-show="selectedRows.size > 0" class="text-xs bg-red-700 hover:bg-red-600 px-2 py-1 rounded">🗑️ 删除选中</button>
-                    <button @click="saveChanges()" x-show="hasChanges" class="text-xs bg-green-700 hover:bg-green-600 px-2 py-1 rounded">💾 保存修改</button>
-                    <button @click="exportCsv()" x-show="queryResult.length > 0" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded">📥 CSV</button>
-                    <button @click="exportSql()" x-show="queryResult.length > 0 && (selectedDb.type === 'mysql' || selectedDb.type === 'postgresql')" class="text-xs bg-green-700 hover:bg-green-600 px-2 py-1 rounded">📥 SQL</button>
+                    <button @click="addRow()" x-show="selectedTable" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">➕ 添加行</button>
+                    <button @click="deleteRow()" x-show="selectedRows.size > 0" class="text-xs bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-white">🗑️ 删除选中</button>
+                    <button @click="saveChanges()" x-show="hasChanges" class="text-xs bg-green-700 hover:bg-green-600 px-2 py-1 rounded text-white">💾 保存修改</button>
+                    <button @click="exportCsv()" x-show="queryResult.length > 0" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">📥 CSV</button>
+                    <button @click="exportSql()" x-show="queryResult.length > 0 && (selectedDb.type === 'mysql' || selectedDb.type === 'postgresql')" class="text-xs bg-green-700 hover:bg-green-600 px-2 py-1 rounded text-white">📥 SQL</button>
                 </div>
             </div>
             <div class="flex-1 overflow-auto bg-gray-900">
@@ -185,16 +186,16 @@
     </div>
 
     <!-- 右侧表结构 -->
-    <div x-show="selectedTable" class="w-80 bg-gray-800 border-l border-gray-700 flex flex-col">
-        <div class="p-3 border-b border-gray-700 flex items-center justify-between">
+    <div x-show="selectedTable" class="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
+        <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <span class="font-medium" x-text="selectedTable"></span>
             <button @click="selectedTable = null" class="text-gray-400 hover:text-white">✕</button>
         </div>
         <!-- 上部分：列信息 -->
-        <div class="overflow-y-auto p-3 border-b border-gray-700" style="max-height: 50%;">
+        <div class="overflow-y-auto p-3 border-b border-gray-200 dark:border-gray-700" style="max-height: 50%;">
             <div class="text-sm font-medium mb-2 text-gray-400">列信息</div>
             <template x-for="col in tableColumns" :key="col.name">
-                <div class="py-2 border-b border-gray-700">
+                <div class="py-2 border-b border-gray-200 dark:border-gray-700">
                     <div class="flex items-center gap-2">
                         <span class="text-blue-400 font-mono" x-text="col.name"></span>
                         <span class="text-xs text-gray-500" x-text="col.type"></span>
@@ -209,7 +210,7 @@
         </div>
         <!-- 下部分：单元格详情 -->
         <div class="flex-1 flex flex-col overflow-hidden">
-            <div class="p-3 border-b border-gray-700">
+            <div class="p-3 border-b border-gray-200 dark:border-gray-700">
                 <div class="text-sm font-medium text-gray-400">单元格详情</div>
             </div>
             <div class="flex-1 overflow-y-auto p-3">
@@ -239,17 +240,17 @@
 
 <!-- 添加数据库弹窗 -->
 <div x-show="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+    <div class="bg-white dark:bg-gray-800 rounded p-6 w-full max-w-lg">
         <h3 class="text-lg font-medium mb-4" x-text="editingDb ? '编辑数据库' : '添加数据库'"></h3>
         <div class="space-y-3">
             <div class="flex gap-3">
                 <div class="flex-1">
                     <label class="block text-xs text-gray-400 mb-1">名称</label>
-                    <input type="text" x-model="formData.name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                    <input type="text" x-model="formData.name" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm">
                 </div>
                 <div class="w-24">
                     <label class="block text-xs text-gray-400 mb-1">类型</label>
-                    <select x-model="formData.type" @change="onTypeChange()" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                    <select x-model="formData.type" @change="onTypeChange()" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm">
                         <option value="mysql">MySQL</option>
                         <option value="postgresql">PostgreSQL</option>
                         <option value="redis">Redis</option>
@@ -258,31 +259,31 @@
                 </div>
                 <div class="w-24">
                     <label class="block text-xs text-gray-400 mb-1">端口</label>
-                    <input type="number" x-model="formData.port" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                    <input type="number" x-model="formData.port" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm">
                 </div>
             </div>
             <div>
                 <label class="block text-xs text-gray-400 mb-1">主机</label>
-                <input type="text" x-model="formData.host" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                <input type="text" x-model="formData.host" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm">
             </div>
             <div class="flex gap-3">
                 <div class="flex-1">
                     <label class="block text-xs text-gray-400 mb-1">数据库名</label>
-                    <input type="text" x-model="formData.database" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                    <input type="text" x-model="formData.database" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm">
                 </div>
                 <div class="flex-1">
                     <label class="block text-xs text-gray-400 mb-1">用户名</label>
-                    <input type="text" x-model="formData.username" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                    <input type="text" x-model="formData.username" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm">
                 </div>
                 <div class="flex-1">
                     <label class="block text-xs text-gray-400 mb-1">密码</label>
-                    <input type="password" x-model="formData.password" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                    <input type="password" x-model="formData.password" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm">
                 </div>
             </div>
             <div class="flex gap-3">
                 <div class="flex-1">
                     <label class="block text-xs text-gray-400 mb-1">分组</label>
-                    <input type="text" x-model="formData.group" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                    <input type="text" x-model="formData.group" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm">
                 </div>
                 <div class="flex items-end">
                     <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
@@ -292,7 +293,7 @@
                 </div>
             </div>
             <!-- 跳板机配置 -->
-            <div class="border-t border-gray-700 pt-3">
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-3">
                 <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
                     <input type="checkbox" x-model="formData.jump_enabled" class="w-4 h-4">
                     <span>启用跳板机 (SSH 隧道)</span>
@@ -301,7 +302,7 @@
             <div x-show="formData.jump_enabled" class="p-3 bg-gray-700 rounded text-sm">
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">选择跳板机服务器</label>
-                    <select x-model="formData.jump_server_id" @change="applyJumpServer()" class="w-full px-2 py-1 bg-gray-600 border border-gray-500 rounded text-white text-xs">
+                    <select x-model="formData.jump_server_id" @change="applyJumpServer()" class="w-full px-2 py-1 bg-gray-600 border border-gray-500 rounded text-gray-900 dark:text-white text-xs">
                         <option value="">-- 选择服务器 --</option>
                         <template x-for="s in servers" :key="s.id">
                             <option :value="s.id" x-text="s.name + ' (' + s.ip + ')'"></option>
@@ -310,7 +311,7 @@
                 </div>
             </div>
             <!-- 代理配置 -->
-            <div class="border-t border-gray-700 pt-3">
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-3">
                 <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
                     <input type="checkbox" x-model="formData.proxy_enabled" class="w-4 h-4">
                     <span>启用代理 (Clash)</span>
@@ -319,7 +320,7 @@
             <div x-show="formData.proxy_enabled" class="p-3 bg-gray-700 rounded text-sm">
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">选择代理服务器</label>
-                    <select x-model="formData.proxy_server_id" @change="applyProxyServer()" class="w-full px-2 py-1 bg-gray-600 border border-gray-500 rounded text-white text-xs">
+                    <select x-model="formData.proxy_server_id" @change="applyProxyServer()" class="w-full px-2 py-1 bg-gray-600 border border-gray-500 rounded text-gray-900 dark:text-white text-xs">
                         <option value="">-- 选择代理服务器 --</option>
                         <template x-for="s in proxyServers" :key="s.id">
                             <option :value="s.id" x-text="s.name + ' (' + s.ip + ')'"></option>
@@ -329,12 +330,12 @@
             </div>
         </div>
         <div class="flex justify-between mt-6">
-            <button @click="testConnection()" :disabled="testing" class="px-4 py-2 bg-gray-600 rounded text-sm hover:bg-gray-500">
+            <button @click="testConnection()" :disabled="testing" class="px-4 py-2 bg-gray-600 rounded text-sm hover:bg-gray-500 text-white">
                 <span x-text="testing ? '测试中...' : '测试连接'"></span>
             </button>
             <div class="flex gap-3">
-                <button @click="showAddModal=false; editingDb=null" class="px-4 py-2 bg-gray-700 rounded text-sm hover:bg-gray-600">取消</button>
-                <button @click="saveDatabase()" class="px-4 py-2 bg-blue-600 rounded text-sm hover:bg-blue-700">保存</button>
+                <button @click="showAddModal=false; editingDb=null" class="px-4 py-2 bg-gray-700 rounded text-sm hover:bg-gray-600 text-white">取消</button>
+                <button @click="saveDatabase()" class="px-4 py-2 bg-blue-600 rounded text-sm hover:bg-blue-700 text-white">保存</button>
             </div>
         </div>
     </div>

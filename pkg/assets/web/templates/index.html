@@ -44,17 +44,17 @@
     <div class="p-4">
         <div x-show="activeTab==='servers'">
             <div class="mb-4 flex items-center space-x-2 flex-wrap gap-2">
-                <button @click="showAddServerModal=true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">➕ 添加服务器</button>
+                <button @click="showAddServerModal=true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">➕ 添加服务器</button>
                 <input type="file" id="importFile" onchange="importServersFromFile(event)" accept=".csv,.xsh,.txt" class="hidden">
-                <button onclick="document.getElementById('importFile').click()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">📥 导入</button>
-                <button @click="loadServers()" :disabled="loading" class="bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg flex items-center">
+                <button onclick="document.getElementById('importFile').click()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">📥 导入</button>
+                <button @click="loadServers()" :disabled="loading" class="bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white px-4 py-2 rounded flex items-center">
                     <svg :class="loading ? 'animate-spin' : ''" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     <span x-text="loading ? '刷新中' : '刷新'"></span>
                 </button>
-                <input type="text" id="serverSearch" placeholder="搜索..." autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" class="bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 w-40">
-                <select x-model="groupFilter" class="bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600">
+                <input type="text" id="serverSearch" placeholder="搜索..." autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" class="bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 rounded text-sm border border-gray-300 dark:border-gray-600 w-40">
+                <select x-model="groupFilter" class="bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 rounded text-sm border border-gray-300 dark:border-gray-600">
                     <option value="">全部分组</option>
                     <option value="__ungrouped__">未分组</option>
                     <template x-for="group in uniqueGroups" :key="group">
@@ -65,7 +65,7 @@
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <template x-for="server in filteredServers" :key="server.id">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-3">
+                    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-3">
                         <div class="flex justify-between items-start mb-3">
                             <div class="flex items-center space-x-2 cursor-pointer" @click="server.os_type === 'windows' ? connectRDP(server) : openTerminalFull(server)">
                                 <svg x-show="server.os_type === 'windows'" class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0V3.449zm10.949-1.651L24 0v11.4H10.949V1.798zm-10.949 12.9l9.75 1.35v9.503H0V14.699zm10.949 1.35l13.051.301v10.05l-13.051.3v-10.65z"/></svg>
@@ -80,7 +80,7 @@
                         <div class="flex space-x-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                             <button @click="copyServer(server)" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-2 py-1.5 rounded text-sm">复制</button>
                             <button @click="editServer(server)" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1.5 rounded text-sm">编辑</button>
-                            <button @click="testConnection(server.id)" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-2 py-1.5 rounded text-sm">测试</button>
+                            <button @click="testConnection(server.id)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1.5 rounded text-sm">测试</button>
                             <template x-if="server.os_type === 'linux'">
                                 <button @click="openTerminalFull(server)" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-2 py-1.5 rounded text-sm">终端</button>
                             </template>
@@ -96,11 +96,11 @@
         <div x-show="activeTab==='services'">
             <div class="flex justify-between items-center mb-4">
                 <p class="text-gray-600 dark:text-gray-400">选择要部署的服务（点击查看/编辑 compose.yml）</p>
-                <button @click="showAddServiceModal = true" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm">➕ 添加服务</button>
+                <button @click="showAddServiceModal = true" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm">➕ 添加服务</button>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <template x-for="service in services" :key="service.id">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6">
                         <div class="flex items-center mb-4">
                             <div class="text-4xl mr-3" x-text="service.icon"></div>
                             <div><h3 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="service.name"></h3><p class="text-sm text-gray-500 dark:text-gray-400" x-text="service.version"></p></div>
@@ -111,11 +111,11 @@
                             <select class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm dark:bg-gray-700 dark:text-white" :id="'server-'+service.id"><option value="">选择服务器</option><template x-for="srv in servers" :key="srv.id"><option :value="srv.id" x-text="srv.name"></option></template></select>
                         </div>
                         <div class="flex space-x-2 mb-2">
-                            <button @click="showComposeEditor(service)" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg text-sm font-medium">📄 yml</button>
-                            <button @click="validateComposeOfService(service)" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm">✓</button>
+                            <button @click="showComposeEditor(service)" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded text-sm font-medium">📄 yml</button>
+                            <button @click="validateComposeOfService(service)" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded text-sm">✓</button>
                         </div>
                         <div x-show="service.validationError" class="text-xs text-red-500 mb-2" x-text="service.validationError"></div>
-                        <button @click="deployService(service)" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">🚀 部署</button>
+                        <button @click="deployService(service)" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium">🚀 部署</button>
                     </div>
                 </template>
             </div>
@@ -124,7 +124,7 @@
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">📋 部署记录</h3>
                     <button @click="loadDeploymentRecords()" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">🔄 刷新</button>
                 </div>
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">ID</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">名称</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">类型</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">服务器</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">状态</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">时间</th><th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">操作</th></tr></thead>
                         <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -145,7 +145,7 @@
             </div>
         </div>
         <div x-show="activeTab==='instances'">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">实例名称</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">服务类型</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">服务器</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">状态</th></tr></thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700"><template x-for="inst in instances" :key="inst.id"><tr><td class="px-6 py-4 text-sm text-gray-900 dark:text-white" x-text="inst.name"></td><td class="px-6 py-4 text-sm"><span class="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded text-xs" x-text="inst.serviceType"></span></td><td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400" x-text="inst.serverName"></td><td class="px-6 py-4 text-sm"><span class="px-2 py-1 rounded text-xs" :class="inst.status==='running'?'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200':'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'" x-text="inst.status"></span></td></tr></template></tbody>
@@ -153,7 +153,7 @@
             </div>
         </div>
         <div x-show="activeTab==='crons'">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">名称</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">计划</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">命令</th></tr></thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700"><template x-for="cron in crons" :key="cron.id"><tr><td class="px-6 py-4 text-sm text-gray-900 dark:text-white" x-text="cron.name||'-'"></td><td class="px-6 py-4 text-sm font-mono text-gray-600 dark:text-gray-400" x-text="cron.schedule"></td><td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 truncate max-w-xs" x-text="cron.command"></td></tr></template></tbody>
@@ -162,9 +162,9 @@
         </div>
         <div x-show="activeTab==='commands'">
             <div class="mb-4 flex items-center space-x-2">
-                <button @click="loadCommands()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg">🔄 刷新</button>
-                <button @click="showCmdModal = true; cmdForm = {name:'',command:'',category:''}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">➕ 新建</button>
-                <select x-model="cmdCategoryFilter" @change="filterCommands()" class="bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600">
+                <button @click="loadCommands()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded">🔄 刷新</button>
+                <button @click="showCmdModal = true; cmdForm = {name:'',command:'',category:''}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">➕ 新建</button>
+                <select x-model="cmdCategoryFilter" @change="filterCommands()" class="bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 rounded text-sm border border-gray-300 dark:border-gray-600">
                     <option value="">全部分类</option>
                     <template x-for="cat in cmdCategories" :key="cat"><template x-if="cat">
                         <option :value="cat" x-text="cat"></option>
@@ -173,7 +173,7 @@
             </div>
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 <template x-for="cmd in filteredCommands" :key="cmd.id">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-3 border border-gray-200 dark:border-gray-700 hover:border-blue-500">
+                    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-3 hover:border-blue-500">
                         <div class="flex items-center justify-between mb-1">
                             <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="cmd.name" @click="copyToClipboard(cmd.command)"></span>
                             <div class="flex items-center space-x-1">
@@ -188,7 +188,7 @@
             </div>
             <div x-show="filteredCommands.length === 0" class="text-center text-gray-500 py-8">暂无命令</div>
             <div x-show="showCmdModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+                <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-md">
                     <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white" x-text="cmdForm.id ? '编辑命令' : '新建命令'"></h3>
                     <div class="space-y-3">
                         <div><label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">名称</label><input type="text" x-model="cmdForm.name" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"></div>
@@ -206,7 +206,7 @@
 </main>
 </div>
 <div x-show="showAddServerModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 w-full max-w-md text-sm">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4 w-full max-w-md text-sm">
         <h3 class="text-lg font-semibold mb-3 text-gray-900 dark:text-white" x-text="editingServer ? '编辑服务器' : '添加服务器'"></h3>
         <div class="space-y-2">
             <div class="grid grid-cols-2 gap-2">
@@ -987,7 +987,7 @@ function app() {
     }
 }</script>
 <div x-show="showComposeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
         <h3 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">编辑 compose.yml - <span x-text="editingService?.name"></span></h3>
         <div class="flex justify-between items-center mb-2">
             <span class="text-sm text-gray-500">docker-compose.yml</span>
@@ -995,7 +995,7 @@ function app() {
                 <button @click="validateCurrentCompose()" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm">验证语法</button>
             </div>
         </div>
-        <textarea x-model="composeContent" class="flex-1 w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white font-mono text-sm resize-none" rows="20"></textarea>
+        <textarea x-model="composeContent" class="flex-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white font-mono text-sm resize-none" rows="20"></textarea>
         <div class="flex justify-end space-x-2 mt-4">
             <button @click="showComposeModal = false" class="px-4 py-2 text-gray-700 dark:text-gray-300">取消</button>
             <button @click="saveCompose()" class="px-4 py-2 bg-blue-600 text-white rounded">保存</button>
@@ -1003,7 +1003,7 @@ function app() {
     </div>
 </div>
 <div x-show="showDeploymentDetail" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-3xl max-h-[80vh] flex flex-col">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-3xl max-h-[80vh] flex flex-col">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold text-gray-800 dark:text-white">部署详情 - ID: <span x-text="currentDeployment?.id"></span></h3>
             <button @click="showDeploymentDetail = false" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xl">&times;</button>
@@ -1029,26 +1029,26 @@ function app() {
     </div>
 </div>
 <div x-show="showAddServiceModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-3xl">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-3xl">
         <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">添加服务</h3>
         <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">名称</label>
-                    <input type="text" x-model="newService.name" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white">
+                    <input type="text" x-model="newService.name" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">版本</label>
-                    <input type="text" x-model="newService.version" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white">
+                    <input type="text" x-model="newService.version" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
                 </div>
             </div>
             <div>
                 <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">图标</label>
-                <input type="text" x-model="newService.icon" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white">
+                <input type="text" x-model="newService.icon" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
             </div>
             <div>
                 <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">描述</label>
-                <input type="text" x-model="newService.description" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:text-white">
+                <input type="text" x-model="newService.description" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
             </div>
             <div>
                 <div class="flex justify-between items-center mb-1">
