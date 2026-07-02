@@ -5,22 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>数据库管理</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
-    <script>tailwind.config={darkMode:'media'}</script>
+    <script>
+(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
+function toggleTheme(){var d=document.documentElement;if(d.classList.contains('dark')){d.classList.remove('dark');localStorage.setItem('theme','light')}else{d.classList.add('dark');localStorage.setItem('theme','dark')}}
+</script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <script defer src="/static/js/alpine.min.js"></script>
     <style>
+        :root { --table-border: #ccc; --table-th-bg: #e5e7eb; --table-hover: #f3f4f6; --tree-hover: #e5e7eb; --tree-active-bg: #dbeafe; --tree-active-text: #1d4ed8; --resizer-bg: #d1d5db; --resizer-hover: #3b82f6; }
+        .dark { --table-border: #444; --table-th-bg: #2d2d2d; --table-hover: #3d3d3d; --tree-hover: #404040; --tree-active-bg: #0d47a1; --tree-active-text: white; --resizer-bg: #333; --resizer-hover: #1976d2; }
         .cm-editor { height: 180px; font-size: 13px; }
         .result-table { border-collapse: collapse; font-size: 12px; }
-        .result-table th, .result-table td { border: 1px solid #444; padding: 6px 8px; text-align: left; white-space: nowrap; }
-        .result-table th { background: #2d2d2d; position: sticky; top: 0; }
-        .result-table tr:hover td { background: #3d3d3d; }
+        .result-table th, .result-table td { border: 1px solid var(--table-border); padding: 6px 8px; text-align: left; white-space: nowrap; }
+        .result-table th { background: var(--table-th-bg); position: sticky; top: 0; }
+        .result-table tr:hover td { background: var(--table-hover); }
         .tree-item { cursor: pointer; padding: 4px 8px; border-radius: 3px; }
-        .tree-item:hover { background: #404040; }
-        .tree-item.active { background: #0d47a1; }
-        .resizer { width: 4px; cursor: col-resize; background: #333; }
-        .resizer:hover { background: #1976d2; }
+        .tree-item:hover { background: var(--tree-hover); }
+        .tree-item.active { background: var(--tree-active-bg); color: var(--tree-active-text); }
+        .resizer { width: 4px; cursor: col-resize; background: var(--resizer-bg); }
+        .resizer:hover { background: var(--resizer-hover); }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white" x-data="dbApp()" x-init="init()">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white text-sm" x-data="dbApp()" x-init="init()">
 <div class="flex h-screen">
     <!-- 左侧数据库列表 -->
     <div class="w-64 bg-white dark:bg-gray-800 flex flex-col border-r border-gray-200 dark:border-gray-700">
@@ -28,6 +34,7 @@
             <span class="font-medium">数据库</span>
             <div class="flex gap-2">
                 <a :href="'/?token=' + getToken()" class="text-gray-400 hover:text-white" title="返回首页">🏠</a>
+                <a onclick="toggleTheme()" class="cursor-pointer text-gray-400 hover:text-white" title="主题切换">🌓</a>
                 <button @click="logout()" class="text-gray-400 hover:text-red-400" title="退出">🚪</button>
             </div>
             <div class="flex gap-2">
@@ -35,8 +42,8 @@
                 <button @click="loadDatabases()" class="text-gray-400 hover:text-white" title="刷新">🔄</button>
             </div>
         </div>
-        <div x-show="selectedDb" class="px-2 py-1 bg-gray-700 text-xs flex justify-between items-center">
-            <span class="text-gray-400" x-text="'当前: ' + (selectedSchema || (selectedDb && selectedDb.database) || '默认')"></span>
+        <div x-show="selectedDb" class="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-xs flex justify-between items-center">
+            <span class="text-gray-600 dark:text-gray-400" x-text="'当前: ' + (selectedSchema || (selectedDb && selectedDb.database) || '默认')"></span>
             <button @click="editDatabase(selectedDb)" class="text-yellow-400 hover:text-yellow-300" title="编辑">✏️</button>
         </div>
         <div class="flex-1 overflow-y-auto p-2">
@@ -81,37 +88,37 @@
         <div x-show="selectedDb && selectedDb.type === 'redis'" class="px-3 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <div class="text-xs text-gray-400 mb-2">预设命令（点击填写命令）：</div>
             <div class="flex flex-wrap gap-2">
-                <button @click="setEditorValue('SCAN')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">SCAN</button>
-                <button @click="setEditorValue('GET key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">GET</button>
-                <button @click="setEditorValue('SET key value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">SET</button>
-                <button @click="setEditorValue('DEL key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">DEL</button>
-                <button @click="setEditorValue('HGETALL hash')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">HGETALL</button>
-                <button @click="setEditorValue('HSET hash field value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">HSET</button>
-                <button @click="setEditorValue('LRANGE list 0 -1')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">LRANGE</button>
-                <button @click="setEditorValue('RPUSH list value')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">RPUSH</button>
-                <button @click="setEditorValue('SMEMBERS set')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">SMEMBERS</button>
-                <button @click="setEditorValue('SADD set member')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">SADD</button>
-                <button @click="setEditorValue('TYPE key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">TYPE</button>
-                <button @click="setEditorValue('TTL key')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">TTL</button>
-                <button @click="setEditorValue('EXPIRE key 60')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">EXPIRE</button>
-                <button @click="setEditorValue('DBSIZE')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">DBSIZE</button>
-                <button @click="setEditorValue('INFO')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">INFO</button>
-                <button @click="setEditorValue('CLIENT LIST')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">CLIENT</button>
-                <button @click="setEditorValue('SLOWLOG GET 10')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">SLOWLOG</button>
-                <button @click="setEditorValue('CONFIG GET maxmemory')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">CONFIG</button>
-                <button @click="setEditorValue('MEMORY STATS')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">MEMORY</button>
-                <button @click="setEditorValue('CLUSTER INFO')" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">CLUSTER</button>
+                <button @click="setEditorValue('SCAN')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">SCAN</button>
+                <button @click="setEditorValue('GET key')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">GET</button>
+                <button @click="setEditorValue('SET key value')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">SET</button>
+                <button @click="setEditorValue('DEL key')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">DEL</button>
+                <button @click="setEditorValue('HGETALL hash')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">HGETALL</button>
+                <button @click="setEditorValue('HSET hash field value')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">HSET</button>
+                <button @click="setEditorValue('LRANGE list 0 -1')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">LRANGE</button>
+                <button @click="setEditorValue('RPUSH list value')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">RPUSH</button>
+                <button @click="setEditorValue('SMEMBERS set')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">SMEMBERS</button>
+                <button @click="setEditorValue('SADD set member')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">SADD</button>
+                <button @click="setEditorValue('TYPE key')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">TYPE</button>
+                <button @click="setEditorValue('TTL key')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">TTL</button>
+                <button @click="setEditorValue('EXPIRE key 60')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">EXPIRE</button>
+                <button @click="setEditorValue('DBSIZE')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">DBSIZE</button>
+                <button @click="setEditorValue('INFO')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">INFO</button>
+                <button @click="setEditorValue('CLIENT LIST')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">CLIENT</button>
+                <button @click="setEditorValue('SLOWLOG GET 10')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">SLOWLOG</button>
+                <button @click="setEditorValue('CONFIG GET maxmemory')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">CONFIG</button>
+                <button @click="setEditorValue('MEMORY STATS')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">MEMORY</button>
+                <button @click="setEditorValue('CLUSTER INFO')" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">CLUSTER</button>
             </div>
         </div>
         <!-- Kafka 预设命令 -->
         <div x-show="selectedDb && selectedDb.type === 'kafka'" class="px-3 py-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <div class="text-xs text-gray-400 mb-2">预设命令：</div>
             <div class="flex flex-wrap gap-2">
-                <button @click="setEditorValue('LIST_TOPICS')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-white">LIST_TOPICS</button>
-                <button @click="setEditorValue('BROKERS')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-white">BROKERS</button>
-                <button @click="setEditorValue('TOPIC_INFO ' + (selectedSchema || 'your-topic'))" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-white">TOPIC_INFO</button>
-                <button @click="setEditorValue('CREATE_TOPIC your-topic 3 1')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-white">CREATE_TOPIC</button>
-                <button @click="setEditorValue('CONSUME ' + (selectedSchema || 'your-topic') + ' 10')" class="text-xs bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-white">CONSUME</button>
+                <button @click="setEditorValue('LIST_TOPICS')" class="text-xs bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 px-2 py-1 rounded text-white">LIST_TOPICS</button>
+                <button @click="setEditorValue('BROKERS')" class="text-xs bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 px-2 py-1 rounded text-white">BROKERS</button>
+                <button @click="setEditorValue('TOPIC_INFO ' + (selectedSchema || 'your-topic'))" class="text-xs bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 px-2 py-1 rounded text-white">TOPIC_INFO</button>
+                <button @click="setEditorValue('CREATE_TOPIC your-topic 3 1')" class="text-xs bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 px-2 py-1 rounded text-white">CREATE_TOPIC</button>
+                <button @click="setEditorValue('CONSUME ' + (selectedSchema || 'your-topic') + ' 10')" class="text-xs bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 px-2 py-1 rounded text-white">CONSUME</button>
             </div>
             <div class="text-xs text-gray-500 mt-1">用法: LIST_TOPICS | BROKERS | TOPIC_INFO &lt;topic&gt; | CREATE_TOPIC &lt;topic&gt; [partitions] [replication] | CONSUME &lt;topic&gt; [count]</div>
         </div>
@@ -119,13 +126,13 @@
             <div class="flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-800">
                 <span class="text-sm">SQL 编辑器</span>
                 <div class="flex gap-2">
-                    <button @click="loadTables()" x-show="selectedDb" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-white">🔄 刷新表</button>
+                    <button @click="loadTables()" x-show="selectedDb" class="text-xs bg-gray-600 hover:bg-gray-700 px-2 py-1 rounded text-white">🔄 刷新表</button>
                     <button @click="executeQuery()" :disabled="!selectedDb || executing" class="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-3 py-1 rounded text-sm text-white">▶ 执行</button>
-                    <button @click="formatSql()" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-sm text-white">格式化</button>
-                    <button @click="clearEditor()" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-sm text-white">清空</button>
+                    <button @click="formatSql()" class="bg-gray-600 hover:bg-gray-700 px-2 py-1 rounded text-sm text-white">格式化</button>
+                    <button @click="clearEditor()" class="bg-gray-600 hover:bg-gray-700 px-2 py-1 rounded text-sm text-white">清空</button>
                 </div>
             </div>
-            <textarea x-ref="editor" class="flex-1 bg-white dark:bg-gray-800 text-white p-2 font-mono text-sm resize-none border-0 focus:outline-none"></textarea>
+            <textarea x-ref="editor" class="flex-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-2 font-mono text-sm resize-none border-0 focus:outline-none"></textarea>
         </div>
 
         <!-- 结果集 -->
@@ -136,17 +143,17 @@
                     <span x-show="queryDuration > 0" class="text-xs text-gray-400" x-text="`查询耗时: ${queryDuration}ms | 返回: ${queryRows} 行`"></span>
                 </div>
                 <div class="flex gap-2">
-                    <button @click="addRow()" x-show="selectedTable" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">➕ 添加行</button>
-                    <button @click="deleteRow()" x-show="selectedRows.size > 0" class="text-xs bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-white">🗑️ 删除选中</button>
-                    <button @click="saveChanges()" x-show="hasChanges" class="text-xs bg-green-700 hover:bg-green-600 px-2 py-1 rounded text-white">💾 保存修改</button>
-                    <button @click="exportCsv()" x-show="queryResult.length > 0" class="text-xs bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-white">📥 CSV</button>
-                    <button @click="exportSql()" x-show="queryResult.length > 0 && (selectedDb.type === 'mysql' || selectedDb.type === 'postgresql')" class="text-xs bg-green-700 hover:bg-green-600 px-2 py-1 rounded text-white">📥 SQL</button>
+                    <button @click="addRow()" x-show="selectedTable" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">➕ 添加行</button>
+                    <button @click="deleteRow()" x-show="selectedRows.size > 0" class="text-xs bg-red-600 dark:bg-red-500 hover:bg-red-700 px-2 py-1 rounded text-white">🗑️ 删除选中</button>
+                    <button @click="saveChanges()" x-show="hasChanges" class="text-xs bg-green-600 dark:bg-green-500 hover:bg-green-700 px-2 py-1 rounded text-white">💾 保存修改</button>
+                    <button @click="exportCsv()" x-show="queryResult.length > 0" class="text-xs bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 px-2 py-1 rounded text-white">📥 CSV</button>
+                    <button @click="exportSql()" x-show="queryResult.length > 0 && (selectedDb.type === 'mysql' || selectedDb.type === 'postgresql')" class="text-xs bg-green-600 dark:bg-green-500 hover:bg-green-700 px-2 py-1 rounded text-white">📥 SQL</button>
                 </div>
             </div>
-            <div class="flex-1 overflow-auto bg-gray-900">
-                <div x-show="queryError" class="p-4 text-red-400" x-text="queryError"></div>
+            <div class="flex-1 overflow-auto bg-white dark:bg-gray-900">
+                <div x-show="queryError" class="p-4 text-red-500" x-text="queryError"></div>
                 <div x-show="queryResult.length > 0" class="overflow-auto">
-                    <table class="result-table text-gray-300">
+                    <table class="result-table text-gray-900 dark:text-gray-300">
                         <thead>
                             <tr>
                                 <th class="w-8"><input type="checkbox" @click="toggleSelectAll($event)"></th>
@@ -157,7 +164,7 @@
                         </thead>
                         <tbody>
                             <template x-for="(row, idx) in queryResult" :key="idx">
-                                <tr :class="changedRows.has(idx) ? 'bg-yellow-900' : (selectedRows.has(idx) ? 'bg-blue-900' : '')">
+                                <tr :class="changedRows.has(idx) ? 'bg-yellow-100 dark:bg-yellow-900' : (selectedRows.has(idx) ? 'bg-blue-100 dark:bg-blue-900' : '')">
                                     <td class="w-8"><input type="checkbox" :checked="selectedRows.has(idx)" @change="toggleRowSelect(idx)"></td>
                                     <template x-for="key in resultColumns" :key="key">
                                         <td style="cursor: pointer" @click="selectCell(idx, key)" @dblclick.stop="startEdit($event, idx, key)">
@@ -241,7 +248,7 @@
 <!-- 添加数据库弹窗 -->
 <div x-show="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white dark:bg-gray-800 rounded p-6 w-full max-w-lg">
-        <h3 class="text-lg font-medium mb-4" x-text="editingDb ? '编辑数据库' : '添加数据库'"></h3>
+        <h3 class="text-sm font-medium mb-4" x-text="editingDb ? '编辑数据库' : '添加数据库'"></h3>
         <div class="space-y-3">
             <div class="flex gap-3">
                 <div class="flex-1">

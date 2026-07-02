@@ -6,18 +6,23 @@
     <title>基础设施 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <script defer src="/static/js/alpine.min.js"></script>
-    <script>tailwind.config = { darkMode: 'media' }</script>
+    <script>
+(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
+function toggleTheme(){var d=document.documentElement;if(d.classList.contains('dark')){d.classList.remove('dark');localStorage.setItem('theme','light')}else{d.classList.add('dark');localStorage.setItem('theme','dark')}}
+</script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <style>
         .log-output { font-family: 'Consolas', monospace; font-size: 12px; white-space: pre-wrap; }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen" x-data="infrastructureApp()" x-init="init()">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen text-sm" x-data="infrastructureApp()" x-init="init()">
 <div class="container mx-auto p-4">
     <div x-show="toastMessage" x-transition class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded shadow-lg text-white font-semibold" :class="toastType === 'success' ? 'bg-green-500' : 'bg-red-500'" x-text="toastMessage" @click="toastMessage = ''"></div>
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center space-x-4">
             <a href="/" class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white">🏠 首页</a>
-            <h1 class="text-lg font-bold text-gray-800 dark:text-white">基础设施</h1>
+            <a onclick="toggleTheme()" class="cursor-pointer text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white">🌓</a>
+            <h1 class="text-sm font-bold text-gray-800 dark:text-white">基础设施</h1>
         </div>
         <div class="space-x-2">
             <button @click="activeTab = 'scenarios'" :class="activeTab === 'scenarios' ? 'bg-blue-600' : 'bg-gray-600'" class="hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">场景管理</button>
@@ -29,13 +34,13 @@
     <div x-show="activeTab === 'scenarios'" class="space-y-4">
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold text-gray-800 dark:text-white">场景列表</h2>
-                <button @click="showAddModal = true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">添加场景</button>
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white">场景列表</h2>
+                <button @click="showAddModal = true" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">添加场景</button>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <template x-for="scenario in scenarios" :key="scenario.id">
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
-                        <h3 class="font-semibold text-gray-800 dark:text-white" x-text="scenario.name"></h3>
+                    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4">
+                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white" x-text="scenario.name"></h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1" x-text="scenario.description || '无描述'"></p>
                         <p class="text-xs text-gray-400 mt-2" x-text="'创建于: ' + new Date(scenario.created_at).toLocaleString()"></p>
                         <div class="flex space-x-2 mt-3">
@@ -52,7 +57,7 @@
 
     <div x-show="activeTab === 'executions'" class="space-y-4">
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4">
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">执行记录</h2>
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white mb-4">执行记录</h2>
             <div class="space-y-3">
                 <template x-for="exec in executions" :key="exec.id">
                     <div class="border border-gray-300 dark:border-gray-600 rounded p-3">
@@ -73,7 +78,7 @@
 
     <div x-show="activeTab === 'execute'" class="space-y-4">
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4">
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">批量执行</h2>
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white mb-4">批量执行</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-2">选择场景</label>
@@ -102,7 +107,7 @@
 
     <div x-show="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-lg" style="max-height: 80vh; overflow-y: auto;">
-            <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white" x-text="editingScenario ? '编辑场景' : '添加场景'"></h3>
+            <h3 class="text-sm font-semibold mb-4 text-gray-800 dark:text-white" x-text="editingScenario ? '编辑场景' : '添加场景'"></h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">名称</label>
@@ -163,7 +168,7 @@
 
     <div x-show="showEditFileModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-3xl max-h-[80vh] flex flex-col">
-            <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">编辑文件: <span x-text="editingFileName"></span></h3>
+            <h3 class="text-sm font-semibold mb-4 text-gray-800 dark:text-white">编辑文件: <span x-text="editingFileName"></span></h3>
             <textarea x-model="editingFileContent" class="flex-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white font-mono text-sm resize-none" rows="20"></textarea>
             <div class="flex justify-end space-x-2 mt-4">
                 <button @click="showEditFileModal = false" class="px-4 py-2 text-gray-700 dark:text-gray-300">取消</button>
@@ -174,7 +179,7 @@
 
     <div x-show="showTemplateModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
-            <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white" x-text="editingTemplate ? '编辑模板' : '添加模板'"></h3>
+            <h3 class="text-sm font-semibold mb-4 text-gray-800 dark:text-white" x-text="editingTemplate ? '编辑模板' : '添加模板'"></h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">名称</label>
@@ -202,7 +207,7 @@
 
     <div x-show="showExecConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-lg">
-            <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">执行确认</h3>
+            <h3 class="text-sm font-semibold mb-4 text-gray-800 dark:text-white">执行确认</h3>
             <div class="space-y-3">
                 <div class="text-gray-700 dark:text-gray-300">
                     <span class="font-semibold">场景:</span> <span x-text="execConfirmScenario?.name"></span>
