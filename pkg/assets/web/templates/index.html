@@ -826,8 +826,8 @@ function app() {
                 const proxyPort = data.proxy_port || 1080;
 
                 // 1) Desktop mode: 通过 Wails 直接调本地 RDP 客户端
-                if (window.runtime && window.runtime.LaunchRDP) {
-                    try { await window.runtime.LaunchRDP(host, port, username, password); return; } catch(e) {}
+                if (window['go'] && window['go']['main'] && window['go']['main']['App'] && window['go']['main']['App']['LaunchRDP']) {
+                    try { await window['go']['main']['App']['LaunchRDP'](host, port, username, password); return; } catch(e) {}
                 }
 
                 // 2) 本地 rdp-agent.exe
