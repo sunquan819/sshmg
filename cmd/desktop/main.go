@@ -23,14 +23,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to find available port: %v", err)
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	opts := server.Options{
-		Port:              port,
+		Listener:          listener,
 		Desktop:           true,
 		WebAssets:         assets.WebAssets,
 		RDPAgentExe:       assets.RDPAgentExe,
@@ -45,7 +43,7 @@ func main() {
 		}
 	}()
 
-	targetURL, _ := url.Parse(fmt.Sprintf("http://127.0.0.1:%d", port))
+	targetURL, _ := url.Parse(fmt.Sprintf("http://127.0.0.1:%d", listener.Addr().(*net.TCPAddr).Port))
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
 	app := NewApp()

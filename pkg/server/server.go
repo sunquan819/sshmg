@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -451,8 +452,25 @@ func Start(ctx context.Context, opts Options) (int, error) {
 	r.GET("/ws/container-terminal/:id/:containerId", terminalHandler.ConnectContainerTerminal)
 
 	addr := fmt.Sprintf("0.0.0.0:%d", cfg.Server.Port)
+	srv := &http.Server{Handler: r}
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		srv.Shutdown(shutdownCtx)
+	}()
+
+	if opts.Listener != nil {
+		log.Printf("Starting server on listener (port %d)", opts.Listener.Addr().(*net.TCPAddr).Port)
+		if err := srv.Serve(opts.Listener); err != nil && err != http.ErrServerClosed {
+			return 0, fmt.Errorf("failed to start server: %w", err)
+		}
+		return opts.Listener.Addr().(*net.TCPAddr).Port, nil
+	}
+
 	log.Printf("Starting server on %s", addr)
-	if err := r.Run(addr); err != nil {
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return 0, fmt.Errorf("failed to start server: %w", err)
 	}
 	return cfg.Server.Port, nil

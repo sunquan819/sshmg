@@ -24,6 +24,7 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	signal.Notify(a.sigChan, syscall.SIGINT, syscall.SIGTERM)
+	a.setupTray()
 	log.Println("Desktop app started")
 }
 
