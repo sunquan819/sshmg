@@ -6,7 +6,7 @@
     <title>常用工具 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <style>
-body { font-size: 12px; }
+html { font-size: 12px; }
 .dark .dark\:bg-gray-800 { background-color: #1f2937; }
 .dark .dark\:bg-gray-900 { background-color: #111827; }
 .dark .dark\:bg-gray-700 { background-color: #374151; }
@@ -51,8 +51,6 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
     <div class="min-h-screen flex flex-col">
         <header class=" bg-white dark:bg-gray-800  px-4 py-3 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
             <div class="flex items-center space-x-4">
-                <a href="/" class="text-gray-400 hover:text-white">🏠主页</a>
-                <a onclick="toggleTheme()" class="cursor-pointer text-gray-400 hover:text-white">🌓</a>
                 <h1 class="text-sm font-semibold">🔧 常用工具</h1>
             </div>
             <button @click="loadServers()" class="text-gray-400 hover:text-white text-sm">🔄 刷新服务器</button>

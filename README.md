@@ -1,6 +1,6 @@
 # 部署管理系统
 
-一款基于 Web 的服务器运维管理工具，支持服务器管理、容器部署、计划任务、Web 终端、文件管理、笔记管理等企业级运维场景。
+一款支持 Web 与 Desktop 双形态的服务器运维管理工具，支持服务器管理、容器部署、计划任务、Web 终端、本地终端、文件管理、笔记管理等企业级运维场景。
 
 ## 功能特性
 
@@ -35,6 +35,25 @@
 - rm 危险命令二次确认
 - HTTP 环境剪贴板 fallback 方案
 - 终端会话历史记录与回放
+
+### 🖥️ Desktop 客户端
+- 基于 Wails 的 Windows 桌面客户端
+- 内置后端服务，启动后直接进入本地管理界面
+- 支持系统托盘运行与桌面窗口管理
+- 支持 Desktop 专属的本地终端能力
+- 兼容现有 Web 管理功能与登录鉴权
+
+### 🧑‍💻 本地终端
+- 在 Desktop 客户端内打开本机 PowerShell / CMD / Git Bash
+- 支持多标签页与最多 4 个横向/纵向分屏
+- 分屏关闭后自动恢复布局，窗口缩放/最大化后自动同步终端尺寸
+- Windows Terminal 风格交互：鼠标选中、右键复制、无选区右键粘贴
+- 支持强制选择终端文本，适配 opencode、codex 等 TUI 程序占用鼠标的场景
+- 支持鼠标滚轮滚动历史输出
+- 选中文本后可发送到当前终端、当前分屏其它终端或所有其它终端
+- 支持自动探测本机 AI Agent CLI（如 opencode、codex 等）并快速启动
+- 支持查看 opencode / codex 历史 session，并从指定 session 继续
+- AI Agent 退出后自动回到本地 Shell，并恢复终端显示模式
 
 ### 📋 终端日志
 - 自动记录终端会话历史
@@ -128,6 +147,13 @@
 2. 监控容器运行状态
 3. 查看容器日志排查问题
 
+### 场景八：桌面本地运维与 AI Agent
+1. 打开 Desktop 客户端并登录
+2. 在本地终端中创建多个标签页或分屏
+3. 从状态栏快速启动 opencode、codex 等 AI Agent
+4. 在多个分屏间发送选中文本，辅助对比、复用命令或同步上下文
+5. 从历史 session 继续 AI Agent 工作
+
 ## 快速开始
 
 ### 编译
@@ -138,6 +164,19 @@ go build -o deploy-manager.exe ./cmd/server/main.go
 
 # Linux
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o deploy-manager ./cmd/server/main.go
+```
+
+### 编译 Desktop 客户端
+
+```bash
+cd cmd/desktop
+wails build
+```
+
+构建产物位于：
+
+```text
+cmd/desktop/build/bin/deploy-manager-desktop.exe
 ```
 
 ### 运行
@@ -170,12 +209,14 @@ GIN_MODE=release ./deploy-manager.exe --password yourpass
 - **SSH**: golang.org/x/crypto/ssh
 - **终端**: xterm.js + WebSocket
 - **前端**: Alpine.js + TailwindCSS
+- **Desktop**: Wails + WebView2
 
 ## 目录结构
 
 ```
 deploy-manager/
 ├── cmd/server/main.go      # 程序入口
+├── cmd/desktop/            # Desktop 客户端
 ├── internal/
 │   ├── config/             # 配置管理
 │   ├── database/           # 数据库初始化
@@ -187,6 +228,7 @@ deploy-manager/
 ├── cmd/server/web/
 │   ├── templates/          # HTML 模板
 │   └── static/             # 静态资源
+├── pkg/assets/             # 嵌入式 Web 模板与静态资源
 └── artifacts/              # 编译产物
 ```
 

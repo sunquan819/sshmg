@@ -21,3 +21,7 @@ ssh:
 admin:
   username: admin
   password: "admin1024"
+
+local_shell:
+  command: ""
+  args: []

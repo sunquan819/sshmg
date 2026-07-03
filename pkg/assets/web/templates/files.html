@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文件管理 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <style>
-body { font-size: 12px; }
+html { font-size: 12px; }
 .dark .dark\:bg-gray-800 { background-color: #1f2937; }
 .dark .dark\:bg-gray-900 { background-color: #111827; }
 .dark .dark\:bg-gray-700 { background-color: #374151; }
@@ -40,7 +40,12 @@ body { font-size: 12px; }
 .dark .dark\:hover\:text-gray-300:hover { color: #d1d5db; }
 .dark .dark\:hover\:text-white:hover { color: #fff; }
 </style>
-    <script>tailwind.config={darkMode:'media'}</script>
+    <script>
+(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
+function toggleTheme(){var d=document.documentElement;if(d.classList.contains('dark')){d.classList.remove('dark');localStorage.setItem('theme','light')}else{d.classList.add('dark');localStorage.setItem('theme','dark')}}
+window.addEventListener('storage',function(e){if(e.key==='theme'){var v=e.newValue;if(v==='dark')document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark')}})
+    </script>
+    <script>tailwind.config={darkMode:'class'}</script>
     <style>
         .file-item { cursor: pointer; padding: 6px 12px; border-radius: 4px; }
         .file-item:hover { background-color: rgba(255,255,255,0.1); }
@@ -55,13 +60,11 @@ body { font-size: 12px; }
     <div class="min-h-screen flex flex-col">
         <header class="bg-white dark:bg-gray-800 px-4 py-3 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
             <div class="flex items-center space-x-4">
-                <a href="/" class="text-gray-400 hover:text-white">🏠主页</a>
                 <h1 class="text-xl font-semibold">📁 文件管理</h1>
             </div>
             <div class="flex items-center space-x-2">
                 <button @click="showUploadModal = true; uploadTargetPath = currentPath" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded text-sm text-white">⬆️ 上传文件</button>
                 <button @click="showNewFolderModal = true" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm text-white">📁 新建目录</button>
-                <button @click="logout()" class="text-gray-400 hover:text-red-400">🚪退出</button>
             </div>
         </header>
 

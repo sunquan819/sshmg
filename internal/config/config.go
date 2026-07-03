@@ -11,13 +11,19 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	Database DatabaseConfig `yaml:"database"`
-	JWT      JWTConfig      `yaml:"jwt"`
-	Log      LogConfig      `yaml:"log"`
-	Admin    AdminConfig    `yaml:"admin"`
-	SSH      SSHConfig      `yaml:"ssh"`
-	Deploy   DeployConfig   `yaml:"deploy"`
+	Server     ServerConfig     `yaml:"server"`
+	Database   DatabaseConfig   `yaml:"database"`
+	JWT        JWTConfig        `yaml:"jwt"`
+	Log        LogConfig        `yaml:"log"`
+	Admin      AdminConfig      `yaml:"admin"`
+	SSH        SSHConfig        `yaml:"ssh"`
+	Deploy     DeployConfig     `yaml:"deploy"`
+	LocalShell LocalShellConfig `yaml:"local_shell"`
+}
+
+type LocalShellConfig struct {
+	Command string   `yaml:"command"`
+	Args    []string `yaml:"args"`
 }
 
 type ServerConfig struct {

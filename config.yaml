@@ -21,3 +21,8 @@ ssh:
 admin:
   username: admin
   password: "admin1024"
+
+local_shell:
+  # 本地终端 shell 路径, 空=系统默认 (Windows: cmd.exe, Linux: /bin/bash, macOS: /bin/zsh)
+  command: ""
+  args: []

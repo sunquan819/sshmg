@@ -2,3 +2,14 @@
 *.exe~
 /artifacts
 /data
+cmd/desktop/build/bin/
+cmd/server/data/
+server*.log
+server*.err
+server_out.txt
+server_err.txt
+desktop-current.png
+test_config.yaml
+.mimocode/
+.sisyphus/
+.superpowers/

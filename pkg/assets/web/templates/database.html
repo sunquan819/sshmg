@@ -6,7 +6,7 @@
     <title>数据库管理</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <style>
-body { font-size: 12px; }
+html { font-size: 12px; }
 .dark .dark\:bg-gray-800 { background-color: #1f2937; }
 .dark .dark\:bg-gray-900 { background-color: #111827; }
 .dark .dark\:bg-gray-700 { background-color: #374151; }
@@ -53,11 +53,6 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
     <div class="w-64 bg-white dark:bg-gray-800 flex flex-col border-r border-gray-200 dark:border-gray-700">
         <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <span class="font-medium">数据库</span>
-            <div class="flex gap-2">
-                <a :href="'/?token=' + getToken()" class="text-gray-400 hover:text-white" title="返回首页">🏠</a>
-                <a onclick="toggleTheme()" class="cursor-pointer text-gray-400 hover:text-white" title="主题切换">🌓</a>
-                <button @click="logout()" class="text-gray-400 hover:text-red-400" title="退出">🚪</button>
-            </div>
             <div class="flex gap-2">
                 <button @click="showAddModal=true" class="text-blue-400 hover:text-blue-300" title="添加数据库">➕</button>
                 <button @click="loadDatabases()" class="text-gray-400 hover:text-white" title="刷新">🔄</button>

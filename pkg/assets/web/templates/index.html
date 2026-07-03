@@ -6,7 +6,7 @@
     <title>部署管理系统 v6</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <style>
-body { font-size: 12px; }
+html { font-size: 12px; }
 .dark .dark\:bg-gray-800 { background-color: #1f2937; }
 .dark .dark\:bg-gray-900 { background-color: #111827; }
 .dark .dark\:bg-gray-700 { background-color: #374151; }
@@ -55,33 +55,46 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-sm" x-data="app()" x-init="init()" onload="checkAuth()">
 <div class="flex h-screen overflow-hidden">
-<aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-    <div class="p-3 border-b border-gray-200 dark:border-gray-700"><h1 class="text-sm font-bold text-gray-900 dark:text-white">部署管理系统 <span class="text-xs text-gray-400">v1.0.2</span></h1></div>
-        <nav class="p-3 space-y-1 flex-1 overflow-y-auto nav-scrollbar">
-            <a href="#" @click.prevent="activeTab='servers'" :class="activeTab==='servers'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-3 py-1.5 rounded text-sm transition">🖥️ 服务器</a>
-        <a :href="'/infrastructure?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">⚙️ 基础设施</a>
-        <a href="#" @click.prevent="activeTab='services'" :class="activeTab==='services'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-3 py-1.5 rounded text-sm transition">🚀 服务部署</a>
-        <a href="#" @click.prevent="activeTab='instances'" :class="activeTab==='instances'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-3 py-1.5 rounded text-sm transition">📦 我的实例</a>
-        <a href="#" @click.prevent="activeTab='crons'" :class="activeTab==='crons'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-3 py-1.5 rounded text-sm transition">⏰ 计划任务</a>
-        <a :href="'/containers?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🐳 容器管理</a>
-        <a :href="'/database?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🗄️ 数据库管理</a>
-        <a :href="'/projects?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🏗️ 项目部署</a>
-        <a :href="'/notes?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📝 笔记管理</a>
-        <a :href="'/tools?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🔧 常用工具</a>
-        <a href="#" @click.prevent="activeTab='commands'; loadCommands()" :class="activeTab==='commands'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="block px-3 py-1.5 rounded text-sm transition">⌨️ 常用命令</a>
-        <a :href="'/tunnels?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">🔗 端口隧道</a>
-        <a :href="'/terminal-logs?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📋 终端日志</a>
-        <a :href="'/files?token=' + getToken()" class="block px-3 py-1.5 rounded text-sm transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">📁 文件管理</a>
-        <a href="/artifacts/rdp-agent.exe" download class="block px-3 py-1.5 rounded text-sm transition text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700">⬇️ RDP Agent</a>
+<aside :class="sidebarCollapsed ? 'w-14' : 'w-64'" class="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300">
+    <div class="p-3 border-b border-gray-200 dark:border-gray-700"><h1 class="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap" x-show="!sidebarCollapsed">部署管理系统 <span class="text-xs text-gray-400">v1.0.2</span></h1><h1 x-show="sidebarCollapsed" class="text-sm font-bold text-gray-900 dark:text-white text-center">D</h1></div>
+        <nav class="p-2 space-y-1 flex-1 overflow-y-auto nav-scrollbar">
+            <a href="#" @click.prevent="activeTab='servers'" :class="activeTab==='servers'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🖥️</span><span x-show="!sidebarCollapsed" class="truncate">服务器</span></a>
+        <a href="#" @click.prevent="loadPage('infrastructure', '/infrastructure?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='infrastructure'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">⚙️</span><span x-show="!sidebarCollapsed" class="truncate">基础设施</span></a>
+        <a href="#" @click.prevent="activeTab='services'" :class="activeTab==='services'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🚀</span><span x-show="!sidebarCollapsed" class="truncate">服务部署</span></a>
+        <a href="#" @click.prevent="activeTab='instances'" :class="activeTab==='instances'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">📦</span><span x-show="!sidebarCollapsed" class="truncate">我的实例</span></a>
+        <a href="#" @click.prevent="activeTab='crons'" :class="activeTab==='crons'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">⏰</span><span x-show="!sidebarCollapsed" class="truncate">计划任务</span></a>
+        <a href="#" @click.prevent="loadPage('containers', '/containers?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='containers'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🐳</span><span x-show="!sidebarCollapsed" class="truncate">容器管理</span></a>
+        <a href="#" @click.prevent="loadPage('database', '/database?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='database'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🗄️</span><span x-show="!sidebarCollapsed" class="truncate">数据库管理</span></a>
+        <a href="#" @click.prevent="loadPage('projects', '/projects?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='projects'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🏗️</span><span x-show="!sidebarCollapsed" class="truncate">项目部署</span></a>
+        <a href="#" @click.prevent="loadPage('notes', '/notes?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='notes'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">📝</span><span x-show="!sidebarCollapsed" class="truncate">笔记管理</span></a>
+        <a href="#" @click.prevent="loadPage('tools', '/tools?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='tools'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🔧</span><span x-show="!sidebarCollapsed" class="truncate">常用工具</span></a>
+        <a href="#" @click.prevent="activeTab='commands'; loadCommands()" :class="activeTab==='commands'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">⌨️</span><span x-show="!sidebarCollapsed" class="truncate">常用命令</span></a>
+        <a href="#" @click.prevent="loadPage('tunnels', '/tunnels?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='tunnels'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🔗</span><span x-show="!sidebarCollapsed" class="truncate">端口隧道</span></a>
+        <a href="#" @click.prevent="loadPage('terminal-logs', '/terminal-logs?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='terminal-logs'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">📋</span><span x-show="!sidebarCollapsed" class="truncate">终端日志</span></a>
+        <a href="#" @click.prevent="loadPage('local-terminal', '/local-terminal?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='local-terminal'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">💻</span><span x-show="!sidebarCollapsed" class="truncate">本地终端</span></a>
+        <a href="#" @click.prevent="loadPage('files', '/files?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='files'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">📁</span><span x-show="!sidebarCollapsed" class="truncate">文件管理</span></a>
+        <a href="/artifacts/rdp-agent.exe" download class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2 text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700"><span class="flex-shrink-0 w-5 text-center">⬇️</span><span x-show="!sidebarCollapsed" class="truncate">RDP Agent</span></a>
     </nav>
-    <div class="p-3 border-t border-gray-200 dark:border-gray-700">
-        <button @click="logout()" class="text-xs text-red-600 hover:text-red-700 w-full text-left">退出</button>
-        <button onclick="toggleTheme()" class="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-left px-3 py-1.5 mt-1">🌓 主题切换</button>
+    <div class="p-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
+        <button @click="toggleSidebar()" class="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-left px-2 py-1.5 flex items-center gap-2" x-show="!sidebarCollapsed"><span class="flex-shrink-0 w-5 text-center">◀</span><span>收起侧栏</span></button>
+        <button @click="toggleSidebar()" class="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-center py-1.5" x-show="sidebarCollapsed" title="展开侧栏">▶</button>
+        <button @click="logout()" class="text-xs text-red-600 hover:text-red-700 w-full text-left px-2 py-1.5 flex items-center gap-2" x-show="!sidebarCollapsed"><span class="flex-shrink-0 w-5 text-center">✕</span><span>退出</span></button>
+        <button @click="logout()" class="text-xs text-red-600 hover:text-red-700 w-full text-center py-1.5" x-show="sidebarCollapsed" title="退出">✕</button>
+        <button onclick="toggleTheme()" class="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-left px-2 py-1.5 flex items-center gap-2" x-show="!sidebarCollapsed"><span class="flex-shrink-0 w-5 text-center">🌓</span><span>主题切换</span></button>
+        <button onclick="toggleTheme()" class="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-center py-1.5" x-show="sidebarCollapsed" title="主题切换">🌓</button>
+        <div class="flex items-center gap-1 px-2" x-show="!sidebarCollapsed">
+            <span class="text-xs text-gray-400 flex-shrink-0">Aa</span>
+            <button @click="changeFontSize(-1)" class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700">−</button>
+            <span class="text-xs text-gray-500 dark:text-gray-400 w-4 text-center" x-text="fontSize"></span>
+            <button @click="changeFontSize(1)" class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700">+</button>
+        </div>
+        <button @click="changeFontSize(-1)" class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-center py-1.5" x-show="sidebarCollapsed" title="缩小">A−</button>
+        <button @click="changeFontSize(1)" class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-center py-1.5" x-show="sidebarCollapsed" title="放大">A+</button>
     </div>
 </aside>
-<main class="flex-1 overflow-y-auto">
+<main class="flex-1 flex flex-col min-h-0">
     <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex justify-between items-center"><h2 class="text-sm font-semibold text-gray-900 dark:text-white" x-text="pageTitle"></h2><button @click="logout()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1 rounded text-sm">退出</button></header>
-    <div class="p-4">
+    <div x-show="activeTab !== 'page'" class="flex-1 p-4 overflow-y-auto">
         <div x-show="activeTab==='servers'">
             <div class="mb-4 flex items-center space-x-2 flex-wrap gap-2">
                 <button @click="showAddServerModal=true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">➕ 添加服务器</button>
@@ -243,6 +256,9 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
             </div>
         </div>
     </div>
+    <div x-show="activeTab==='page'" class="flex-1 min-h-0">
+        <iframe :src="pageUrl" class="w-full h-full border-0" title="子页面"></iframe>
+    </div>
 </main>
 </div>
 <div x-show="showAddServerModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -375,6 +391,10 @@ function app() {
     return {
         activeTab: 'servers',
         pageTitle: '服务器管理',
+        sidebarCollapsed: false,
+        pageUrl: '',
+        activeSubpage: '',
+        fontSize: parseInt(localStorage.getItem('fontSize')) || 12,
         user: null,
         servers: [],
         instances: [],
@@ -419,10 +439,24 @@ function app() {
             const groups = this.servers.map(s => s.group).filter(g => g);
             return [...new Set(groups)];
         },
+        toggleSidebar() { this.sidebarCollapsed = !this.sidebarCollapsed; },
+        loadPage(key, url) {
+            const titles = { infrastructure: '基础设施', containers: '容器管理', database: '数据库管理', projects: '项目部署', notes: '笔记管理', tools: '常用工具', tunnels: '端口隧道', 'terminal-logs': '终端日志', files: '文件管理', 'local-terminal': '本地终端' };
+            this.pageUrl = url;
+            this.activeTab = 'page';
+            this.activeSubpage = key;
+            this.pageTitle = titles[key] || '子页面';
+        },
+        changeFontSize(delta) {
+            this.fontSize = Math.max(8, Math.min(24, this.fontSize + delta));
+            document.documentElement.style.fontSize = this.fontSize + 'px';
+            localStorage.setItem('fontSize', this.fontSize);
+        },
         init() {
             var _t = localStorage.getItem('access_token');
             if (!_t) { window.location.href = '/login'; return; }
             try { var _p = JSON.parse(atob(_t.split('.')[1])); if (_p.exp * 1000 < Date.now()) { localStorage.removeItem('access_token'); window.location.href = '/login'; return; } } catch(e) {}
+            document.documentElement.style.fontSize = this.fontSize + 'px';
             this.searchFilter = '';
             this.groupFilter = '';
             const userStr = localStorage.getItem('user');

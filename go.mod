@@ -5,6 +5,8 @@ go 1.23.0
 toolchain go1.24.3
 
 require (
+	github.com/UserExistsError/conpty v0.1.4
+	github.com/creack/pty v1.1.24
 	github.com/gin-gonic/gin v1.9.1
 	github.com/glebarez/sqlite v1.9.0
 	github.com/go-sql-driver/mysql v1.9.3

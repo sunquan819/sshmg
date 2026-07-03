@@ -169,6 +169,7 @@ func Start(ctx context.Context, opts Options) (int, error) {
 	commandHandler := handler.NewCommandHandler()
 	terminalLogHandler := handler.NewTerminalLogHandler()
 	localFilesHandler := handler.NewLocalFilesHandler()
+	localTerminalHandler := handler.NewLocalTerminalHandler()
 
 	go handler.InitDefaultProject()
 	go commandHandler.InitDefaultCommands()
@@ -230,6 +231,18 @@ func Start(ctx context.Context, opts Options) (int, error) {
 
 	r.GET("/files", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "files.html", nil)
+	})
+
+	actualPort := cfg.Server.Port
+	if opts.Listener != nil {
+		actualPort = opts.Listener.Addr().(*net.TCPAddr).Port
+	}
+
+	r.GET("/local-terminal", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "local-terminal.html", gin.H{
+			"DesktopPort": actualPort,
+			"Desktop":     opts.Desktop,
+		})
 	})
 
 	api := r.Group("/api")
@@ -428,11 +441,22 @@ func Start(ctx context.Context, opts Options) (int, error) {
 			}
 
 			handler.RegisterLocalFilesRoutes(auth, localFilesHandler)
+
+			localTerminal := auth.Group("/local-terminal")
+			{
+				localTerminal.GET("/agents", localTerminalHandler.ListAgents)
+				localTerminal.GET("/agents/:id/sessions", localTerminalHandler.ListAgentSessions)
+				localTerminal.GET("/sessions", localTerminalHandler.ListSessions)
+				localTerminal.POST("/sessions", localTerminalHandler.CreateSession)
+				localTerminal.DELETE("/sessions/:id", localTerminalHandler.CloseSession)
+				localTerminal.GET("/list-dirs", localTerminalHandler.ListDirs)
+			}
 		}
 
 		// WebSocket ?????????auth ?????????handler ?????????token
 		api.GET("/ws/terminal/:id", terminalHandler.Connect)
 		api.GET("/ws/container-terminal/:id/:containerId", terminalHandler.ConnectContainerTerminal)
+		api.GET("/ws/local-terminal/:id", localTerminalHandler.Connect)
 
 		// ???????????
 		containerFiles := auth.Group("/container-files")
@@ -450,9 +474,10 @@ func Start(ctx context.Context, opts Options) (int, error) {
 	// ?????????????? WebSocket ????
 	r.GET("/ws/terminal/:id", terminalHandler.Connect)
 	r.GET("/ws/container-terminal/:id/:containerId", terminalHandler.ConnectContainerTerminal)
+	r.GET("/ws/local-terminal/:id", localTerminalHandler.Connect)
 
 	addr := fmt.Sprintf("0.0.0.0:%d", cfg.Server.Port)
-	srv := &http.Server{Handler: r}
+	srv := &http.Server{Addr: addr, Handler: r}
 
 	go func() {
 		<-ctx.Done()

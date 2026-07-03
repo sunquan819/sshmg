@@ -6,7 +6,7 @@
     <title>容器管理</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <style>
-body { font-size: 12px; }
+html { font-size: 12px; }
 .dark .dark\:bg-gray-800 { background-color: #1f2937; }
 .dark .dark\:bg-gray-900 { background-color: #111827; }
 .dark .dark\:bg-gray-700 { background-color: #374151; }
@@ -52,12 +52,8 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
         <!-- 顶部导航 -->
         <nav class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <a href="/" class="text-xl font-bold text-gray-800 dark:text-white">🏠 首页</a>
-                    <a onclick="toggleTheme()" class="cursor-pointer text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white">🌓</a>
-                    <button @click="logout()" class="text-gray-600 dark:text-gray-300 hover:text-red-500">🚪 退出</button>
-                </div>
-                <div class="text-sm text-gray-500" x-text="user?.username"></div>
+                <div class="flex items-center space-x-4"></div>
+                <div></div>
             </div>
         </nav>
 
