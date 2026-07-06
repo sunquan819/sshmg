@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deploy Manager - 服务器运维管理工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.15); }
+        .feature-card { transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Hero Section -->
+    <header class="gradient-bg text-white">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <span class="text-2xl">🚀</span>
+                <span class="text-xl font-bold">Deploy Manager</span>
+            </div>
+            <div class="space-x-4">
+                <a href="#features" class="hover:text-gray-200">功能</a>
+                <a href="https://github.com/sunquan819/sshmg" class="hover:text-gray-200" target="_blank">GitHub</a>
+            </div>
+        </nav>
+        <div class="container mx-auto px-6 py-20 text-center">
+            <h1 class="text-4xl md:text-6xl font-bold mb-6">服务器运维管理工具</h1>
+            <p class="text-xl md:text-2xl mb-8 opacity-90">支持 Web 与 Desktop 双形态，一站式管理服务器、容器、部署、终端</p>
+            <div class="space-x-4">
+                <a href="https://github.com/sunquan819/sshmg/releases" class="bg-white text-purple-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition" target="_blank">下载 Desktop</a>
+                <a href="https://github.com/sunquan819/sshmg" class="border-2 border-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-purple-600 transition" target="_blank">查看源码</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20">
+        <div class="container mx-auto px-6">
+            <h2 class="text-3xl font-bold text-center mb-12 text-gray-800">核心功能</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Server Management -->
+                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
+                    <div class="text-4xl mb-4">🖥️</div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">服务器管理</h3>
+                    <ul class="text-gray-600 space-y-1 text-sm">
+                        <li>• 多台服务器 SSH 连接管理</li>
+                        <li>• 支持跳板机/堡垒机</li>
+                        <li>• SOCKS5/SOCKS4 代理连接</li>
+                        <li>• 服务器分组、在线状态监控</li>
+                    </ul>
+                </div>
+
+                <!-- Web Terminal -->
+                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
+                    <div class="text-4xl mb-4">💻</div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">Web 终端</h3>
+                    <ul class="text-gray-600 space-y-1 text-sm">
+                        <li>• 基于 WebSocket 的实时终端</li>
+                        <li>• 多标签页管理</li>
+                        <li>• 鼠标选中自动复制</li>
+                        <li>• 终端会话历史记录与回放</li>
+                    </ul>
+                </div>
+
+                <!-- Desktop Client -->
+                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
+                    <div class="text-4xl mb-4">🪟</div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">Desktop 客户端</h3>
+                    <ul class="text-gray-600 space-y-1 text-sm">
+                        <li>• 基于 Wails 的 Windows 桌面客户端</li>
+                        <li>• 内置后端服务</li>
+                        <li>• 本地终端支持</li>
+                        <li>• 系统托盘运行</li>
+                    </ul>
+                </div>
+
+                <!-- Container Management -->
+                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
+                    <div class="text-4xl mb-4">🐳</div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">容器管理</h3>
+                    <ul class="text-gray-600 space-y-1 text-sm">
+                        <li>• Docker 容器查看、启动、停止</li>
+                        <li>• 容器日志查看</li>
+                        <li>• 镜像列表管理</li>
+                    </ul>
+                </div>
+
+                <!-- Service Deployment -->
+                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
+                    <div class="text-4xl mb-4">🚀</div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">服务部署</h3>
+                    <ul class="text-gray-600 space-y-1 text-sm">
+                        <li>• Docker Compose 一键部署</li>
+                        <li>• 自定义 compose 配置</li>
+                        <li>• 部署状态跟踪</li>
+                    </ul>
+                </div>
+
+                <!-- Scheduled Tasks -->
+                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
+                    <div class="text-4xl mb-4">⏰</div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">计划任务</h3>
+                    <ul class="text-gray-600 space-y-1 text-sm">
+                        <li>• Crontab 可视化编辑</li>
+                        <li>• 任务执行记录查看</li>
+                        <li>• 一键执行任务</li>
+                    </ul>
+                </div>
+
+                <!-- File Management -->
+                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
+                    <div class="text-4xl mb-4">📁</div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">文件管理</h3>
+                    <ul class="text-gray-600 space-y-1 text-sm">
+                        <li>• 目录浏览、文件预览</li>
+                        <li>• 文件上传、下载</li>
+                        <li>• 在线编辑</li>
+                        <li>• 拖拽上传支持</li>
+                    </ul>
+                </div>
+
+                <!-- Notes -->
+                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
+                    <div class="text-4xl mb-4">📝</div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">笔记管理</h3>
+                    <ul class="text-gray-600 space-y-1 text-sm">
+                        <li>• 笔记分类、搜索</li>
+                        <li>• Markdown 格式支持</li>
+                        <li>• 终端页面快捷查看</li>
+                    </ul>
+                </div>
+
+                <!-- Port Tunnels -->
+                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
+                    <div class="text-4xl mb-4">🔗</div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">端口隧道</h3>
+                    <ul class="text-gray-600 space-y-1 text-sm">
+                        <li>• SOCKS5 代理隧道</li>
+                        <li>• 支持绑定 127.0.0.1 或 0.0.0.0</li>
+                        <li>• 映射本地端口到远程服务器</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack Section -->
+    <section class="bg-gray-100 py-16">
+        <div class="container mx-auto px-6 text-center">
+            <h2 class="text-3xl font-bold mb-8 text-gray-800">技术栈</h2>
+            <div class="flex flex-wrap justify-center gap-8">
+                <div class="flex flex-col items-center">
+                    <span class="text-4xl mb-2">🐹</span>
+                    <span class="font-semibold">Go</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-4xl mb-2">⚡</span>
+                    <span class="font-semibold">Gin</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-4xl mb-2">🗄️</span>
+                    <span class="font-semibold">SQLite</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-4xl mb-2">🖥️</span>
+                    <span class="font-semibold">xterm.js</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-4xl mb-2">🎨</span>
+                    <span class="font-semibold">Alpine.js</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-4xl mb-2">💨</span>
+                    <span class="font-semibold">TailwindCSS</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-4xl mb-2">🪟</span>
+                    <span class="font-semibold">Wails</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start Section -->
+    <section class="py-16">
+        <div class="container mx-auto px-6">
+            <h2 class="text-3xl font-bold text-center mb-8 text-gray-800">快速开始</h2>
+            <div class="max-w-3xl mx-auto bg-gray-900 text-green-400 p-6 rounded-lg font-mono text-sm">
+                <p class="text-gray-500"># 编译</p>
+                <p>go build -o deploy-manager.exe ./cmd/server/main.go</p>
+                <br>
+                <p class="text-gray-500"># 运行</p>
+                <p>./deploy-manager.exe --password yourpass</p>
+                <br>
+                <p class="text-gray-500"># 访问</p>
+                <p>浏览器打开 http://localhost:3000</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section class="gradient-bg py-16 text-white">
+        <div class="container mx-auto px-6 text-center">
+            <h2 class="text-3xl font-bold mb-4">立即开始使用</h2>
+            <p class="text-xl mb-8 opacity-90">选择适合你的版本</p>
+            <div class="flex flex-wrap justify-center gap-6">
+                <a href="https://github.com/sunquan819/sshmg/releases" class="bg-white text-purple-600 px-8 py-4 rounded-lg font-semibold hover:bg-gray-100 transition" target="_blank">
+                    <span class="text-2xl">🪟</span>
+                    <br>Desktop 客户端
+                </a>
+                <a href="https://github.com/sunquan819/sshmg" class="border-2 border-white px-8 py-4 rounded-lg font-semibold hover:bg-white hover:text-purple-600 transition" target="_blank">
+                    <span class="text-2xl">📦</span>
+                    <br>源码编译
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-gray-400 py-8">
+        <div class="container mx-auto px-6 text-center">
+            <p>Deploy Manager - 服务器运维管理工具</p>
+            <p class="mt-2">
+                <a href="https://github.com/sunquan819/sshmg" class="hover:text-white" target="_blank">GitHub</a>
+                <span class="mx-2">•</span>
+                <span>Apache 2.0 License</span>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>
