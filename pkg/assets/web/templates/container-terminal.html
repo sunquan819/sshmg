@@ -74,10 +74,8 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
                     </svg>
                 </template>
             </div>
-            <button @click="goHome()" class="text-gray-400 hover:text-white text-sm px-2">🏠主页</button>
             <a onclick="toggleTheme()" class="cursor-pointer text-gray-400 hover:text-white text-sm px-2">🌓</a>
             <a :href="'/terminal-logs?token=' + token" class="text-gray-400 hover:text-white text-sm px-2">📋日志</a>
-            <button @click="logout()" class="text-gray-400 hover:text-red-400 text-sm px-2">🚪退出</button>
             <button @click="toggleFullscreen()" class="text-gray-400 hover:text-white text-sm px-2">全屏</button>
             <button @click="closeTerminal()" class="text-gray-400 hover:text-white text-sm px-2">关闭</button>
         </div>
@@ -713,8 +711,6 @@ function containerTerminalApp() {
             }
         },
         getToken() { return localStorage.getItem('access_token'); },
-        goHome() { window.location.href = '/?token=' + this.getToken(); },
-        logout() { localStorage.removeItem('access_token'); window.location.href = '/login'; },
         toggleFullscreen() { if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); } else { document.exitFullscreen(); } },
         async loadFiles() {
             if (this.loadingFiles) return;

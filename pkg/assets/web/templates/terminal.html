@@ -77,14 +77,12 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
                     </svg>
                 </template>
             </div>
-            <button @click="goHome()" class="text-gray-400 hover:text-white text-sm px-2">🏠主页</button>
             <a onclick="toggleTheme()" class="cursor-pointer text-gray-400 hover:text-white text-sm px-2">🌓</a>
             <a :href="'/terminal-logs?token=' + token" class="text-gray-400 hover:text-white text-sm px-2">📋日志</a>
             <button @click="showNotes = false; showCommands = false; showSessionHistory = false" :class="!showNotes && !showCommands && !showSessionHistory ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📁文件</button>
             <button @click="showNotes = true; showCommands = false; showSessionHistory = false; activePanel = 'notes'" :class="showNotes && activePanel === 'notes' ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📝笔记</button>
             <button @click="showCommands = true; showNotes = false; showSessionHistory = false; activePanel = 'commands'" :class="showCommands && activePanel === 'commands' ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">⌨️命令</button>
             <button @click="showSessionHistory = true; showNotes = false; showCommands = false; activePanel = 'history'" :class="showSessionHistory && activePanel === 'history' ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📜当前历史</button>
-            <button @click="logout()" class="text-gray-400 hover:text-red-400 text-sm px-2">🚪退出</button>
             <button @click="toggleFullscreen()" class="text-gray-400 hover:text-white text-sm px-2">全屏</button>
         </div>
     </header>
@@ -1120,15 +1118,6 @@ function terminalApp() {
             }
         },
         getToken() { return localStorage.getItem('access_token'); },
-        goHome() {
-            this.tabs.forEach(tab => this.saveSessionHistory(tab));
-            window.location.href = '/?token=' + this.getToken();
-        },
-        logout() {
-            this.tabs.forEach(tab => this.saveSessionHistory(tab));
-            localStorage.removeItem('access_token');
-            window.location.href = '/login';
-        },
         async checkRdpAgent() {
             try {
                 const res = await fetch('http://localhost:8765/health');
