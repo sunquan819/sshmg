@@ -13,3 +13,6 @@ test_config.yaml
 .mimocode/
 .sisyphus/
 .superpowers/
+.tmp-debug/
+logs/
+cmd/desktop/logs/

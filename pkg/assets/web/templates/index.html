@@ -62,7 +62,7 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
         <a href="#" @click.prevent="loadPage('infrastructure', '/infrastructure?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='infrastructure'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">⚙️</span><span x-show="!sidebarCollapsed" class="truncate">基础设施</span></a>
         <a href="#" @click.prevent="activeTab='services'" :class="activeTab==='services'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🚀</span><span x-show="!sidebarCollapsed" class="truncate">服务部署</span></a>
         <a href="#" @click.prevent="activeTab='instances'" :class="activeTab==='instances'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">📦</span><span x-show="!sidebarCollapsed" class="truncate">我的实例</span></a>
-        <a href="#" @click.prevent="activeTab='crons'" :class="activeTab==='crons'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">⏰</span><span x-show="!sidebarCollapsed" class="truncate">计划任务</span></a>
+        <a href="#" @click.prevent="activeTab='crons'; pageTitle='计划任务'; loadCrons()" :class="activeTab==='crons'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">⏰</span><span x-show="!sidebarCollapsed" class="truncate">计划任务</span></a>
         <a href="#" @click.prevent="loadPage('containers', '/containers?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='containers'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🐳</span><span x-show="!sidebarCollapsed" class="truncate">容器管理</span></a>
         <a href="#" @click.prevent="loadPage('database', '/database?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='database'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🗄️</span><span x-show="!sidebarCollapsed" class="truncate">数据库管理</span></a>
         <a href="#" @click.prevent="loadPage('projects', '/projects?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='projects'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🏗️</span><span x-show="!sidebarCollapsed" class="truncate">项目部署</span></a>
@@ -242,11 +242,39 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
             </div>
         </div>
         <div x-show="activeTab==='crons'">
+            <div class="mb-4 flex items-center space-x-2">
+                <button @click="openCronModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">➕ 新建计划任务</button>
+                <button @click="loadCrons()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded">🔄 刷新</button>
+            </div>
             <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead class="bg-gray-50 dark:bg-gray-700"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">名称</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">计划</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">命令</th></tr></thead>
-                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700"><template x-for="cron in crons" :key="cron.id"><tr><td class="px-6 py-4 text-sm text-gray-900 dark:text-white" x-text="cron.name||'-'"></td><td class="px-6 py-4 text-sm font-mono text-gray-600 dark:text-gray-400" x-text="cron.schedule"></td><td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 truncate max-w-xs" x-text="cron.command"></td></tr></template></tbody>
+                    <thead class="bg-gray-50 dark:bg-gray-700"><tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">名称</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">服务器</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">计划</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">命令</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">状态</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">上次执行</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">操作</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        <template x-for="cron in crons" :key="cron.id"><tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-white" x-text="cron.name||'-'"></td>
+                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400" x-text="getServerName(cron.server_id)"></td>
+                            <td class="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400" x-text="cron.schedule" :title="describeCron(cron.schedule)"></td>
+                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 truncate max-w-xs" x-text="cron.command"></td>
+                            <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded text-xs" :class="cron.status==='active'?'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200':'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'" x-text="cron.status==='active'?'启用':'禁用'"></span></td>
+                            <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400" x-text="cron.last_run ? new Date(cron.last_run).toLocaleString('zh-CN') : '-'"></td>
+                            <td class="px-4 py-3 text-sm space-x-1">
+                                <button @click="openCronModal(cron)" class="text-blue-500 hover:text-blue-700 text-xs" title="编辑">✏️</button>
+                                <button @click="executeCron(cron.id)" class="text-green-500 hover:text-green-700 text-xs" title="立即执行">▶️</button>
+                                <button @click="loadCronHistory(cron)" class="text-purple-500 hover:text-purple-700 text-xs" title="执行历史">📋</button>
+                                <button @click="deleteCron(cron.id)" class="text-red-500 hover:text-red-700 text-xs" title="删除">🗑️</button>
+                            </td>
+                        </tr></template>
+                    </tbody>
                 </table>
+                <div x-show="crons.length === 0" class="text-center text-gray-500 py-8">暂无计划任务，点击"新建计划任务"创建</div>
             </div>
         </div>
         <div x-show="activeTab==='commands'">
@@ -448,6 +476,11 @@ function app() {
         servers: [],
         instances: [],
         crons: [],
+        showCronModal: false,
+        cronForm: {id: null, server_id: '', name: '', command: '', preset: 'daily', minute: '0', hour: '0', day: '*', month: '*', weekday: '*'},
+        showCronHistory: false,
+        cronHistory: [],
+        cronHistoryName: '',
         commands: [],
         filteredCommands: [],
         cmdCategories: [],
@@ -933,6 +966,70 @@ function app() {
             await fetch('/api/crons/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.getToken() } });
             this.loadCrons();
         },
+        getServerName(id) {
+            const s = this.servers.find(s => s.id === id);
+            return s ? s.name : '-';
+        },
+        describeCron(expr) {
+            if (!expr) return '';
+            const parts = expr.trim().split(/\s+/);
+            if (parts.length !== 5) return expr;
+            const [min, hour, day, month, weekday] = parts;
+            const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+            if (min === '*' && hour === '*') return '每分钟';
+            if (hour === '*' && min !== '*') return '每小时第' + min + '分钟';
+            if (day === '*' && month === '*' && weekday === '*') return '每天 ' + hour.padStart(2,'0') + ':' + min.padStart(2,'0');
+            if (weekday !== '*' && day === '*') return '每' + weekdays[parseInt(weekday)] + ' ' + hour.padStart(2,'0') + ':' + min.padStart(2,'0');
+            if (day !== '*' && month === '*') return '每月' + day + '号 ' + hour.padStart(2,'0') + ':' + min.padStart(2,'0');
+            return expr;
+        },
+        openCronModal(cron) {
+            if (cron) {
+                const parts = (cron.schedule || '').trim().split(/\s+/);
+                this.cronForm = {
+                    id: cron.id,
+                    server_id: cron.server_id,
+                    name: cron.name || '',
+                    command: cron.command || '',
+                    preset: 'custom',
+                    minute: parts[0] || '0',
+                    hour: parts[1] || '0',
+                    day: parts[2] || '*',
+                    month: parts[3] || '*',
+                    weekday: parts[4] || '*'
+                };
+            } else {
+                this.cronForm = {id: null, server_id: '', name: '', command: '', preset: 'daily', minute: '0', hour: '0', day: '*', month: '*', weekday: '*'};
+            }
+            this.showCronModal = true;
+        },
+        async saveCron() {
+            if (!this.cronForm.server_id) { alert('请选择服务器'); return; }
+            if (!this.cronForm.command) { alert('请输入执行命令'); return; }
+            const schedule = this.cronForm.minute + ' ' + this.cronForm.hour + ' ' + this.cronForm.day + ' ' + this.cronForm.month + ' ' + this.cronForm.weekday;
+            const body = {server_id: parseInt(this.cronForm.server_id), name: this.cronForm.name, schedule: schedule, command: this.cronForm.command};
+            try {
+                const url = this.cronForm.id ? '/api/crons/' + this.cronForm.id : '/api/crons';
+                const method = this.cronForm.id ? 'PUT' : 'POST';
+                const res = await fetch(url, {method, headers: {'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+                if (res.ok) {
+                    this.showCronModal = false;
+                    this.loadCrons();
+                } else {
+                    const data = await res.json();
+                    alert('保存失败：' + (data.error || 'Unknown error'));
+                }
+            } catch (e) { alert('保存失败：' + e); }
+        },
+        async loadCronHistory(cron) {
+            this.cronHistoryName = cron.name || cron.command;
+            try {
+                const res = await fetch('/api/crons/history?cron_job_id=' + cron.id, {headers: {'Authorization': 'Bearer ' + this.getToken()}});
+                const data = await res.json();
+                this.cronHistory = data.history || [];
+            } catch (e) { this.cronHistory = []; }
+            this.showCronHistory = true;
+        },
         logout() { localStorage.clear(); window.location.href = '/login'; },
         openTerminal(server) {
             this.currentTerminalServer = server;
@@ -1308,6 +1405,126 @@ function app() {
     </div>
     <div id="terminal" class="flex-1 p-2" style="outline: none; position: relative; z-index: 100;"></div>
     <div class="bg-gray-800 text-gray-400 px-4 py-1 text-xs">ESC 关闭 | Ctrl+C 中断命令 | 点击终端输入</div>
+</div>
+<!-- Cron Job Modal -->
+<div x-show="showCronModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display:none;">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <h3 class="text-sm font-semibold mb-4 text-gray-900 dark:text-white" x-text="cronForm.id ? '编辑计划任务' : '新建计划任务'"></h3>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">服务器 <span class="text-red-500">*</span></label>
+                <select x-model="cronForm.server_id" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
+                    <option value="">选择服务器</option>
+                    <template x-for="s in servers.filter(s => s.os_type === 'linux')" :key="s.id">
+                        <option :value="s.id" x-text="s.name + ' (' + s.ip + ')'"></option>
+                    </template>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">任务名称</label>
+                <input type="text" x-model="cronForm.name" placeholder="例: 数据库备份" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">执行计划</label>
+                <div class="flex flex-wrap gap-2 mb-2">
+                    <button @click="cronForm.preset='minutely'; cronForm.minute='*'; cronForm.hour='*'; cronForm.day='*'; cronForm.month='*'; cronForm.weekday='*'" :class="cronForm.preset==='minutely'?'bg-blue-600 text-white':'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'" class="px-3 py-1 rounded text-xs hover:opacity-80">每分钟</button>
+                    <button @click="cronForm.preset='hourly'; cronForm.minute='0'; cronForm.hour='*'; cronForm.day='*'; cronForm.month='*'; cronForm.weekday='*'" :class="cronForm.preset==='hourly'?'bg-blue-600 text-white':'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'" class="px-3 py-1 rounded text-xs hover:opacity-80">每小时</button>
+                    <button @click="cronForm.preset='daily'; cronForm.minute='0'; cronForm.hour='0'; cronForm.day='*'; cronForm.month='*'; cronForm.weekday='*'" :class="cronForm.preset==='daily'?'bg-blue-600 text-white':'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'" class="px-3 py-1 rounded text-xs hover:opacity-80">每天</button>
+                    <button @click="cronForm.preset='weekly'; cronForm.minute='0'; cronForm.hour='0'; cronForm.day='*'; cronForm.month='*'; cronForm.weekday='0'" :class="cronForm.preset==='weekly'?'bg-blue-600 text-white':'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'" class="px-3 py-1 rounded text-xs hover:opacity-80">每周日</button>
+                    <button @click="cronForm.preset='monthly'; cronForm.minute='0'; cronForm.hour='0'; cronForm.day='1'; cronForm.month='*'; cronForm.weekday='*'" :class="cronForm.preset==='monthly'?'bg-blue-600 text-white':'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'" class="px-3 py-1 rounded text-xs hover:opacity-80">每月1号</button>
+                    <button @click="cronForm.preset='custom'" :class="cronForm.preset==='custom'?'bg-blue-600 text-white':'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'" class="px-3 py-1 rounded text-xs hover:opacity-80">自定义</button>
+                </div>
+                <div x-show="cronForm.preset==='custom'" class="grid grid-cols-5 gap-2 mt-2">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">分钟</label>
+                        <select x-model="cronForm.minute" class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
+                            <option value="*">每分钟</option>
+                            <template x-for="m in 60"><option :value="m-1" x-text="m-1"></option></template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">小时</label>
+                        <select x-model="cronForm.hour" class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
+                            <option value="*">每小时</option>
+                            <template x-for="h in 24"><option :value="h-1" x-text="h-1"></option></template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">日</label>
+                        <select x-model="cronForm.day" class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
+                            <option value="*">每天</option>
+                            <template x-for="d in 31"><option :value="d" x-text="d"></option></template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">月</label>
+                        <select x-model="cronForm.month" class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
+                            <option value="*">每月</option>
+                            <template x-for="m in 12"><option :value="m" x-text="m"></option></template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">星期</label>
+                        <select x-model="cronForm.weekday" class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
+                            <option value="*">不限</option>
+                            <option value="0">周日</option>
+                            <option value="1">周一</option>
+                            <option value="2">周二</option>
+                            <option value="3">周三</option>
+                            <option value="4">周四</option>
+                            <option value="5">周五</option>
+                            <option value="6">周六</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs">
+                    <span class="text-gray-500 dark:text-gray-400">Cron 表达式: </span>
+                    <span class="font-mono text-gray-900 dark:text-white" x-text="cronForm.minute + ' ' + cronForm.hour + ' ' + cronForm.day + ' ' + cronForm.month + ' ' + cronForm.weekday"></span>
+                    <span class="text-gray-500 dark:text-gray-400 ml-2">→</span>
+                    <span class="text-blue-600 dark:text-blue-400 ml-1" x-text="describeCron(cronForm.minute + ' ' + cronForm.hour + ' ' + cronForm.day + ' ' + cronForm.month + ' ' + cronForm.weekday)"></span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">执行命令 <span class="text-red-500">*</span></label>
+                <textarea x-model="cronForm.command" rows="3" placeholder="例: /usr/local/bin/backup.sh" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white font-mono"></textarea>
+            </div>
+        </div>
+        <div class="flex justify-end space-x-2 mt-6">
+            <button @click="showCronModal = false" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">取消</button>
+            <button @click="saveCron()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">保存</button>
+        </div>
+    </div>
+</div>
+<!-- Cron History Modal -->
+<div x-show="showCronHistory" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display:none;">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-6 w-full max-w-3xl max-h-[80vh] flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">执行历史 - <span x-text="cronHistoryName"></span></h3>
+            <button @click="showCronHistory = false" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xl">&times;</button>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+                <thead class="bg-gray-50 dark:bg-gray-700"><tr>
+                    <th class="px-3 py-2 text-left text-gray-500 dark:text-gray-300">执行时间</th>
+                    <th class="px-3 py-2 text-left text-gray-500 dark:text-gray-300">结果</th>
+                    <th class="px-3 py-2 text-left text-gray-500 dark:text-gray-300">耗时</th>
+                    <th class="px-3 py-2 text-left text-gray-500 dark:text-gray-300">输出</th>
+                </tr></thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    <template x-for="h in cronHistory" :key="h.id"><tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td class="px-3 py-2 text-gray-600 dark:text-gray-400" x-text="new Date(h.executed_at).toLocaleString('zh-CN')"></td>
+                        <td class="px-3 py-2"><span class="px-1.5 py-0.5 rounded text-xs" :class="h.exit_code===0?'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200':'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'" x-text="h.exit_code===0?'成功':'失败'"></span></td>
+                        <td class="px-3 py-2 text-gray-600 dark:text-gray-400" x-text="h.duration > 1000 ? (h.duration/1000).toFixed(1) + 's' : h.duration + 'ms'"></td>
+                        <td class="px-3 py-2 text-gray-600 dark:text-gray-400 max-w-xs truncate" x-text="(h.output||'').substring(0,100)" :title="h.output"></td>
+                    </tr></template>
+                </tbody>
+            </table>
+            <div x-show="cronHistory.length === 0" class="text-center text-gray-500 py-4">暂无执行记录</div>
+        </div>
+        <div class="flex justify-end mt-4">
+            <button @click="showCronHistory = false" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded text-sm">关闭</button>
+        </div>
+    </div>
 </div>
 </body>
 </html>
