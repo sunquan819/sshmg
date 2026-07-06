@@ -94,27 +94,54 @@ type ServerDTO struct {
 }
 
 type ServerFullDTO struct {
-	ID           uint   `json:"id"`
-	Name         string `json:"name"`
-	IP           string `json:"ip"`
-	Port         int    `json:"port"`
-	Username     string `json:"username"`
-	Password     string `json:"password"`
-	SSHKey       string `json:"ssh_key"`
-	Group        string `json:"group"`
-	Description  string `json:"description"`
-	Status       string `json:"status"`
-	JumpEnabled  bool   `json:"jump_enabled"`
-	JumpServerID uint   `json:"jump_server_id"`
-	JumpIP       string `json:"jump_ip"`
-	JumpPort     int    `json:"jump_port"`
-	JumpUser     string `json:"jump_user"`
-	JumpPassword string `json:"jump_password"`
-	JumpKey      string `json:"jump_key"`
-	ProxyEnabled bool   `json:"proxy_enabled"`
-	ProxyType    string `json:"proxy_type"`
-	ProxyHost    string `json:"proxy_host"`
-	ProxyPort    int    `json:"proxy_port"`
+	ID           uint            `json:"id"`
+	Name         string          `json:"name"`
+	IP           string          `json:"ip"`
+	Port         int             `json:"port"`
+	Username     string          `json:"username"`
+	Password     string          `json:"password"`
+	SSHKey       string          `json:"ssh_key"`
+	Group        string          `json:"group"`
+	Description  string          `json:"description"`
+	Status       string          `json:"status"`
+	JumpEnabled  bool            `json:"jump_enabled"`
+	JumpServerID uint            `json:"jump_server_id"`
+	JumpIP       string          `json:"jump_ip"`
+	JumpPort     int             `json:"jump_port"`
+	JumpUser     string          `json:"jump_user"`
+	JumpPassword string          `json:"jump_password"`
+	JumpKey      string          `json:"jump_key"`
+	ProxyEnabled bool            `json:"proxy_enabled"`
+	ProxyType    string          `json:"proxy_type"`
+	ProxyHost    string          `json:"proxy_host"`
+	ProxyPort    int             `json:"proxy_port"`
+	JumpChain    []ServerFullDTO `json:"jump_chain,omitempty"`
+}
+
+func buildServerFullDTO(server model.Server) ServerFullDTO {
+	return ServerFullDTO{
+		ID:           server.ID,
+		Name:         server.Name,
+		IP:           server.IP,
+		Port:         server.Port,
+		Username:     server.Username,
+		Password:     server.Password,
+		SSHKey:       server.SSHKey,
+		Group:        server.Group,
+		Description:  server.Description,
+		Status:       server.Status,
+		JumpEnabled:  server.JumpEnabled,
+		JumpServerID: server.JumpServerID,
+		JumpIP:       server.JumpIP,
+		JumpPort:     server.JumpPort,
+		JumpUser:     server.JumpUser,
+		JumpPassword: server.JumpPassword,
+		JumpKey:      server.JumpKey,
+		ProxyEnabled: server.ProxyEnabled,
+		ProxyType:    server.ProxyType,
+		ProxyHost:    server.ProxyHost,
+		ProxyPort:    server.ProxyPort,
+	}
 }
 
 func (h *ServerHandler) ListServers(c *gin.Context) {
@@ -242,29 +269,28 @@ func (h *ServerHandler) GetServerFull(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, ServerFullDTO{
-		ID:           server.ID,
-		Name:         server.Name,
-		IP:           server.IP,
-		Port:         server.Port,
-		Username:     server.Username,
-		Password:     server.Password,
-		SSHKey:       server.SSHKey,
-		Group:        server.Group,
-		Description:  server.Description,
-		Status:       server.Status,
-		JumpEnabled:  server.JumpEnabled,
-		JumpServerID: server.JumpServerID,
-		JumpIP:       server.JumpIP,
-		JumpPort:     server.JumpPort,
-		JumpUser:     server.JumpUser,
-		JumpPassword: server.JumpPassword,
-		JumpKey:      server.JumpKey,
-		ProxyEnabled: server.ProxyEnabled,
-		ProxyType:    server.ProxyType,
-		ProxyHost:    server.ProxyHost,
-		ProxyPort:    server.ProxyPort,
-	})
+	dto := buildServerFullDTO(server)
+	visited := map[uint]bool{server.ID: true}
+	current := server
+	for current.JumpEnabled && current.JumpServerID > 0 {
+		if visited[current.JumpServerID] {
+			log.Printf("[GetServerFull] jump chain loop server=%d jump=%d", current.ID, current.JumpServerID)
+			break
+		}
+		visited[current.JumpServerID] = true
+
+		var jump model.Server
+		if err := database.DB.First(&jump, current.JumpServerID).Error; err != nil {
+			log.Printf("[GetServerFull] jump server not found id=%d: %v", current.JumpServerID, err)
+			break
+		}
+		dto.JumpChain = append(dto.JumpChain, buildServerFullDTO(jump))
+		current = jump
+	}
+	for i, j := 0, len(dto.JumpChain)-1; i < j; i, j = i+1, j-1 {
+		dto.JumpChain[i], dto.JumpChain[j] = dto.JumpChain[j], dto.JumpChain[i]
+	}
+	c.JSON(http.StatusOK, dto)
 }
 
 func (h *ServerHandler) CreateServer(c *gin.Context) {
