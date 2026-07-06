@@ -31,6 +31,8 @@ func Start(ctx context.Context, opts Options) (int, error) {
 	}
 	if opts.Desktop {
 		gin.SetMode(gin.ReleaseMode)
+		gin.DefaultWriter = log.Writer()
+		gin.DefaultErrorWriter = log.Writer()
 	}
 
 	appDir := getAppDir()
@@ -174,8 +176,16 @@ func Start(ctx context.Context, opts Options) (int, error) {
 	go handler.InitDefaultProject()
 	go commandHandler.InitDefaultCommands()
 
+	actualPort := cfg.Server.Port
+	if opts.Listener != nil {
+		actualPort = opts.Listener.Addr().(*net.TCPAddr).Port
+	}
+
 	r.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", nil)
+		c.HTML(http.StatusOK, "index.html", gin.H{
+			"DesktopPort": actualPort,
+			"Desktop":     opts.Desktop,
+		})
 	})
 
 	r.GET("/login", func(c *gin.Context) {
@@ -233,11 +243,6 @@ func Start(ctx context.Context, opts Options) (int, error) {
 		c.HTML(http.StatusOK, "files.html", nil)
 	})
 
-	actualPort := cfg.Server.Port
-	if opts.Listener != nil {
-		actualPort = opts.Listener.Addr().(*net.TCPAddr).Port
-	}
-
 	r.GET("/local-terminal", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "local-terminal.html", gin.H{
 			"DesktopPort": actualPort,
@@ -247,6 +252,28 @@ func Start(ctx context.Context, opts Options) (int, error) {
 
 	api := r.Group("/api")
 	{
+		if opts.Desktop {
+			api.POST("/client-log", func(c *gin.Context) {
+				var req struct {
+					Source  string         `json:"source"`
+					Event   string         `json:"event"`
+					Message string         `json:"message"`
+					Detail  map[string]any `json:"detail"`
+				}
+				if err := c.ShouldBindJSON(&req); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					return
+				}
+				detail := ""
+				if req.Detail != nil {
+					if data, err := json.Marshal(req.Detail); err == nil {
+						detail = string(data)
+					}
+				}
+				log.Printf("[ClientLog] ip=%s source=%s event=%s message=%s detail=%s", c.ClientIP(), req.Source, req.Event, req.Message, detail)
+				c.JSON(http.StatusOK, gin.H{"ok": true})
+			})
+		}
 		api.POST("/login", authHandler.Login)
 		api.POST("/refresh", authHandler.RefreshToken)
 		api.POST("/verify-admin", authHandler.VerifyAdminPassword)
