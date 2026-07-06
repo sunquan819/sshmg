@@ -71,9 +71,11 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
         <a href="#" @click.prevent="activeTab='commands'; loadCommands()" :class="activeTab==='commands'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">⌨️</span><span x-show="!sidebarCollapsed" class="truncate">常用命令</span></a>
         <a href="#" @click.prevent="loadPage('tunnels', '/tunnels?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='tunnels'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🔗</span><span x-show="!sidebarCollapsed" class="truncate">端口隧道</span></a>
         <a href="#" @click.prevent="loadPage('terminal-logs', '/terminal-logs?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='terminal-logs'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">📋</span><span x-show="!sidebarCollapsed" class="truncate">终端日志</span></a>
-        <a href="#" @click.prevent="loadPage('local-terminal', '/local-terminal?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='local-terminal'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">💻</span><span x-show="!sidebarCollapsed" class="truncate">本地终端</span></a>
+        <a href="#" @click.prevent="openLocalTerminal()" :class="activeTab==='page' && activeSubpage==='local-terminal'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">💻</span><span x-show="!sidebarCollapsed" class="truncate">本地终端</span></a>
+        <a href="#" @click.prevent="returnWebTerminal()" :class="activeTab==='page' && activeSubpage==='web-terminal'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">🌐</span><span x-show="!sidebarCollapsed" class="truncate">Web终端</span></a>
         <a href="#" @click.prevent="loadPage('files', '/files?token=' + getToken())" :class="activeTab==='page' && activeSubpage==='files'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">📁</span><span x-show="!sidebarCollapsed" class="truncate">文件管理</span></a>
         <a href="/artifacts/rdp-agent.exe" download class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2 text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700"><span class="flex-shrink-0 w-5 text-center">⬇️</span><span x-show="!sidebarCollapsed" class="truncate">RDP Agent</span></a>
+        <a href="#" @click.prevent="openSettings()" :class="activeTab==='settings'?'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400':'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'" class="flex items-center px-2 py-1.5 rounded text-sm transition gap-2"><span class="flex-shrink-0 w-5 text-center">⚙</span><span x-show="!sidebarCollapsed" class="truncate">设置</span></a>
     </nav>
     <div class="p-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
         <button @click="toggleSidebar()" class="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-left px-2 py-1.5 flex items-center gap-2" x-show="!sidebarCollapsed"><span class="flex-shrink-0 w-5 text-center">◀</span><span>收起侧栏</span></button>
@@ -135,7 +137,10 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
                             <button @click="editServer(server)" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1.5 rounded text-sm">编辑</button>
                             <button @click="testConnection(server.id)" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1.5 rounded text-sm">测试</button>
                             <template x-if="server.os_type === 'linux'">
-                                <button @click="openTerminalFull(server)" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-2 py-1.5 rounded text-sm">终端</button>
+                                <button @click="openWebTerminal(server)" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-2 py-1.5 rounded text-sm">Web终端</button>
+                            </template>
+                            <template x-if="server.os_type === 'linux'">
+                                <button @click="openTerminalFull(server)" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-2 py-1.5 rounded text-sm">本地终端</button>
                             </template>
                             <template x-if="server.os_type === 'windows'">
                                 <button @click="connectRDP(server)" class="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white px-2 py-1.5 rounded text-sm">RDP</button>
@@ -144,6 +149,37 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
                         </div>
                     </div>
                 </template>
+            </div>
+        </div>
+        <div x-show="activeTab==='settings'" class="max-w-2xl">
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">连接设置</h3>
+                <div class="space-y-4 text-sm">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                            <div class="text-xs text-gray-500 dark:text-gray-400">当前后端端口</div>
+                            <div class="mt-1 font-mono text-gray-900 dark:text-white" x-text="desktopSettings.currentPort || '-'"></div>
+                        </div>
+                        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                            <div class="text-xs text-gray-500 dark:text-gray-400">当前监听地址</div>
+                            <div class="mt-1 font-mono text-gray-900 dark:text-white" x-text="desktopSettings.currentBindHost || '-'"></div>
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" x-model="desktopSettings.allowLAN" class="w-4 h-4">
+                        <span>允许局域网连接</span>
+                    </label>
+                    <div>
+                        <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">固定端口，0 表示自动选择</label>
+                        <input type="number" min="0" max="65535" x-model.number="desktopSettings.fixedPort" class="w-48 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white">
+                    </div>
+                    <div class="text-xs text-amber-600 dark:text-amber-400" x-show="desktopSettings.restartRequired">设置已保存但需要重启 desktop 客户端后生效。</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400" x-text="desktopSettings.settingsPath || ''"></div>
+                    <div class="flex items-center gap-2">
+                        <button @click="saveDesktopSettings()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">保存设置</button>
+                        <button @click="loadDesktopSettings()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded">刷新</button>
+                    </div>
+                </div>
             </div>
         </div>
         <div x-show="activeTab==='services'">
@@ -257,7 +293,9 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
         </div>
     </div>
     <div x-show="activeTab==='page'" class="flex-1 min-h-0">
-        <iframe :src="pageUrl" class="w-full h-full border-0" title="子页面"></iframe>
+        <iframe id="local-terminal-frame" x-show="isLocalTerminalSubpage()" :src="localTerminalUrl || 'about:blank'" class="w-full h-full border-0" title="本地终端" allow="clipboard-read; clipboard-write"></iframe>
+        <iframe id="web-terminal-frame" x-show="isWebTerminalSubpage()" :src="webTerminalUrl || 'about:blank'" class="w-full h-full border-0" title="Web终端" allow="clipboard-read; clipboard-write"></iframe>
+        <iframe id="page-frame" x-show="!isTerminalSubpage()" :src="isTerminalSubpage() ? 'about:blank' : (pageUrl || 'about:blank')" class="w-full h-full border-0" title="子页面" allow="clipboard-read; clipboard-write"></iframe>
     </div>
 </main>
 </div>
@@ -327,6 +365,14 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
     </div>
 </div>
 <script>
+const DEPLOY_MANAGER_DESKTOP = {{if .Desktop}}true{{else}}false{{end}};
+const DEPLOY_MANAGER_DESKTOP_PORT = {{if .DesktopPort}}{{.DesktopPort}}{{else}}0{{end}};
+function desktopAwareUrl(path) {
+    if (DEPLOY_MANAGER_DESKTOP && DEPLOY_MANAGER_DESKTOP_PORT) {
+        return 'http://127.0.0.1:' + DEPLOY_MANAGER_DESKTOP_PORT + path;
+    }
+    return path;
+}
 function checkAuth() {
     // 从URL参数读取token
     const urlParams = new URLSearchParams(window.location.search);
@@ -393,7 +439,10 @@ function app() {
         pageTitle: '服务器管理',
         sidebarCollapsed: false,
         pageUrl: '',
+        localTerminalUrl: '',
+        webTerminalUrl: '',
         activeSubpage: '',
+        desktopSettings: { fixedPort: 0, allowLAN: false, currentPort: DEPLOY_MANAGER_DESKTOP_PORT, currentBindHost: '127.0.0.1', settingsPath: '', restartRequired: false },
         fontSize: parseInt(localStorage.getItem('fontSize')) || 12,
         user: null,
         servers: [],
@@ -440,12 +489,44 @@ function app() {
             return [...new Set(groups)];
         },
         toggleSidebar() { this.sidebarCollapsed = !this.sidebarCollapsed; },
+        isLocalTerminalUrl(url) {
+            return !!url && url.indexOf('/local-terminal') >= 0;
+        },
+        isWebTerminalUrl(url) {
+            return !!url && (url.indexOf('/terminal?') >= 0 || url.indexOf('/container-terminal') >= 0);
+        },
+        isLocalTerminalSubpage() {
+            return this.activeSubpage === 'local-terminal' || this.isLocalTerminalUrl(this.pageUrl);
+        },
+        isWebTerminalSubpage() {
+            return this.activeSubpage === 'web-terminal' || (this.activeSubpage === 'remote-terminal' && this.isWebTerminalUrl(this.pageUrl));
+        },
+        isTerminalSubpage() {
+            return this.isLocalTerminalSubpage() || this.isWebTerminalSubpage();
+        },
         loadPage(key, url) {
-            const titles = { infrastructure: '基础设施', containers: '容器管理', database: '数据库管理', projects: '项目部署', notes: '笔记管理', tools: '常用工具', tunnels: '端口隧道', 'terminal-logs': '终端日志', files: '文件管理', 'local-terminal': '本地终端' };
+            const titles = { infrastructure: '基础设施', containers: '容器管理', database: '数据库管理', projects: '项目部署', notes: '笔记管理', tools: '常用工具', tunnels: '端口隧道', 'terminal-logs': '终端日志', files: '文件管理', 'local-terminal': '本地终端', 'remote-terminal': '服务器终端', 'web-terminal': 'Web终端' };
+            if (this.isLocalTerminalUrl(url)) {
+                this.localTerminalUrl = url;
+            } else if (this.isWebTerminalUrl(url)) {
+                this.webTerminalUrl = url;
+            }
             this.pageUrl = url;
             this.activeTab = 'page';
             this.activeSubpage = key;
             this.pageTitle = titles[key] || '子页面';
+        },
+        openLocalTerminal() {
+            const token = this.getToken();
+            if (this.localTerminalUrl || this.isLocalTerminalUrl(this.pageUrl)) {
+                this.localTerminalUrl = this.localTerminalUrl || this.pageUrl;
+                this.pageUrl = this.localTerminalUrl;
+                this.activeTab = 'page';
+                if (this.activeSubpage !== 'remote-terminal') this.activeSubpage = 'local-terminal';
+                if (this.activeSubpage === 'local-terminal') this.pageTitle = '本地终端';
+                return;
+            }
+            this.loadPage('local-terminal', desktopAwareUrl('/local-terminal?token=' + encodeURIComponent(token)));
         },
         changeFontSize(delta) {
             this.fontSize = Math.max(8, Math.min(24, this.fontSize + delta));
@@ -864,8 +945,84 @@ function app() {
         openTerminalFull(server) {
             const token = localStorage.getItem('access_token');
             if (!token) { alert('请先登录'); return; }
+            if (DEPLOY_MANAGER_DESKTOP) {
+                const title = server.name || server.ip || ('服务器 ' + server.id);
+                const iframe = document.getElementById('local-terminal-frame') || document.querySelector('iframe');
+                if (iframe && iframe.contentWindow && (this.localTerminalUrl || this.isLocalTerminalUrl(this.pageUrl))) {
+                    this.localTerminalUrl = this.localTerminalUrl || this.pageUrl;
+                    this.pageUrl = this.localTerminalUrl;
+                    this.sidebarCollapsed = true;
+                    this.activeTab = 'page';
+                    this.activeSubpage = 'remote-terminal';
+                    this.pageTitle = '服务器终端';
+                    iframe.contentWindow.postMessage({ type: 'open-server-terminal', serverId: server.id, title: title }, '*');
+                    return;
+                }
+                const localPath = '/local-terminal?token=' + encodeURIComponent(token) +
+                    '&startupServerId=' + encodeURIComponent(server.id) +
+                    '&startupTitle=' + encodeURIComponent(title) +
+                    '&startupNonce=' + encodeURIComponent(Date.now() + '-' + Math.random().toString(16).slice(2));
+                this.sidebarCollapsed = true;
+                this.loadPage('remote-terminal', desktopAwareUrl(localPath));
+                return;
+            }
+            this.openWebTerminal(server);
+        },
+        openWebTerminal(server) {
+            const token = localStorage.getItem('access_token');
+            if (!token) { alert('请先登录'); return; }
             const osType = server.os_type || 'linux';
-            window.open('/terminal?token=' + token + '&serverId=' + server.id + '&osType=' + osType, '_blank');
+            const path = '/terminal?token=' + encodeURIComponent(token) + '&serverId=' + encodeURIComponent(server.id) + '&osType=' + encodeURIComponent(osType);
+            const url = desktopAwareUrl(path);
+            if (DEPLOY_MANAGER_DESKTOP) {
+                this.sidebarCollapsed = true;
+                this.loadPage('web-terminal', url);
+                return;
+            }
+            window.open(path, '_blank');
+        },
+        returnWebTerminal() {
+            if (!this.webTerminalUrl) {
+                alert('还没有打开过 Web 终端，请先在服务器卡片点击 Web终端。');
+                return;
+            }
+            this.pageUrl = this.webTerminalUrl;
+            this.activeTab = 'page';
+            this.activeSubpage = 'web-terminal';
+            this.pageTitle = 'Web终端';
+            this.sidebarCollapsed = true;
+        },
+        openSettings() {
+            this.activeTab = 'settings';
+            this.pageTitle = '设置';
+            this.loadDesktopSettings();
+        },
+        async loadDesktopSettings() {
+            if (!DEPLOY_MANAGER_DESKTOP || !window.go || !window.go.main || !window.go.main.App || !window.go.main.App.GetDesktopSettings) {
+                this.desktopSettings.currentPort = DEPLOY_MANAGER_DESKTOP_PORT;
+                return;
+            }
+            try {
+                this.desktopSettings = await window.go.main.App.GetDesktopSettings();
+            } catch (e) {
+                console.error(e);
+            }
+        },
+        async saveDesktopSettings() {
+            if (!DEPLOY_MANAGER_DESKTOP || !window.go || !window.go.main || !window.go.main.App || !window.go.main.App.SaveDesktopSettings) {
+                alert('仅 desktop 客户端支持连接设置');
+                return;
+            }
+            try {
+                const next = Object.assign({}, this.desktopSettings, {
+                    fixedPort: Math.max(0, Math.min(65535, parseInt(this.desktopSettings.fixedPort || 0, 10) || 0)),
+                    allowLAN: !!this.desktopSettings.allowLAN
+                });
+                this.desktopSettings = await window.go.main.App.SaveDesktopSettings(next);
+                alert(this.desktopSettings.restartRequired ? '已保存，重启 desktop 客户端后生效' : '已保存');
+            } catch (e) {
+                alert('保存失败: ' + (e && e.message ? e.message : e));
+            }
         },
         async checkRdpAgent() {
             try {
