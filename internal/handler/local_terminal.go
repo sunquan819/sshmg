@@ -312,12 +312,24 @@ func (h *LocalTerminalHandler) Connect(c *gin.Context) {
 				Rows int    `json:"rows"`
 			}
 			if err := json.Unmarshal(message, &msg); err != nil {
-				session.pty.Write(message)
+				if _, writeErr := session.pty.Write(message); writeErr != nil {
+					log.Printf("[LocalTerminal] session %s raw input write failed: %v", session.ID, writeErr)
+					return
+				}
+				if len(message) == 1 && (message[0] == '\r' || message[0] == '\n') {
+					log.Printf("[LocalTerminal] session %s raw enter received", session.ID)
+				}
 				continue
 			}
 			switch msg.Type {
 			case "input":
-				session.pty.Write([]byte(msg.Data))
+				if _, writeErr := session.pty.Write([]byte(msg.Data)); writeErr != nil {
+					log.Printf("[LocalTerminal] session %s input write failed: %v", session.ID, writeErr)
+					return
+				}
+				if msg.Data == "\r" || msg.Data == "\n" {
+					log.Printf("[LocalTerminal] session %s typed enter received", session.ID)
+				}
 			case "resize":
 				if msg.Cols > 0 && msg.Rows > 0 {
 					session.mu.Lock()
@@ -325,6 +337,7 @@ func (h *LocalTerminalHandler) Connect(c *gin.Context) {
 					session.rows = uint16(msg.Rows)
 					session.mu.Unlock()
 					session.pty.resize(uint16(msg.Cols), uint16(msg.Rows))
+					log.Printf("[LocalTerminal] session %s resized to %dx%d", session.ID, msg.Cols, msg.Rows)
 				}
 			}
 		}
