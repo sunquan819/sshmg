@@ -701,6 +701,7 @@
         const carouselItems = ['terminal', 'servers', 'cron', 'containers', 'files', 'screenshots'];
         let carouselIndex = 0;
         let carouselTimer;
+        let carouselResume;
 
         function showShowcase(name) {
             document.querySelectorAll('[id^="showcase-"]').forEach(el => el.classList.add('hidden'));
@@ -709,14 +710,18 @@
                 tab.classList.remove('active');
                 if (tab.dataset.showcase === name) tab.classList.add('active');
             });
-            // Reset carousel on manual click
-            if (carouselTimer) {
+            // Reset carousel on manual click - pause for 20s
+            if (carouselTimer || carouselResume) {
                 carouselIndex = carouselItems.indexOf(name);
                 clearInterval(carouselTimer);
-                carouselTimer = setInterval(() => {
-                    carouselIndex = (carouselIndex + 1) % carouselItems.length;
-                    showShowcase(carouselItems[carouselIndex]);
-                }, 4000);
+                clearTimeout(carouselResume);
+                carouselTimer = null;
+                carouselResume = setTimeout(() => {
+                    carouselTimer = setInterval(() => {
+                        carouselIndex = (carouselIndex + 1) % carouselItems.length;
+                        showShowcase(carouselItems[carouselIndex]);
+                    }, 4000);
+                }, 20000);
             }
         }
 
