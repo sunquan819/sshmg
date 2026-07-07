@@ -425,6 +425,8 @@
             </div>
             <div class="flex items-center gap-8">
                 <a href="#features" class="text-sm text-zinc-400 hover:text-cyan-400">功能特性</a>
+                <a href="#terminal" class="text-sm text-zinc-400 hover:text-cyan-400">本地终端</a>
+                <a href="#notes" class="text-sm text-zinc-400 hover:text-cyan-400">个人笔记</a>
                 <a href="#showcase" class="text-sm text-zinc-400 hover:text-cyan-400">界面预览</a>
                 <a href="https://github.com/sunquan819/sshmg" class="text-sm text-zinc-400 hover:text-cyan-400" target="_blank">GitHub</a>
                 <a href="https://github.com/sunquan819/sshmg/releases" class="neon-btn px-5 py-2 rounded-lg text-sm" target="_blank">
@@ -721,6 +723,188 @@
                             <span>映射本地端口到远程服务器</span>
                         </li>
                     </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Highlight: Local Terminal -->
+    <section id="terminal" class="py-24 relative">
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/5 to-transparent"></div>
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div class="animate-on-scroll">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-6">
+                        <span class="text-sm text-cyan-400">🖥️ Desktop 专属</span>
+                    </div>
+                    <h2 class="text-3xl md:text-4xl font-bold mb-6">
+                        <span class="gradient-text">本地终端</span>
+                        <br>
+                        <span class="text-white">像 IDE 一样操作服务器</span>
+                    </h2>
+                    <p class="text-zinc-400 text-lg mb-8">
+                        在桌面客户端内直接打开本机 PowerShell、CMD、Git Bash，支持多标签页和分屏操作，让运维效率翻倍。
+                    </p>
+                    <div class="space-y-4">
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0 mt-1">
+                                <span class="text-cyan-400 text-sm">01</span>
+                            </div>
+                            <div>
+                                <h4 class="text-white font-semibold mb-1">多标签 + 分屏</h4>
+                                <p class="text-zinc-400 text-sm">最多 4 个横向/纵向分屏，同时操作多台服务器</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0 mt-1">
+                                <span class="text-cyan-400 text-sm">02</span>
+                            </div>
+                            <div>
+                                <h4 class="text-white font-semibold mb-1">Windows Terminal 风格</h4>
+                                <p class="text-zinc-400 text-sm">鼠标选中自动复制，右键粘贴，支持滚轮滚动历史</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0 mt-1">
+                                <span class="text-cyan-400 text-sm">03</span>
+                            </div>
+                            <div>
+                                <h4 class="text-white font-semibold mb-1">AI Agent 集成</h4>
+                                <p class="text-zinc-400 text-sm">自动探测 opencode、codex 等 AI CLI，一键启动，支持历史 session 继续</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0 mt-1">
+                                <span class="text-cyan-400 text-sm">04</span>
+                            </div>
+                            <div>
+                                <h4 class="text-white font-semibold mb-1">文本跨终端发送</h4>
+                                <p class="text-zinc-400 text-sm">选中文本可发送到当前终端、其他分屏或所有终端</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="animate-on-scroll delay-2">
+                    <div class="ui-demo p-4" style="border-radius: 12px;">
+                        <div class="bg-black/80 rounded-lg overflow-hidden">
+                            <div class="flex items-center gap-2 px-4 py-2 bg-zinc-900/50 border-b border-white/5">
+                                <div class="flex gap-1.5">
+                                    <div class="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+                                    <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
+                                    <div class="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
+                                </div>
+                                <span class="text-xs text-zinc-500 ml-2">PowerShell - 本地终端</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-px bg-zinc-800">
+                                <div class="bg-black p-3 font-mono text-xs">
+                                    <div class="text-green-400 mb-1">PS C:\Users\admin&gt;</div>
+                                    <div class="text-zinc-300">docker ps</div>
+                                    <div class="text-zinc-500 mt-1">CONTAINER ID   IMAGE</div>
+                                    <div class="text-zinc-400">a1b2c3d4e5f6   nginx:latest</div>
+                                    <div class="text-green-400 mt-2">PS C:\Users\admin&gt;<span class="terminal-cursor"></span></div>
+                                </div>
+                                <div class="bg-black p-3 font-mono text-xs">
+                                    <div class="text-cyan-400 mb-1">admin@server:~$</div>
+                                    <div class="text-zinc-300">htop</div>
+                                    <div class="text-zinc-500 mt-1">Tasks: 123 total</div>
+                                    <div class="text-yellow-400">CPU [|||     ] 15%</div>
+                                    <div class="text-cyan-400 mt-2">admin@server:~$<span class="terminal-cursor"></span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Highlight: Notes -->
+    <section id="notes" class="py-24 relative">
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-purple-500/5 to-transparent"></div>
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div class="animate-on-scroll delay-2 order-2 lg:order-1">
+                    <div class="ui-demo p-4" style="border-radius: 12px;">
+                        <div class="bg-zinc-900 rounded-lg overflow-hidden">
+                            <div class="flex items-center justify-between px-4 py-2 bg-zinc-800/50 border-b border-white/5">
+                                <span class="text-xs text-zinc-400">📝 我的笔记</span>
+                                <div class="flex gap-1">
+                                    <span class="text-xs text-zinc-600">H1</span>
+                                    <span class="text-xs text-zinc-600 font-bold">B</span>
+                                    <span class="text-xs text-zinc-600 italic">I</span>
+                                    <span class="text-xs text-zinc-600">&lt;/&gt;</span>
+                                </div>
+                            </div>
+                            <div class="p-4 space-y-3">
+                                <div class="text-xl font-bold text-white">Docker 部署笔记</div>
+                                <div class="text-sm text-zinc-400 border-l-2 border-cyan-500 pl-3">
+                                    常用的 Docker Compose 配置模板和部署流程
+                                </div>
+                                <div class="bg-zinc-800 rounded p-3 font-mono text-xs">
+                                    <div class="text-purple-400">services:</div>
+                                    <div class="text-cyan-400 ml-2">web:</div>
+                                    <div class="text-zinc-400 ml-4">image: nginx:latest</div>
+                                    <div class="text-zinc-400 ml-4">ports:</div>
+                                    <div class="text-green-400 ml-6">- "80:80"</div>
+                                </div>
+                                <div class="flex items-center gap-4 text-xs text-zinc-500">
+                                    <span>📅 2026-07-07</span>
+                                    <span>🏷️ Docker</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="animate-on-scroll order-1 lg:order-2">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 mb-6">
+                        <span class="text-sm text-purple-400">✨ Typora 风格</span>
+                    </div>
+                    <h2 class="text-3xl md:text-4xl font-bold mb-6">
+                        <span class="gradient-text">个人笔记</span>
+                        <br>
+                        <span class="text-white">所见即所得的 Markdown 编辑</span>
+                    </h2>
+                    <p class="text-zinc-400 text-lg mb-8">
+                        内置专业级 Markdown 编辑器 Vditor，支持即时渲染模式，输入即显示效果，让记录运维笔记变得简单高效。
+                    </p>
+                    <div class="space-y-4">
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0 mt-1">
+                                <span class="text-purple-400 text-sm">01</span>
+                            </div>
+                            <div>
+                                <h4 class="text-white font-semibold mb-1">即时渲染模式</h4>
+                                <p class="text-zinc-400 text-sm">输入 Markdown 语法立即显示渲染效果，像 Typora 一样流畅</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0 mt-1">
+                                <span class="text-purple-400 text-sm">02</span>
+                            </div>
+                            <div>
+                                <h4 class="text-white font-semibold mb-1">完整工具栏</h4>
+                                <p class="text-zinc-400 text-sm">标题、粗体、斜体、代码块、表格、列表一键插入</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0 mt-1">
+                                <span class="text-purple-400 text-sm">03</span>
+                            </div>
+                            <div>
+                                <h4 class="text-white font-semibold mb-1">分类管理</h4>
+                                <p class="text-zinc-400 text-sm">笔记分类、搜索、标签，快速找到你需要的内容</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0 mt-1">
+                                <span class="text-purple-400 text-sm">04</span>
+                            </div>
+                            <div>
+                                <h4 class="text-white font-semibold mb-1">终端快捷查看</h4>
+                                <p class="text-zinc-400 text-sm">在终端页面快速查看笔记，边操作边记录</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
