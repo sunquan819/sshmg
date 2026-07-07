@@ -83,6 +83,7 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
             <button @click="showNotes = true; showCommands = false; showSessionHistory = false; activePanel = 'notes'" :class="showNotes && activePanel === 'notes' ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📝笔记</button>
             <button @click="showCommands = true; showNotes = false; showSessionHistory = false; activePanel = 'commands'" :class="showCommands && activePanel === 'commands' ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">⌨️命令</button>
             <button @click="showSessionHistory = true; showNotes = false; showCommands = false; activePanel = 'history'" :class="showSessionHistory && activePanel === 'history' ? 'text-blue-400' : 'text-gray-400'" class="text-gray-400 hover:text-white text-sm px-2">📜当前历史</button>
+            <button @click="showDirSwitch = true" class="text-gray-400 hover:text-white text-sm px-2" title="目录切换 (Ctrl+G)">📂目录切换</button>
             <button @click="toggleFullscreen()" class="text-gray-400 hover:text-white text-sm px-2">全屏</button>
         </div>
     </header>
@@ -293,6 +294,64 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
                     </div>
                 </div>
             </div>
+            <!-- Directory Quick Switch Modal -->
+            <div x-show="showDirSwitch" @keydown.escape.window="showDirSwitch = false" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-gray-800 rounded-lg w-96 max-h-[70vh] border border-gray-700 shadow-2xl" @click.outside="showDirSwitch = false">
+                    <!-- Search Header -->
+                    <div class="p-3 border-b border-gray-700">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-gray-400">🔍</span>
+                            <input type="text" x-model="dirSearch" @input="filterDirs()" @keydown.enter.prevent="goToFirstDir()" @keydown.escape="showDirSwitch = false" x-ref="dirSearchInput" placeholder="输入路径搜索..." class="flex-1 bg-transparent text-sm text-white outline-none" autofocus>
+                            <kbd class="text-xs text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded">ESC</kbd>
+                        </div>
+                    </div>
+                    <!-- Directory List -->
+                    <div class="overflow-y-auto max-h-[50vh]">
+                        <!-- Bookmarks Section -->
+                        <div x-show="dirBookmarks.length > 0">
+                            <div class="px-3 py-1.5 text-xs text-gray-500 flex items-center justify-between">
+                                <span>⭐ 收藏目录</span>
+                                <button @click="addCurrentDirBookmark()" class="text-blue-400 hover:text-blue-300 text-xs">+ 添加当前</button>
+                            </div>
+                            <template x-for="(dir, index) in dirBookmarks" :key="'b-'+index">
+                                <div @click="switchDir(dir.path)" @contextmenu.prevent="removeBookmark(index)" class="px-3 py-2 hover:bg-gray-700 cursor-pointer flex items-center justify-between group">
+                                    <div class="flex items-center space-x-2 min-w-0">
+                                        <span class="text-yellow-400">⭐</span>
+                                        <span class="text-sm text-white truncate" x-text="dir.name || dir.path"></span>
+                                    </div>
+                                    <div class="flex items-center space-x-2 opacity-0 group-hover:opacity-100">
+                                        <span class="text-xs text-gray-500" x-text="dir.path"></span>
+                                        <button @click.stop="removeBookmark(index)" class="text-red-400 hover:text-red-300 text-xs">✕</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <!-- Recent History Section -->
+                        <div x-show="dirHistory.length > 0">
+                            <div class="px-3 py-1.5 text-xs text-gray-500 border-t border-gray-700">📁 最近访问</div>
+                            <template x-for="(dir, index) in filteredDirHistory" :key="'h-'+index">
+                                <div @click="switchDir(dir.path)" class="px-3 py-2 hover:bg-gray-700 cursor-pointer flex items-center justify-between">
+                                    <div class="flex items-center space-x-2 min-w-0">
+                                        <span class="text-gray-400">📁</span>
+                                        <span class="text-sm text-white truncate" x-text="dir.path"></span>
+                                    </div>
+                                    <span class="text-xs text-gray-500 ml-2" x-text="dir.lastVisit"></span>
+                                </div>
+                            </template>
+                        </div>
+                        <!-- Empty State -->
+                        <div x-show="dirBookmarks.length === 0 && filteredDirHistory.length === 0" class="p-6 text-center text-gray-500">
+                            <p class="text-sm">暂无目录记录</p>
+                            <p class="text-xs mt-1">使用 cd 命令切换目录时会自动记录</p>
+                        </div>
+                    </div>
+                    <!-- Footer -->
+                    <div class="p-2 border-t border-gray-700 flex items-center justify-between text-xs text-gray-500">
+                        <span>Enter 跳转 · ESC 关闭 · 右键删除收藏</span>
+                        <span>Ctrl+G 打开</span>
+                    </div>
+                </div>
+            </div>
         </aside>
     </div>
 </div>
@@ -345,6 +404,12 @@ function terminalApp() {
         cmdForm: {id: null, name: '', command: '', category: ''},
         showNoteModal: false,
         noteForm: {id: null, title: '', content: '', category: ''},
+        // Directory Quick Switch
+        showDirSwitch: false,
+        dirSearch: '',
+        dirBookmarks: [],
+        dirHistory: [],
+        filteredDirHistory: [],
         showMessage(msg, type = 'info', duration = 3000) {
             this.showMessageCenter(msg, type, duration);
         },
@@ -405,6 +470,109 @@ function terminalApp() {
             } else {
                 this.filteredCommands = this.commands;
             }
+        },
+        // Directory Quick Switch Methods
+        loadDirBookmarks() {
+            try {
+                const saved = localStorage.getItem('dirBookmarks');
+                if (saved) this.dirBookmarks = JSON.parse(saved);
+            } catch (e) { console.error(e); }
+        },
+        saveDirBookmarks() {
+            try {
+                localStorage.setItem('dirBookmarks', JSON.stringify(this.dirBookmarks));
+            } catch (e) { console.error(e); }
+        },
+        loadDirHistory() {
+            try {
+                const saved = localStorage.getItem('dirHistory');
+                if (saved) {
+                    this.dirHistory = JSON.parse(saved);
+                    this.filterDirs();
+                }
+            } catch (e) { console.error(e); }
+        },
+        saveDirHistory() {
+            try {
+                // Keep only last 50 entries
+                if (this.dirHistory.length > 50) {
+                    this.dirHistory = this.dirHistory.slice(0, 50);
+                }
+                localStorage.setItem('dirHistory', JSON.stringify(this.dirHistory));
+            } catch (e) { console.error(e); }
+        },
+        addDirToHistory(path) {
+            if (!path || path === '/') return;
+            // Remove if already exists
+            this.dirHistory = this.dirHistory.filter(d => d.path !== path);
+            // Add to front
+            this.dirHistory.unshift({
+                path: path,
+                lastVisit: new Date().toLocaleString('zh-CN')
+            });
+            this.saveDirHistory();
+            this.filterDirs();
+        },
+        filterDirs() {
+            if (!this.dirSearch) {
+                this.filteredDirHistory = this.dirHistory;
+            } else {
+                const search = this.dirSearch.toLowerCase();
+                this.filteredDirHistory = this.dirHistory.filter(d => 
+                    d.path.toLowerCase().includes(search)
+                );
+            }
+        },
+        addCurrentDirBookmark() {
+            const tab = this.tabs.find(t => t.id === this.activeTabId);
+            if (!tab || !tab.currentPath) {
+                this.showMessage('请先连接服务器', 'error');
+                return;
+            }
+            const path = tab.currentPath;
+            // Check if already bookmarked
+            if (this.dirBookmarks.some(b => b.path === path)) {
+                this.showMessage('已收藏该目录', 'error');
+                return;
+            }
+            const name = path.split('/').filter(Boolean).pop() || path;
+            this.dirBookmarks.push({ path: path, name: name });
+            this.saveDirBookmarks();
+            this.showMessage('已收藏: ' + path);
+        },
+        removeBookmark(index) {
+            this.dirBookmarks.splice(index, 1);
+            this.saveDirBookmarks();
+        },
+        switchDir(path) {
+            if (!path) return;
+            const tab = this.tabs.find(t => t.id === this.activeTabId);
+            if (!tab || !tab.ws || tab.ws.readyState !== WebSocket.OPEN) {
+                this.showMessage('请先连接服务器', 'error');
+                return;
+            }
+            // Send cd command
+            tab.ws.send(JSON.stringify({ type: 'input', data: 'cd ' + path + '\r' }));
+            tab.currentPath = path;
+            this.showDirSwitch = false;
+            this.dirSearch = '';
+        },
+        goToFirstDir() {
+            if (this.filteredDirHistory.length > 0) {
+                this.switchDir(this.filteredDirHistory[0].path);
+            } else if (this.dirBookmarks.length > 0) {
+                this.switchDir(this.dirBookmarks[0].path);
+            }
+        },
+        openDirSwitch() {
+            this.showDirSwitch = true;
+            this.dirSearch = '';
+            this.filterDirs();
+            this.$nextTick(() => {
+                if (this.$refs.dirSearchInput) {
+                    this.$refs.dirSearchInput.focus();
+                }
+            });
         },
         executeCommand(cmd) {
             let ws = null;
@@ -482,6 +650,16 @@ function terminalApp() {
             await this.loadServers();
             await this.loadNotes();
             await this.loadCommands();
+            this.loadDirBookmarks();
+            this.loadDirHistory();
+            
+            // Keyboard shortcut: Ctrl+G for directory switch
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'g') {
+                    e.preventDefault();
+                    this.openDirSwitch();
+                }
+            });
             
             if (this.tabs.length > 0) return;
             
@@ -773,6 +951,23 @@ function terminalApp() {
                                 command: cmd.trim(),
                                 output: ''
                             };
+                            // Track cd commands for directory history
+                            const cmdTrimmed = cmd.trim();
+                            if (cmdTrimmed.startsWith('cd ')) {
+                                let targetPath = cmdTrimmed.substring(3).trim();
+                                // Handle cd ~
+                                if (targetPath === '~' || targetPath === '') targetPath = '/root';
+                                // Handle cd -
+                                if (targetPath === '-') targetPath = tab.previousPath || tab.currentPath;
+                                // Handle relative paths
+                                if (!targetPath.startsWith('/') && tab.currentPath) {
+                                    targetPath = tab.currentPath + '/' + targetPath;
+                                }
+                                // Store previous path for cd -
+                                tab.previousPath = tab.currentPath;
+                                tab.currentPath = targetPath;
+                                self.addDirToHistory(targetPath);
+                            }
                             tab.outputBuffer = '';
                             if (tab.outputTimeout) clearTimeout(tab.outputTimeout);
                             tab.outputTimeout = setTimeout(() => {
