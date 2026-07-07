@@ -149,9 +149,12 @@
         <div class="container mx-auto px-6">
             <h2 class="text-3xl font-bold text-center mb-8 text-white">界面预览</h2>
             <div class="flex justify-center gap-4 mb-8">
-                <button class="showcase-tab active" onclick="showShowcase('terminal')">终端</button>
-                <button class="showcase-tab" onclick="showShowcase('servers')">服务器</button>
-                <button class="showcase-tab" onclick="showShowcase('cron')">计划任务</button>
+                <button class="showcase-tab active" data-showcase="terminal" onclick="showShowcase('terminal')">终端</button>
+                <button class="showcase-tab" data-showcase="servers" onclick="showShowcase('servers')">服务器</button>
+                <button class="showcase-tab" data-showcase="cron" onclick="showShowcase('cron')">计划任务</button>
+                <button class="showcase-tab" data-showcase="containers" onclick="showShowcase('containers')">容器</button>
+                <button class="showcase-tab" data-showcase="files" onclick="showShowcase('files')">文件</button>
+                <button class="showcase-tab" data-showcase="screenshots" onclick="showShowcase('screenshots')">截图</button>
             </div>
             
             <!-- Terminal Showcase -->
@@ -189,7 +192,7 @@
                             <div class="mb-2">
                                 <span class="text-blue-400">admin@production</span>:<span class="text-purple-400">~</span>$ <span id="typing-text" class="text-white"></span><span class="cursor"></span>
                             </div>
-                            <div id="terminal-output" class="text-gray-300"></div>
+                            <div id="terminal-output" class="text-gray-300 whitespace-pre-wrap"></div>
                         </div>
                     </div>
                 </div>
@@ -306,6 +309,142 @@
                                     <label class="block text-xs text-gray-400 mb-1">执行命令</label>
                                     <div class="bg-gray-900 rounded px-3 py-2 text-sm text-green-400 font-mono">/usr/local/bin/backup.sh</div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Containers Showcase -->
+            <div id="showcase-containers" class="ui-demo max-w-4xl mx-auto hidden" style="height: 400px;">
+                <div class="flex h-full">
+                    <div class="demo-sidebar p-3 border-r border-gray-700">
+                        <div class="text-xs text-gray-400 mb-3 px-2">Deploy Manager</div>
+                        <div class="space-y-1">
+                            <div class="menu-item flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-400">
+                                <span>🖥️</span> 服务器
+                            </div>
+                            <div class="menu-item active flex items-center gap-2 px-2 py-1.5 rounded text-sm text-blue-400">
+                                <span>🐳</span> 容器管理
+                            </div>
+                        </div>
+                    </div>
+                    <div class="demo-content p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-white text-lg font-semibold">容器管理</h3>
+                            <button class="bg-gray-700 text-gray-300 px-3 py-1.5 rounded text-xs">🔄 刷新</button>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="bg-gray-800 rounded-lg p-3 border border-gray-700 flex items-center justify-between">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="status-dot status-online shrink-0"></div>
+                                    <div class="min-w-0">
+                                        <div class="text-white text-sm font-medium truncate">nginx-web</div>
+                                        <div class="text-xs text-gray-400 truncate">nginx:1.25 · 0.0.0.0:80→80</div>
+                                    </div>
+                                </div>
+                                <div class="flex gap-1 shrink-0 ml-2">
+                                    <button class="bg-red-700 text-white px-2 py-1 rounded text-xs">停止</button>
+                                    <button class="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">日志</button>
+                                </div>
+                            </div>
+                            <div class="bg-gray-800 rounded-lg p-3 border border-gray-700 flex items-center justify-between">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="status-dot status-online shrink-0"></div>
+                                    <div class="min-w-0">
+                                        <div class="text-white text-sm font-medium truncate">postgres-db</div>
+                                        <div class="text-xs text-gray-400 truncate">postgres:16 · 0.0.0.0:5432→5432</div>
+                                    </div>
+                                </div>
+                                <div class="flex gap-1 shrink-0 ml-2">
+                                    <button class="bg-red-700 text-white px-2 py-1 rounded text-xs">停止</button>
+                                    <button class="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">日志</button>
+                                </div>
+                            </div>
+                            <div class="bg-gray-800 rounded-lg p-3 border border-gray-700 flex items-center justify-between opacity-70">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="status-dot status-offline shrink-0"></div>
+                                    <div class="min-w-0">
+                                        <div class="text-white text-sm font-medium truncate">redis-cache</div>
+                                        <div class="text-xs text-gray-400 truncate">redis:7-alpine · Exited (0)</div>
+                                    </div>
+                                </div>
+                                <div class="flex gap-1 shrink-0 ml-2">
+                                    <button class="bg-green-700 text-white px-2 py-1 rounded text-xs">启动</button>
+                                    <button class="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">日志</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Files Showcase -->
+            <div id="showcase-files" class="ui-demo max-w-4xl mx-auto hidden" style="height: 400px;">
+                <div class="flex h-full">
+                    <div class="demo-sidebar p-3 border-r border-gray-700">
+                        <div class="text-xs text-gray-400 mb-3 px-2">Deploy Manager</div>
+                        <div class="space-y-1">
+                            <div class="menu-item flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-400">
+                                <span>🖥️</span> 服务器
+                            </div>
+                            <div class="menu-item active flex items-center gap-2 px-2 py-1.5 rounded text-sm text-blue-400">
+                                <span>📁</span> 文件管理
+                            </div>
+                        </div>
+                    </div>
+                    <div class="demo-content p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-white text-lg font-semibold">文件管理</h3>
+                            <div class="flex gap-2">
+                                <button class="bg-blue-600 text-white px-3 py-1.5 rounded text-xs">上传</button>
+                                <button class="bg-gray-700 text-gray-300 px-3 py-1.5 rounded text-xs">新建</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 text-xs text-gray-400 mb-3 font-mono">
+                            <span class="text-blue-400">/</span>
+                            <span class="text-blue-400">home</span>
+                            <span class="text-gray-600">/</span>
+                            <span class="text-blue-400">admin</span>
+                            <span class="text-gray-600">/</span>
+                            <span class="text-gray-300">projects</span>
+                        </div>
+                        <div class="space-y-0.5">
+                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group">
+                                <span class="text-yellow-400 w-5">📁</span>
+                                <span class="text-gray-300 flex-1">nginx-config</span>
+                                <span class="text-gray-600 text-xs">2026-07-06</span>
+                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 编辑 删除</span>
+                            </div>
+                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group">
+                                <span class="text-yellow-400 w-5">📁</span>
+                                <span class="text-gray-300 flex-1">docker-compose</span>
+                                <span class="text-gray-600 text-xs">2026-07-05</span>
+                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 编辑 删除</span>
+                            </div>
+                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group">
+                                <span class="text-gray-300 w-5">📄</span>
+                                <span class="text-gray-300 flex-1">deploy.sh</span>
+                                <span class="text-gray-600 text-xs">2026-07-06</span>
+                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 编辑 删除</span>
+                            </div>
+                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group">
+                                <span class="text-gray-300 w-5">📄</span>
+                                <span class="text-gray-300 flex-1">docker-compose.yml</span>
+                                <span class="text-gray-600 text-xs">2026-07-04</span>
+                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 编辑 删除</span>
+                            </div>
+                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group">
+                                <span class="text-gray-300 w-5">🔧</span>
+                                <span class="text-gray-300 flex-1">.env.production</span>
+                                <span class="text-gray-600 text-xs">2026-07-03</span>
+                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 编辑 删除</span>
+                            </div>
+                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group opacity-50">
+                                <span class="text-gray-400 w-5">📄</span>
+                                <span class="text-gray-400 flex-1">backup-20260701.tar.gz</span>
+                                <span class="text-gray-600 text-xs">2026-07-01</span>
+                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 删除</span>
                             </div>
                         </div>
                     </div>
@@ -510,60 +649,60 @@
     </footer>
 
     <script>
-        // Typing animation for terminal
-        const commands = [
-            { cmd: 'docker ps --format "table {{.Names}}\t{{.Status}}"', output: 'NAMES                STATUS\nnginx-web            Up 2 hours\npostgres-db          Up 2 hours\nredis-cache          Up 5 hours' },
-            { cmd: 'df -h | head -5', output: 'Filesystem      Size  Used Avail Use% Mounted on\n/dev/sda1        50G   28G   20G  59% /\ntmpfs           3.9G     0  3.9G   0% /dev/shm' },
-            { cmd: 'uptime', output: ' 14:32:01 up 45 days,  3:12,  2 users,  load average: 0.15, 0.22, 0.18' }
-        ];
-        
-        let cmdIndex = 0;
-        let charIndex = 0;
-        let currentCmd = '';
-        
-        function typeWriter() {
+        // Terminal typing - one command, once
+        function typeOnce() {
             const typingEl = document.getElementById('typing-text');
             const outputEl = document.getElementById('terminal-output');
-            
             if (!typingEl || !outputEl) return;
-            
-            if (cmdIndex < commands.length) {
-                currentCmd = commands[cmdIndex].cmd;
-                
-                if (charIndex < currentCmd.length) {
-                    typingEl.textContent += currentCmd[charIndex];
-                    charIndex++;
-                    setTimeout(typeWriter, 50 + Math.random() * 50);
+
+            const cmd = 'docker ps --format "table {{.Names}}\t{{.Status}}"';
+            const output = 'NAMES                STATUS\nnginx-web            Up 2 hours\npostgres-db          Up 2 hours\nredis-cache          Up 5 hours';
+            let i = 0;
+
+            function typeChar() {
+                if (i < cmd.length) {
+                    typingEl.textContent += cmd[i];
+                    i++;
+                    setTimeout(typeChar, 50 + Math.random() * 60);
                 } else {
-                    // Show output
-                    setTimeout(() => {
-                        outputEl.innerHTML += `<div class="mb-2 text-gray-300">${commands[cmdIndex].output}</div>`;
-                        outputEl.innerHTML += `<div class="mb-2"><span class="text-blue-400">admin@production</span>:<span class="text-purple-400">~</span>$ </div>`;
-                        
-                        // Reset for next command
-                        typingEl.textContent = '';
-                        charIndex = 0;
-                        cmdIndex = (cmdIndex + 1) % commands.length;
-                        
-                        setTimeout(typeWriter, 1000);
-                    }, 500);
+                    setTimeout(() => { outputEl.textContent = output; }, 400);
                 }
             }
+            typeChar();
         }
-        
-        // Start typing animation after page load
-        setTimeout(typeWriter, 1000);
-        
-        // Showcase switching
+
+        // Auto carousel
+        const carouselItems = ['terminal', 'servers', 'cron', 'containers', 'files'];
+        let carouselIndex = 0;
+        let carouselTimer;
+
         function showShowcase(name) {
-            // Hide all showcases
             document.querySelectorAll('[id^="showcase-"]').forEach(el => el.classList.add('hidden'));
-            // Show selected
             document.getElementById('showcase-' + name).classList.remove('hidden');
-            // Update tabs
-            document.querySelectorAll('.showcase-tab').forEach(tab => tab.classList.remove('active'));
-            event.target.classList.add('active');
+            document.querySelectorAll('.showcase-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.showcase === name) tab.classList.add('active');
+            });
+            // Reset carousel on manual click
+            if (carouselTimer) {
+                carouselIndex = carouselItems.indexOf(name);
+                clearInterval(carouselTimer);
+                carouselTimer = setInterval(() => {
+                    carouselIndex = (carouselIndex + 1) % carouselItems.length;
+                    showShowcase(carouselItems[carouselIndex]);
+                }, 4000);
+            }
         }
+
+        function startCarousel() {
+            carouselTimer = setInterval(() => {
+                carouselIndex = (carouselIndex + 1) % carouselItems.length;
+                showShowcase(carouselItems[carouselIndex]);
+            }, 4000);
+        }
+
+        setTimeout(typeOnce, 800);
+        setTimeout(startCarousel, 6000);
     </script>
 </body>
 </html>
