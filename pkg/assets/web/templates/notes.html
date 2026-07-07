@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>笔记管理 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
+    <link rel="stylesheet" href="/static/css/codemirror/codemirror.min.css">
+    <link rel="stylesheet" href="/static/css/codemirror/monokai.min.css">
     <style>
 html { font-size: 12px; }
 .dark .dark\:bg-gray-800 { background-color: #1f2937; }
@@ -39,13 +41,109 @@ html { font-size: 12px; }
 .dark .dark\:hover\:text-gray-200:hover { color: #e5e7eb; }
 .dark .dark\:hover\:text-gray-300:hover { color: #d1d5db; }
 .dark .dark\:hover\:text-white:hover { color: #fff; }
-</style>
-        <script>
+
+/* Markdown preview styles */
+.markdown-preview {
+    line-height: 1.8;
+    font-size: 14px;
+}
+.markdown-preview h1 { font-size: 1.75em; font-weight: 700; margin: 0.8em 0 0.4em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+.markdown-preview h2 { font-size: 1.5em; font-weight: 600; margin: 0.8em 0 0.4em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+.markdown-preview h3 { font-size: 1.25em; font-weight: 600; margin: 0.8em 0 0.4em; }
+.markdown-preview h4 { font-size: 1.1em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.markdown-preview p { margin: 0.5em 0; }
+.markdown-preview ul, .markdown-preview ol { margin: 0.5em 0; padding-left: 2em; }
+.markdown-preview ul { list-style-type: disc; }
+.markdown-preview ol { list-style-type: decimal; }
+.markdown-preview li { margin: 0.2em 0; }
+.markdown-preview blockquote {
+    border-left: 4px solid #3b82f6;
+    padding: 0.5em 1em;
+    margin: 0.5em 0;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 0 4px 4px 0;
+}
+.markdown-preview code {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.9em;
+}
+.markdown-preview pre {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 1em;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 0.5em 0;
+}
+.markdown-preview pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+}
+.markdown-preview a { color: #3b82f6; text-decoration: underline; }
+.markdown-preview a:hover { color: #2563eb; }
+.markdown-preview img { max-width: 100%; border-radius: 6px; margin: 0.5em 0; }
+.markdown-preview table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.5em 0;
+}
+.markdown-preview th, .markdown-preview td {
+    border: 1px solid #d1d5db;
+    padding: 0.5em 0.75em;
+    text-align: left;
+}
+.markdown-preview th {
+    background: #f3f4f6;
+    font-weight: 600;
+}
+.markdown-preview hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 1em 0;
+}
+.markdown-preview strong { font-weight: 600; }
+.markdown-preview em { font-style: italic; }
+
+/* Typora-style edit mode */
+.typora-editor {
+    min-height: 300px;
+    padding: 1em;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border: none;
+    outline: none;
+    resize: vertical;
+    width: 100%;
+}
+.typora-editor:focus {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+/* Edit mode indicator */
+.edit-indicator {
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+    </style>
+    <script>
 (function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
 function toggleTheme(){var d=document.documentElement;if(d.classList.contains('dark')){d.classList.remove('dark');localStorage.setItem('theme','light')}else{d.classList.add('dark');localStorage.setItem('theme','dark')}}
 </script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <script defer src="/static/js/alpine.min.js"></script>
+    <script src="/static/js/codemirror/codemirror.min.js"></script>
+    <script src="/static/js/codemirror/mode/markdown/markdown.min.js"></script>
+    <script src="/static/js/marked.min.js"></script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white text-sm" x-data="noteApp()" x-init="init()">
     <div id="copyToast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#16a34a;color:white;padding:8px 16px;border-radius:4px;font-size:14px;z-index:9999;">已复制</div>
@@ -92,56 +190,84 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
         </main>
     </div>
 
+    <!-- Add/Edit Modal with Typora-style editor -->
     <div x-show="showAddModal || showEditModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-2xl border border-gray-200 dark:border-gray-700">
-            <h3 class="text-sm font-semibold mb-4" x-text="showEditModal ? '编辑笔记' : '新建笔记'"></h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">标题 *</label>
-                    <input type="text" x-model="noteForm.title" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-gray-900 dark:text-white">
+        <div class=" bg-white dark:bg-gray-800  rounded w-full max-w-4xl border border-gray-200 dark:border-gray-700 flex flex-col" style="max-height: 90vh;">
+            <!-- Header -->
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h3 class="text-sm font-semibold" x-text="showEditModal ? '编辑笔记' : '新建笔记'"></h3>
+                <div class="flex items-center space-x-2">
+                    <button @click="toggleEditMode()" class="px-3 py-1 rounded text-xs" :class="isEditing ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'">
+                        <span x-text="isEditing ? '预览' : '编辑'"></span>
+                    </button>
+                    <button @click="closeModal()" class="text-gray-400 hover:text-white">✕</button>
                 </div>
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">分类</label>
-                    <input type="text" x-model="noteForm.category" list="categoryList" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-gray-900 dark:text-white">
+            </div>
+            <!-- Title & Category -->
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 space-y-2">
+                <input type="text" x-model="noteForm.title" placeholder="输入标题..." class="w-full bg-transparent text-lg font-semibold outline-none" style="border: none;">
+                <div class="flex items-center space-x-2">
+                    <input type="text" x-model="noteForm.category" list="categoryList" placeholder="分类（可选）" class="bg-transparent text-xs text-gray-500 outline-none" style="border: none; width: 120px;">
                     <datalist id="categoryList">
                         <template x-for="cat in categories" :key="cat"><template x-if="cat">
                             <option :value="cat"></option>
                         </template></template>
                     </datalist>
                 </div>
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">内容</label>
-                    <textarea x-model="noteForm.content" rows="10" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-gray-900 dark:text-white font-mono text-sm"></textarea>
+            </div>
+            <!-- Content Area -->
+            <div class="flex-1 overflow-auto" style="min-height: 300px;">
+                <!-- Preview Mode -->
+                <div x-show="!isEditing" @click="isEditing = true" class="markdown-preview p-6 cursor-text min-h-full" x-html="renderedContent || '<span class=\'text-gray-400\'>点击开始编辑...</span>'"></div>
+                <!-- Edit Mode -->
+                <div x-show="isEditing" class="h-full">
+                    <textarea x-ref="editor" x-model="noteForm.content" @input="updatePreview()" class="typora-editor" placeholder="输入 Markdown 内容..."></textarea>
                 </div>
             </div>
-            <div class="flex justify-end space-x-2 mt-6">
-                <button @click="closeModal()" class="px-4 py-2 text-gray-400 hover:text-white">取消</button>
-                <button @click="saveNote()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white">保存</button>
+            <!-- Footer -->
+            <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <div class="text-xs text-gray-500">
+                    <span x-show="isEditing" class="edit-indicator text-blue-500">● 编辑中</span>
+                    <span x-show="!isEditing" class="text-green-500">● 预览</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button @click="closeModal()" class="px-4 py-2 text-gray-400 hover:text-white">取消</button>
+                    <button @click="saveNote()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white">保存</button>
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- View Modal -->
     <div x-show="showViewModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class=" bg-white dark:bg-gray-800  rounded p-6 w-full max-w-3xl border border-gray-200 dark:border-gray-700 max-h-[80vh] overflow-auto">
-            <div class="flex justify-between items-start mb-4">
-                <h3 class="text-xl font-semibold" x-text="currentNote?.title"></h3>
+        <div class=" bg-white dark:bg-gray-800  rounded w-full max-w-4xl border border-gray-200 dark:border-gray-700 flex flex-col" style="max-height: 90vh;">
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-start">
+                <div>
+                    <h3 class="text-xl font-semibold" x-text="currentNote?.title"></h3>
+                    <div class="flex items-center space-x-2 mt-1">
+                        <span x-show="currentNote?.category" class="bg-gray-700 px-2 py-0.5 rounded text-xs" x-text="currentNote?.category"></span>
+                        <span class="text-xs text-gray-400" x-text="'更新于 ' + new Date(currentNote?.updated_at).toLocaleString('zh-CN')"></span>
+                    </div>
+                </div>
                 <div class="flex items-center space-x-2">
-                    <button @click="editNote(currentNote)" class="text-blue-400 hover:text-blue-300">✏️ 编辑</button>
+                    <button @click="editNote(currentNote)" class="text-blue-400 hover:text-blue-300 text-sm">✏️ 编辑</button>
+                    <button @click="copyContent()" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-white">📋 复制</button>
                     <button @click="showViewModal=false" class="text-gray-400 hover:text-white">✕</button>
                 </div>
             </div>
-            <div class="mb-4 flex items-center justify-between text-sm text-gray-400">
-                <div>
-                    <span x-show="currentNote?.category" class="bg-gray-700 px-2 py-0.5 rounded mr-2" x-text="currentNote?.category"></span>
-                    <span x-text="'更新于 ' + new Date(currentNote?.updated_at).toLocaleString('zh-CN')"></span>
-                </div>
-                <button @click="copyContent()" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-white">📋 复制</button>
+            <div class="flex-1 overflow-auto p-6">
+                <div class="markdown-preview" x-html="renderNote(currentNote?.content)"></div>
             </div>
-            <div class="bg-gray-900 rounded text-gray-900 dark:text-white whitespace-pre-wrap font-mono text-sm" style="padding:1rem;max-height:50vh;overflow-y:auto" x-text="currentNote?.content || '暂无内容'"></div>
         </div>
     </div>
 
     <script>
+    // Configure marked
+    marked.setOptions({
+        breaks: true,
+        gfm: true
+    });
+
     function noteApp() {
         return {
             notes: [],
@@ -153,6 +279,8 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
             showViewModal: false,
             currentNote: null,
             noteForm: { title: '', content: '', category: '' },
+            isEditing: false,
+            renderedContent: '',
             init() {
                 this.checkAuth();
                 this.loadNotes();
@@ -189,6 +317,29 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
                 this.noteForm = { title: note.title, content: note.content, category: note.category };
                 this.showEditModal = true;
                 this.showViewModal = false;
+                this.isEditing = true;
+                this.updatePreview();
+            },
+            toggleEditMode() {
+                this.isEditing = !this.isEditing;
+                if (!this.isEditing) {
+                    this.updatePreview();
+                }
+            },
+            updatePreview() {
+                try {
+                    this.renderedContent = marked.parse(this.noteForm.content || '');
+                } catch (e) {
+                    this.renderedContent = this.noteForm.content;
+                }
+            },
+            renderNote(content) {
+                if (!content) return '<span class="text-gray-400">暂无内容</span>';
+                try {
+                    return marked.parse(content);
+                } catch (e) {
+                    return content;
+                }
             },
             async copyContent() {
                 try {
@@ -209,7 +360,9 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
             closeModal() {
                 this.showAddModal = false;
                 this.showEditModal = false;
+                this.isEditing = false;
                 this.noteForm = { title: '', content: '', category: '' };
+                this.renderedContent = '';
             },
             async saveNote() {
                 if (!this.noteForm.title) { alert('请输入标题'); return; }
