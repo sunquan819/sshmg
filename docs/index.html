@@ -450,6 +450,32 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Screenshots Showcase -->
+            <div id="showcase-screenshots" class="ui-demo max-w-4xl mx-auto hidden" style="height: 400px;">
+                <div class="flex h-full">
+                    <div class="demo-sidebar p-3 border-r border-gray-700">
+                        <div class="text-xs text-gray-400 mb-3 px-2">Deploy Manager</div>
+                        <div class="space-y-1">
+                            <div class="menu-item active flex items-center gap-2 px-2 py-1.5 rounded text-sm text-blue-400">
+                                <span>📸</span> 应用截图
+                            </div>
+                        </div>
+                    </div>
+                    <div class="demo-content p-4 flex flex-col">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-white text-lg font-semibold">应用截图</h3>
+                            <span class="text-xs text-gray-400" id="screenshot-counter">1 / 5</span>
+                        </div>
+                        <div class="flex-1 relative bg-gray-900 rounded-lg overflow-hidden">
+                            <img id="screenshot-img" class="w-full h-full object-contain" src="image/20260707-103820.jpg" alt="App screenshot">
+                            <button onclick="prevScreenshot()" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg">‹</button>
+                            <button onclick="nextScreenshot()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg">›</button>
+                        </div>
+                        <div class="flex justify-center gap-2 mt-3" id="screenshot-dots"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -672,7 +698,7 @@
         }
 
         // Auto carousel
-        const carouselItems = ['terminal', 'servers', 'cron', 'containers', 'files'];
+        const carouselItems = ['terminal', 'servers', 'cron', 'containers', 'files', 'screenshots'];
         let carouselIndex = 0;
         let carouselTimer;
 
@@ -699,6 +725,38 @@
                 carouselIndex = (carouselIndex + 1) % carouselItems.length;
                 showShowcase(carouselItems[carouselIndex]);
             }, 4000);
+        }
+
+        // Screenshot gallery
+        const screenshots = [
+            'image/20260707-103820.jpg',
+            'image/20260707-104037.jpg',
+            'image/20260707-104046.jpg',
+            'image/20260707-104053.jpg',
+            'image/20260707-104059.jpg'
+        ];
+        let screenshotIdx = 0;
+
+        function updateScreenshot() {
+            document.getElementById('screenshot-img').src = screenshots[screenshotIdx];
+            document.getElementById('screenshot-counter').textContent = (screenshotIdx + 1) + ' / ' + screenshots.length;
+            document.querySelectorAll('#screenshot-dots span').forEach((dot, i) => {
+                dot.className = i === screenshotIdx ? 'w-2.5 h-2.5 rounded-full bg-blue-500' : 'w-2.5 h-2.5 rounded-full bg-gray-600 cursor-pointer';
+            });
+        }
+
+        function nextScreenshot() { screenshotIdx = (screenshotIdx + 1) % screenshots.length; updateScreenshot(); }
+        function prevScreenshot() { screenshotIdx = (screenshotIdx - 1 + screenshots.length) % screenshots.length; updateScreenshot(); }
+
+        // Init dots
+        const dotsEl = document.getElementById('screenshot-dots');
+        if (dotsEl) {
+            screenshots.forEach((_, i) => {
+                const dot = document.createElement('span');
+                dot.className = i === 0 ? 'w-2.5 h-2.5 rounded-full bg-blue-500' : 'w-2.5 h-2.5 rounded-full bg-gray-600 cursor-pointer';
+                dot.onclick = () => { screenshotIdx = i; updateScreenshot(); };
+                dotsEl.appendChild(dot);
+            });
         }
 
         setTimeout(typeOnce, 800);
