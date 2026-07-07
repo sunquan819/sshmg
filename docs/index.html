@@ -5,150 +5,741 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deploy Manager - 服务器运维管理工具</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.15); }
-        .feature-card { transition: all 0.3s ease; }
-        
-        /* UI Demo Animation */
+        :root {
+            --neon-blue: #00d4ff;
+            --neon-purple: #a855f7;
+            --neon-pink: #ec4899;
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #111118;
+            --bg-card: #16161d;
+            --text-primary: #e4e4e7;
+            --text-secondary: #71717a;
+        }
+
+        * { font-family: 'Outfit', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* Grid background */
+        .grid-bg {
+            background-image: 
+                linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Noise texture overlay */
+        .noise-overlay::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.015;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Glow effects */
+        .glow-blue { 
+            box-shadow: 0 0 20px rgba(0,212,255,0.3), inset 0 0 20px rgba(0,212,255,0.1);
+        }
+        .glow-purple {
+            box-shadow: 0 0 20px rgba(168,85,247,0.3), inset 0 0 20px rgba(168,85,247,0.1);
+        }
+
+        /* Gradient text */
+        .gradient-text {
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Hero section */
+        .hero-section {
+            background: radial-gradient(ellipse at top, rgba(0,212,255,0.15) 0%, transparent 50%),
+                        radial-gradient(ellipse at bottom right, rgba(168,85,247,0.1) 0%, transparent 50%),
+                        var(--bg-primary);
+            position: relative;
+        }
+
+        /* Animated border */
+        .animated-border {
+            position: relative;
+            overflow: hidden;
+        }
+        .animated-border::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            background: conic-gradient(from var(--angle, 0deg), 
+                transparent, 
+                var(--neon-blue), 
+                transparent, 
+                var(--neon-purple), 
+                transparent);
+            animation: rotateBorder 4s linear infinite;
+            z-index: -1;
+            border-radius: inherit;
+        }
+        .animated-border::after {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            background: var(--bg-card);
+            border-radius: inherit;
+            z-index: -1;
+        }
+        @property --angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+        @keyframes rotateBorder {
+            to { --angle: 360deg; }
+        }
+
+        /* Neon button */
+        .neon-btn {
+            position: relative;
+            background: transparent;
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        .neon-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--neon-blue);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .neon-btn:hover {
+            color: var(--bg-primary);
+            box-shadow: 0 0 30px rgba(0,212,255,0.5);
+        }
+        .neon-btn:hover::before {
+            opacity: 1;
+        }
+        .neon-btn span {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Feature cards */
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255,255,255,0.06);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,212,255,0.1), transparent);
+            transition: left 0.6s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(0,212,255,0.3);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3), 0 0 30px rgba(0,212,255,0.1);
+        }
+        .feature-card:hover::before {
+            left: 100%;
+        }
+
+        /* Scroll animations */
+        .animate-on-scroll {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .animate-on-scroll.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Stagger delays */
+        .delay-1 { transition-delay: 0.1s; }
+        .delay-2 { transition-delay: 0.2s; }
+        .delay-3 { transition-delay: 0.3s; }
+        .delay-4 { transition-delay: 0.4s; }
+        .delay-5 { transition-delay: 0.5s; }
+        .delay-6 { transition-delay: 0.6s; }
+        .delay-7 { transition-delay: 0.7s; }
+        .delay-8 { transition-delay: 0.8s; }
+        .delay-9 { transition-delay: 0.9s; }
+
+        /* UI Demo sections */
         .ui-demo { 
-            background: #1a1a2e; 
+            background: var(--bg-secondary); 
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 12px; 
             overflow: hidden;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,255,0.05);
         }
         .demo-sidebar {
             width: 180px;
-            background: #16213e;
-            animation: slideInLeft 0.5s ease-out;
+            background: rgba(0,0,0,0.3);
+            border-right: 1px solid rgba(255,255,255,0.06);
         }
-        .demo-content { flex: 1; }
-        
-        /* Typing animation */
-        .typing-demo {
-            font-family: 'Consolas', 'Monaco', monospace;
-            overflow: hidden;
-            white-space: nowrap;
-            animation: typing 3s steps(40) 1s forwards;
-            width: 0;
+
+        /* Showcase tabs */
+        .showcase-tab {
+            cursor: pointer;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+            color: var(--text-secondary);
         }
-        @keyframes typing {
-            from { width: 0; }
-            to { width: 100%; }
+        .showcase-tab:hover {
+            background: rgba(0,212,255,0.1);
+            color: var(--neon-blue);
+            border-color: rgba(0,212,255,0.2);
         }
-        
-        /* Slide animations */
-        @keyframes slideInLeft {
-            from { transform: translateX(-100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+        .showcase-tab.active {
+            background: rgba(0,212,255,0.15);
+            color: var(--neon-blue);
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 20px rgba(0,212,255,0.2);
         }
-        @keyframes slideInUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+
+        /* Terminal */
+        .terminal-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 16px;
+            background: var(--neon-blue);
+            animation: blink 1s infinite;
+            box-shadow: 0 0 10px var(--neon-blue);
         }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        /* Server card animation */
-        .server-card {
-            animation: slideInUp 0.5s ease-out forwards;
-            opacity: 0;
-        }
-        .server-card:nth-child(1) { animation-delay: 0.2s; }
-        .server-card:nth-child(2) { animation-delay: 0.4s; }
-        .server-card:nth-child(3) { animation-delay: 0.6s; }
-        
-        /* Status dot */
+
+        /* Status dots */
         .status-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
             animation: pulse 2s infinite;
         }
-        .status-online { background: #22c55e; }
-        .status-offline { background: #ef4444; }
-        
-        /* Terminal cursor */
-        .cursor {
-            display: inline-block;
-            width: 8px;
-            height: 16px;
+        .status-online { 
             background: #22c55e;
-            animation: blink 1s infinite;
+            box-shadow: 0 0 10px rgba(34,197,94,0.5);
         }
-        @keyframes blink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0; }
+        .status-offline { 
+            background: #ef4444;
+            box-shadow: 0 0 10px rgba(239,68,68,0.5);
         }
-        
-        /* Menu item highlight animation */
-        .menu-item {
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+
+        /* Server cards */
+        .server-card {
+            animation: slideInUp 0.5s ease-out forwards;
+            opacity: 0;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
             transition: all 0.3s ease;
         }
-        .menu-item:hover, .menu-item.active {
-            background: rgba(59, 130, 246, 0.2);
-            color: #60a5fa;
+        .server-card:hover {
+            border-color: rgba(0,212,255,0.3);
+            background: rgba(0,212,255,0.05);
         }
-        
-        /* Modal animation */
+        .server-card:nth-child(1) { animation-delay: 0.2s; }
+        .server-card:nth-child(2) { animation-delay: 0.4s; }
+        .server-card:nth-child(3) { animation-delay: 0.6s; }
+
+        /* Menu items */
+        .menu-item {
+            transition: all 0.3s ease;
+            border-left: 2px solid transparent;
+        }
+        .menu-item:hover, .menu-item.active {
+            background: rgba(0,212,255,0.1);
+            color: var(--neon-blue);
+            border-left-color: var(--neon-blue);
+        }
+
+        /* Modal */
         .modal-demo {
             animation: modalIn 0.3s ease-out;
+            border: 1px solid rgba(0,212,255,0.2);
         }
         @keyframes modalIn {
             from { transform: scale(0.9); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
-        
-        /* Feature showcase tabs */
-        .showcase-tab {
-            cursor: pointer;
-            padding: 8px 16px;
-            border-radius: 6px;
+
+        @keyframes slideInUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Floating elements */
+        .float-element {
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        /* Tech stack icons */
+        .tech-icon {
             transition: all 0.3s ease;
         }
-        .showcase-tab:hover {
-            background: rgba(255,255,255,0.1);
+        .tech-icon:hover {
+            transform: scale(1.1) translateY(-5px);
         }
-        .showcase-tab.active {
-            background: #3b82f6;
-            color: white;
+
+        /* Code block */
+        .code-block {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(0,212,255,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .code-block::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
+        }
+
+        /* Stats counter */
+        .stat-number {
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Mouse follower */
+        .mouse-follower {
+            position: fixed;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(0,212,255,0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            transition: transform 0.1s ease;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Screenshot gallery */
+        .screenshot-gallery {
+            position: relative;
+        }
+        .screenshot-gallery img {
+            transition: opacity 0.3s ease;
+        }
+        .gallery-btn {
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0,212,255,0.3);
+            transition: all 0.3s ease;
+        }
+        .gallery-btn:hover {
+            background: rgba(0,212,255,0.2);
+            box-shadow: 0 0 20px rgba(0,212,255,0.3);
+        }
+
+        /* Navigation */
+        nav a {
+            position: relative;
+            transition: color 0.3s ease;
+        }
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--neon-blue);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+        nav a:hover::after {
+            width: 100%;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0,212,255,0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0,212,255,0.5);
+        }
+
+        /* Footer gradient border */
+        .footer-border {
+            border-top: 1px solid transparent;
+            border-image: linear-gradient(90deg, transparent, var(--neon-blue), transparent) 1;
         }
     </style>
 </head>
-<body class="bg-gray-50">
+<body class="noise-overlay">
+    <!-- Mouse follower -->
+    <div class="mouse-follower" id="mouseFollower"></div>
+
     <!-- Hero Section -->
-    <header class="gradient-bg text-white">
-        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-2">
-                <span class="text-2xl">🚀</span>
-                <span class="text-xl font-bold">Deploy Manager</span>
+    <header class="hero-section min-h-screen flex flex-col relative grid-bg">
+        <nav class="container mx-auto px-6 py-6 flex justify-between items-center relative z-10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
+                    <span class="text-xl">⚡</span>
+                </div>
+                <span class="text-xl font-bold gradient-text">Deploy Manager</span>
             </div>
-            <div class="space-x-4">
-                <a href="#features" class="hover:text-gray-200">功能</a>
-                <a href="https://github.com/sunquan819/sshmg" class="hover:text-gray-200" target="_blank">GitHub</a>
+            <div class="flex items-center gap-8">
+                <a href="#features" class="text-sm text-zinc-400 hover:text-cyan-400">功能特性</a>
+                <a href="#showcase" class="text-sm text-zinc-400 hover:text-cyan-400">界面预览</a>
+                <a href="https://github.com/sunquan819/sshmg" class="text-sm text-zinc-400 hover:text-cyan-400" target="_blank">GitHub</a>
+                <a href="https://github.com/sunquan819/sshmg/releases" class="neon-btn px-5 py-2 rounded-lg text-sm" target="_blank">
+                    <span>下载客户端</span>
+                </a>
             </div>
         </nav>
-        <div class="container mx-auto px-6 py-20 text-center">
-            <h1 class="text-4xl md:text-6xl font-bold mb-6">服务器运维管理工具</h1>
-            <p class="text-xl md:text-2xl mb-8 opacity-90">支持 Web 与 Desktop 双形态，一站式管理服务器、容器、部署、终端</p>
-            <div class="space-x-4">
-                <a href="https://github.com/sunquan819/sshmg/releases" class="bg-white text-purple-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition" target="_blank">下载 Desktop</a>
-                <a href="https://github.com/sunquan819/sshmg" class="border-2 border-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-purple-600 transition" target="_blank">查看源码</a>
+
+        <div class="flex-1 flex items-center justify-center relative z-10">
+            <div class="text-center max-w-4xl mx-auto px-6">
+                <!-- Floating decorative elements -->
+                <div class="absolute top-20 left-20 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl float-element"></div>
+                <div class="absolute bottom-20 right-20 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl float-element" style="animation-delay: -3s;"></div>
+                
+                <div class="animate-on-scroll">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-8">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                        <span class="text-sm text-cyan-400">开源免费 · 持续更新</span>
+                    </div>
+                </div>
+                
+                <h1 class="text-5xl md:text-7xl font-bold mb-6 animate-on-scroll delay-1">
+                    <span class="gradient-text">服务器运维</span>
+                    <br>
+                    <span class="text-white">一站式管理平台</span>
+                </h1>
+                
+                <p class="text-lg md:text-xl text-zinc-400 mb-10 max-w-2xl mx-auto animate-on-scroll delay-2">
+                    支持 Web 与 Desktop 双形态，集成服务器管理、容器部署、
+                    <br class="hidden md:block">
+                    计划任务、Web 终端、文件管理等企业级运维功能
+                </p>
+                
+                <div class="flex flex-wrap justify-center gap-4 animate-on-scroll delay-3">
+                    <a href="https://github.com/sunquan819/sshmg/releases" class="neon-btn px-8 py-4 rounded-xl text-base font-semibold" target="_blank">
+                        <span class="flex items-center gap-2">
+                            <span>🪟</span>
+                            <span>下载 Desktop</span>
+                        </span>
+                    </a>
+                    <a href="https://github.com/sunquan819/sshmg" class="px-8 py-4 rounded-xl text-base font-semibold border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white transition" target="_blank">
+                        <span class="flex items-center gap-2">
+                            <span>📦</span>
+                            <span>查看源码</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Stats -->
+                <div class="flex justify-center gap-12 mt-16 animate-on-scroll delay-4">
+                    <div class="text-center">
+                        <div class="text-3xl font-bold gradient-text stat-number">15+</div>
+                        <div class="text-sm text-zinc-500 mt-1">核心功能</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold gradient-text stat-number">Web</div>
+                        <div class="text-sm text-zinc-500 mt-1">+ Desktop</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold gradient-text stat-number">100%</div>
+                        <div class="text-sm text-zinc-500 mt-1">开源免费</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scroll indicator -->
+        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+            <div class="w-6 h-10 rounded-full border-2 border-zinc-600 flex justify-center">
+                <div class="w-1.5 h-3 rounded-full bg-zinc-400 mt-2 animate-pulse"></div>
             </div>
         </div>
     </header>
 
-    <!-- Animated UI Demo Section -->
-    <section class="py-16 bg-gray-900">
+    <!-- Features Section -->
+    <section id="features" class="py-24 relative">
         <div class="container mx-auto px-6">
-            <h2 class="text-3xl font-bold text-center mb-8 text-white">界面预览</h2>
-            <div class="flex justify-center gap-4 mb-8">
+            <div class="text-center mb-16">
+                <div class="animate-on-scroll">
+                    <span class="text-sm text-cyan-400 font-mono">// 核心功能</span>
+                    <h2 class="text-4xl md:text-5xl font-bold mt-4 mb-4">
+                        <span class="gradient-text">全方位运维能力</span>
+                    </h2>
+                    <p class="text-zinc-400 max-w-xl mx-auto">从服务器管理到容器部署，从终端操作到文件传输，一站式解决所有运维需求</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Server Management -->
+                <div class="feature-card rounded-xl p-6 animate-on-scroll delay-1">
+                    <div class="w-12 h-12 rounded-lg bg-cyan-500/10 flex items-center justify-center mb-4">
+                        <span class="text-2xl">🖥️</span>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-3 text-white">服务器管理</h3>
+                    <ul class="text-zinc-400 text-sm space-y-2">
+                        <li class="flex items-start gap-2">
+                            <span class="text-cyan-400 mt-1">›</span>
+                            <span>多台服务器 SSH 连接管理</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-cyan-400 mt-1">›</span>
+                            <span>支持跳板机/堡垒机多级跳转</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-cyan-400 mt-1">›</span>
+                            <span>SOCKS5/SOCKS4 代理连接</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-cyan-400 mt-1">›</span>
+                            <span>服务器分组、在线状态监控</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Web Terminal -->
+                <div class="feature-card rounded-xl p-6 animate-on-scroll delay-2">
+                    <div class="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center mb-4">
+                        <span class="text-2xl">💻</span>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-3 text-white">Web 终端</h3>
+                    <ul class="text-zinc-400 text-sm space-y-2">
+                        <li class="flex items-start gap-2">
+                            <span class="text-purple-400 mt-1">›</span>
+                            <span>基于 WebSocket 的实时终端</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-purple-400 mt-1">›</span>
+                            <span>多标签页管理</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-purple-400 mt-1">›</span>
+                            <span>鼠标选中自动复制，Ctrl+V 粘贴</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-purple-400 mt-1">›</span>
+                            <span>终端会话历史记录与回放</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Desktop Client -->
+                <div class="feature-card rounded-xl p-6 animate-on-scroll delay-3">
+                    <div class="w-12 h-12 rounded-lg bg-pink-500/10 flex items-center justify-center mb-4">
+                        <span class="text-2xl">🪟</span>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-3 text-white">Desktop 客户端</h3>
+                    <ul class="text-zinc-400 text-sm space-y-2">
+                        <li class="flex items-start gap-2">
+                            <span class="text-pink-400 mt-1">›</span>
+                            <span>基于 Wails 的 Windows 桌面客户端</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-pink-400 mt-1">›</span>
+                            <span>内置后端服务，开箱即用</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-pink-400 mt-1">›</span>
+                            <span>本地终端支持，多分屏</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-pink-400 mt-1">›</span>
+                            <span>系统托盘运行</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Container Management -->
+                <div class="feature-card rounded-xl p-6 animate-on-scroll delay-4">
+                    <div class="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-4">
+                        <span class="text-2xl">🐳</span>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-3 text-white">容器管理</h3>
+                    <ul class="text-zinc-400 text-sm space-y-2">
+                        <li class="flex items-start gap-2">
+                            <span class="text-blue-400 mt-1">›</span>
+                            <span>Docker 容器查看、启动、停止</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-blue-400 mt-1">›</span>
+                            <span>容器日志实时查看</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-blue-400 mt-1">›</span>
+                            <span>镜像列表管理</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Service Deployment -->
+                <div class="feature-card rounded-xl p-6 animate-on-scroll delay-5">
+                    <div class="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center mb-4">
+                        <span class="text-2xl">🚀</span>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-3 text-white">服务部署</h3>
+                    <ul class="text-zinc-400 text-sm space-y-2">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-400 mt-1">›</span>
+                            <span>Docker Compose 一键部署</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-400 mt-1">›</span>
+                            <span>自定义 compose 配置</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-400 mt-1">›</span>
+                            <span>部署状态跟踪</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Scheduled Tasks -->
+                <div class="feature-card rounded-xl p-6 animate-on-scroll delay-6">
+                    <div class="w-12 h-12 rounded-lg bg-yellow-500/10 flex items-center justify-center mb-4">
+                        <span class="text-2xl">⏰</span>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-3 text-white">计划任务</h3>
+                    <ul class="text-zinc-400 text-sm space-y-2">
+                        <li class="flex items-start gap-2">
+                            <span class="text-yellow-400 mt-1">›</span>
+                            <span>Crontab 可视化编辑</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-yellow-400 mt-1">›</span>
+                            <span>任务执行记录查看</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-yellow-400 mt-1">›</span>
+                            <span>一键执行任务</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- File Management -->
+                <div class="feature-card rounded-xl p-6 animate-on-scroll delay-7">
+                    <div class="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center mb-4">
+                        <span class="text-2xl">📁</span>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-3 text-white">文件管理</h3>
+                    <ul class="text-zinc-400 text-sm space-y-2">
+                        <li class="flex items-start gap-2">
+                            <span class="text-orange-400 mt-1">›</span>
+                            <span>目录浏览、文件预览</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-orange-400 mt-1">›</span>
+                            <span>文件上传、下载</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-orange-400 mt-1">›</span>
+                            <span>在线编辑、拖拽上传</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Notes -->
+                <div class="feature-card rounded-xl p-6 animate-on-scroll delay-8">
+                    <div class="w-12 h-12 rounded-lg bg-teal-500/10 flex items-center justify-center mb-4">
+                        <span class="text-2xl">📝</span>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-3 text-white">笔记管理</h3>
+                    <ul class="text-zinc-400 text-sm space-y-2">
+                        <li class="flex items-start gap-2">
+                            <span class="text-teal-400 mt-1">›</span>
+                            <span>笔记分类、搜索</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-teal-400 mt-1">›</span>
+                            <span>Markdown 格式支持</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-teal-400 mt-1">›</span>
+                            <span>终端页面快捷查看</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Port Tunnels -->
+                <div class="feature-card rounded-xl p-6 animate-on-scroll delay-9">
+                    <div class="w-12 h-12 rounded-lg bg-indigo-500/10 flex items-center justify-center mb-4">
+                        <span class="text-2xl">🔗</span>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-3 text-white">端口隧道</h3>
+                    <ul class="text-zinc-400 text-sm space-y-2">
+                        <li class="flex items-start gap-2">
+                            <span class="text-indigo-400 mt-1">›</span>
+                            <span>SOCKS5 代理隧道</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-indigo-400 mt-1">›</span>
+                            <span>支持绑定 127.0.0.1 或 0.0.0.0</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-indigo-400 mt-1">›</span>
+                            <span>映射本地端口到远程服务器</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- UI Demo Section -->
+    <section id="showcase" class="py-24 relative">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-12">
+                <div class="animate-on-scroll">
+                    <span class="text-sm text-cyan-400 font-mono">// 界面预览</span>
+                    <h2 class="text-4xl md:text-5xl font-bold mt-4 mb-4">
+                        <span class="gradient-text">直观的操作体验</span>
+                    </h2>
+                    <p class="text-zinc-400">现代化 UI 设计，流畅的交互动画</p>
+                </div>
+            </div>
+
+            <div class="flex justify-center gap-3 mb-10 flex-wrap animate-on-scroll">
                 <button class="showcase-tab active" data-showcase="terminal" onclick="showShowcase('terminal')">终端</button>
                 <button class="showcase-tab" data-showcase="servers" onclick="showShowcase('servers')">服务器</button>
                 <button class="showcase-tab" data-showcase="cron" onclick="showShowcase('cron')">计划任务</button>
@@ -158,53 +749,51 @@
             </div>
             
             <!-- Terminal Showcase -->
-            <div id="showcase-terminal" class="ui-demo max-w-4xl mx-auto" style="height: 400px;">
+            <div id="showcase-terminal" class="ui-demo max-w-5xl mx-auto animate-on-scroll" style="height: 420px;">
                 <div class="flex h-full">
-                    <!-- Sidebar -->
-                    <div class="demo-sidebar p-3 border-r border-gray-700">
-                        <div class="text-xs text-gray-400 mb-3 px-2">Deploy Manager</div>
+                    <div class="demo-sidebar p-4">
+                        <div class="text-xs text-zinc-500 mb-4 px-2 font-mono">Deploy Manager</div>
                         <div class="space-y-1">
-                            <div class="menu-item active flex items-center gap-2 px-2 py-1.5 rounded text-sm text-blue-400">
+                            <div class="menu-item active flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-cyan-400">
                                 <span>🖥️</span> 服务器
                             </div>
-                            <div class="menu-item flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-400">
+                            <div class="menu-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-zinc-500">
                                 <span>🐳</span> 容器管理
                             </div>
-                            <div class="menu-item flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-400">
+                            <div class="menu-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-zinc-500">
                                 <span>⏰</span> 计划任务
                             </div>
-                            <div class="menu-item flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-400">
+                            <div class="menu-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-zinc-500">
                                 <span>💻</span> 终端
                             </div>
                         </div>
                     </div>
-                    <!-- Terminal Content -->
                     <div class="demo-content flex flex-col">
-                        <div class="bg-gray-800 px-4 py-2 flex items-center gap-2 border-b border-gray-700">
-                            <div class="flex gap-1.5">
-                                <div class="w-3 h-3 rounded-full bg-red-500"></div>
-                                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
-                                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        <div class="bg-black/50 px-4 py-3 flex items-center gap-3 border-b border-white/5">
+                            <div class="flex gap-2">
+                                <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+                                <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                                <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
                             </div>
-                            <span class="text-xs text-gray-400 ml-2">Web Terminal - production-server</span>
+                            <span class="text-xs text-zinc-500 ml-2 font-mono">Web Terminal - production-server</span>
                         </div>
-                        <div class="flex-1 p-4 font-mono text-sm text-green-400 bg-black">
+                        <div class="flex-1 p-4 font-mono text-sm bg-black/80">
                             <div class="mb-2">
-                                <span class="text-blue-400">admin@production</span>:<span class="text-purple-400">~</span>$ <span id="typing-text" class="text-white"></span><span class="cursor"></span>
+                                <span class="text-cyan-400">admin@production</span>:<span class="text-purple-400">~</span>$ <span id="typing-text" class="text-white"></span><span class="terminal-cursor"></span>
                             </div>
-                            <div id="terminal-output" class="text-gray-300 whitespace-pre-wrap"></div>
+                            <div id="terminal-output" class="text-zinc-300 whitespace-pre-wrap"></div>
                         </div>
                     </div>
                 </div>
             </div>
             
             <!-- Servers Showcase -->
-            <div id="showcase-servers" class="ui-demo max-w-4xl mx-auto hidden" style="height: 400px;">
+            <div id="showcase-servers" class="ui-demo max-w-5xl mx-auto hidden animate-on-scroll" style="height: 420px;">
                 <div class="flex h-full">
-                    <div class="demo-sidebar p-3 border-r border-gray-700">
-                        <div class="text-xs text-gray-400 mb-3 px-2">Deploy Manager</div>
+                    <div class="demo-sidebar p-4">
+                        <div class="text-xs text-zinc-500 mb-4 px-2 font-mono">Deploy Manager</div>
                         <div class="space-y-1">
-                            <div class="menu-item active flex items-center gap-2 px-2 py-1.5 rounded text-sm text-blue-400">
+                            <div class="menu-item active flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-cyan-400">
                                 <span>🖥️</span> 服务器
                             </div>
                         </div>
@@ -212,49 +801,51 @@
                     <div class="demo-content p-6">
                         <div class="flex items-center justify-between mb-6">
                             <h3 class="text-white text-lg font-semibold">服务器管理</h3>
-                            <button class="bg-blue-600 text-white px-4 py-2 rounded text-sm">➕ 添加服务器</button>
+                            <button class="neon-btn px-4 py-2 rounded-lg text-sm">
+                                <span>➕ 添加服务器</span>
+                            </button>
                         </div>
                         <div class="grid grid-cols-3 gap-4">
-                            <div class="server-card bg-gray-800 rounded-lg p-4 border border-gray-700">
+                            <div class="server-card rounded-xl p-4">
                                 <div class="flex items-center justify-between mb-3">
                                     <div class="flex items-center gap-2">
-                                        <span class="text-green-400">🐧</span>
+                                        <span class="text-lg">🐧</span>
                                         <span class="text-white font-medium">Web Server 01</span>
                                     </div>
                                     <div class="status-dot status-online"></div>
                                 </div>
-                                <div class="text-xs text-gray-400 mb-3">192.168.1.100:22</div>
+                                <div class="text-xs text-zinc-500 mb-4 font-mono">192.168.1.100:22</div>
                                 <div class="flex gap-2">
-                                    <button class="flex-1 bg-purple-600 text-white py-1.5 rounded text-xs">终端</button>
-                                    <button class="flex-1 bg-gray-700 text-gray-300 py-1.5 rounded text-xs">编辑</button>
+                                    <button class="flex-1 bg-cyan-500/20 text-cyan-400 py-2 rounded-lg text-xs hover:bg-cyan-500/30 transition">终端</button>
+                                    <button class="flex-1 bg-white/5 text-zinc-400 py-2 rounded-lg text-xs hover:bg-white/10 transition">编辑</button>
                                 </div>
                             </div>
-                            <div class="server-card bg-gray-800 rounded-lg p-4 border border-gray-700">
+                            <div class="server-card rounded-xl p-4">
                                 <div class="flex items-center justify-between mb-3">
                                     <div class="flex items-center gap-2">
-                                        <span class="text-green-400">🐧</span>
+                                        <span class="text-lg">🐧</span>
                                         <span class="text-white font-medium">DB Server</span>
                                     </div>
                                     <div class="status-dot status-online"></div>
                                 </div>
-                                <div class="text-xs text-gray-400 mb-3">192.168.1.101:22</div>
+                                <div class="text-xs text-zinc-500 mb-4 font-mono">192.168.1.101:22</div>
                                 <div class="flex gap-2">
-                                    <button class="flex-1 bg-purple-600 text-white py-1.5 rounded text-xs">终端</button>
-                                    <button class="flex-1 bg-gray-700 text-gray-300 py-1.5 rounded text-xs">编辑</button>
+                                    <button class="flex-1 bg-cyan-500/20 text-cyan-400 py-2 rounded-lg text-xs hover:bg-cyan-500/30 transition">终端</button>
+                                    <button class="flex-1 bg-white/5 text-zinc-400 py-2 rounded-lg text-xs hover:bg-white/10 transition">编辑</button>
                                 </div>
                             </div>
-                            <div class="server-card bg-gray-800 rounded-lg p-4 border border-gray-700">
+                            <div class="server-card rounded-xl p-4">
                                 <div class="flex items-center justify-between mb-3">
                                     <div class="flex items-center gap-2">
-                                        <span class="text-blue-400">🪟</span>
+                                        <span class="text-lg">🪟</span>
                                         <span class="text-white font-medium">Windows Server</span>
                                     </div>
                                     <div class="status-dot status-offline"></div>
                                 </div>
-                                <div class="text-xs text-gray-400 mb-3">192.168.1.102:3389</div>
+                                <div class="text-xs text-zinc-500 mb-4 font-mono">192.168.1.102:3389</div>
                                 <div class="flex gap-2">
-                                    <button class="flex-1 bg-indigo-600 text-white py-1.5 rounded text-xs">RDP</button>
-                                    <button class="flex-1 bg-gray-700 text-gray-300 py-1.5 rounded text-xs">编辑</button>
+                                    <button class="flex-1 bg-purple-500/20 text-purple-400 py-2 rounded-lg text-xs hover:bg-purple-500/30 transition">RDP</button>
+                                    <button class="flex-1 bg-white/5 text-zinc-400 py-2 rounded-lg text-xs hover:bg-white/10 transition">编辑</button>
                                 </div>
                             </div>
                         </div>
@@ -263,15 +854,15 @@
             </div>
             
             <!-- Cron Showcase -->
-            <div id="showcase-cron" class="ui-demo max-w-4xl mx-auto hidden" style="height: 400px;">
+            <div id="showcase-cron" class="ui-demo max-w-5xl mx-auto hidden animate-on-scroll" style="height: 420px;">
                 <div class="flex h-full">
-                    <div class="demo-sidebar p-3 border-r border-gray-700">
-                        <div class="text-xs text-gray-400 mb-3 px-2">Deploy Manager</div>
+                    <div class="demo-sidebar p-4">
+                        <div class="text-xs text-zinc-500 mb-4 px-2 font-mono">Deploy Manager</div>
                         <div class="space-y-1">
-                            <div class="menu-item flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-400">
+                            <div class="menu-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-zinc-500">
                                 <span>🖥️</span> 服务器
                             </div>
-                            <div class="menu-item active flex items-center gap-2 px-2 py-1.5 rounded text-sm text-blue-400">
+                            <div class="menu-item active flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-cyan-400">
                                 <span>⏰</span> 计划任务
                             </div>
                         </div>
@@ -279,35 +870,36 @@
                     <div class="demo-content p-6">
                         <div class="flex items-center justify-between mb-6">
                             <h3 class="text-white text-lg font-semibold">计划任务</h3>
-                            <button class="bg-blue-600 text-white px-4 py-2 rounded text-sm">➕ 新建计划任务</button>
+                            <button class="neon-btn px-4 py-2 rounded-lg text-sm">
+                                <span>➕ 新建计划任务</span>
+                            </button>
                         </div>
-                        <!-- Cron Modal Preview -->
-                        <div class="modal-demo bg-gray-800 rounded-lg p-6 border border-gray-700 max-w-md">
+                        <div class="modal-demo rounded-xl p-6 border border-cyan-500/20 max-w-md">
                             <h4 class="text-white font-semibold mb-4">新建计划任务</h4>
                             <div class="space-y-4">
                                 <div>
-                                    <label class="block text-xs text-gray-400 mb-1">服务器</label>
-                                    <div class="bg-gray-700 rounded px-3 py-2 text-sm text-gray-300">Web Server 01 (192.168.1.100)</div>
+                                    <label class="block text-xs text-zinc-500 mb-2">服务器</label>
+                                    <div class="bg-white/5 rounded-lg px-4 py-3 text-sm text-zinc-300 border border-white/5">Web Server 01 (192.168.1.100)</div>
                                 </div>
                                 <div>
-                                    <label class="block text-xs text-gray-400 mb-1">执行计划</label>
+                                    <label class="block text-xs text-zinc-500 mb-2">执行计划</label>
                                     <div class="flex gap-2 flex-wrap">
-                                        <span class="bg-gray-700 text-gray-300 px-3 py-1 rounded text-xs">每分钟</span>
-                                        <span class="bg-gray-700 text-gray-300 px-3 py-1 rounded text-xs">每小时</span>
-                                        <span class="bg-blue-600 text-white px-3 py-1 rounded text-xs">每天</span>
-                                        <span class="bg-gray-700 text-gray-300 px-3 py-1 rounded text-xs">每周</span>
-                                        <span class="bg-gray-700 text-gray-300 px-3 py-1 rounded text-xs">自定义</span>
+                                        <span class="bg-white/5 text-zinc-400 px-3 py-1.5 rounded-lg text-xs border border-white/5">每分钟</span>
+                                        <span class="bg-white/5 text-zinc-400 px-3 py-1.5 rounded-lg text-xs border border-white/5">每小时</span>
+                                        <span class="bg-cyan-500/20 text-cyan-400 px-3 py-1.5 rounded-lg text-xs border border-cyan-500/30">每天</span>
+                                        <span class="bg-white/5 text-zinc-400 px-3 py-1.5 rounded-lg text-xs border border-white/5">每周</span>
+                                        <span class="bg-white/5 text-zinc-400 px-3 py-1.5 rounded-lg text-xs border border-white/5">自定义</span>
                                     </div>
-                                    <div class="mt-2 bg-gray-900 rounded p-2 text-xs">
-                                        <span class="text-gray-500">Cron:</span>
-                                        <span class="text-green-400 font-mono">0 0 * * *</span>
-                                        <span class="text-gray-500 ml-2">→</span>
-                                        <span class="text-blue-400">每天 00:00</span>
+                                    <div class="mt-3 bg-black/50 rounded-lg p-3 text-xs font-mono">
+                                        <span class="text-zinc-500">Cron:</span>
+                                        <span class="text-cyan-400">0 0 * * *</span>
+                                        <span class="text-zinc-500 ml-2">→</span>
+                                        <span class="text-purple-400">每天 00:00</span>
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-xs text-gray-400 mb-1">执行命令</label>
-                                    <div class="bg-gray-900 rounded px-3 py-2 text-sm text-green-400 font-mono">/usr/local/bin/backup.sh</div>
+                                    <label class="block text-xs text-zinc-500 mb-2">执行命令</label>
+                                    <div class="bg-black/50 rounded-lg px-4 py-3 text-sm text-green-400 font-mono border border-white/5">/usr/local/bin/backup.sh</div>
                                 </div>
                             </div>
                         </div>
@@ -316,62 +908,62 @@
             </div>
             
             <!-- Containers Showcase -->
-            <div id="showcase-containers" class="ui-demo max-w-4xl mx-auto hidden" style="height: 400px;">
+            <div id="showcase-containers" class="ui-demo max-w-5xl mx-auto hidden animate-on-scroll" style="height: 420px;">
                 <div class="flex h-full">
-                    <div class="demo-sidebar p-3 border-r border-gray-700">
-                        <div class="text-xs text-gray-400 mb-3 px-2">Deploy Manager</div>
+                    <div class="demo-sidebar p-4">
+                        <div class="text-xs text-zinc-500 mb-4 px-2 font-mono">Deploy Manager</div>
                         <div class="space-y-1">
-                            <div class="menu-item flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-400">
+                            <div class="menu-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-zinc-500">
                                 <span>🖥️</span> 服务器
                             </div>
-                            <div class="menu-item active flex items-center gap-2 px-2 py-1.5 rounded text-sm text-blue-400">
+                            <div class="menu-item active flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-cyan-400">
                                 <span>🐳</span> 容器管理
                             </div>
                         </div>
                     </div>
                     <div class="demo-content p-6">
-                        <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center justify-between mb-6">
                             <h3 class="text-white text-lg font-semibold">容器管理</h3>
-                            <button class="bg-gray-700 text-gray-300 px-3 py-1.5 rounded text-xs">🔄 刷新</button>
+                            <button class="bg-white/5 text-zinc-400 px-4 py-2 rounded-lg text-xs hover:bg-white/10 transition border border-white/5">🔄 刷新</button>
                         </div>
                         <div class="space-y-3">
-                            <div class="bg-gray-800 rounded-lg p-3 border border-gray-700 flex items-center justify-between">
+                            <div class="bg-white/3 rounded-lg p-4 border border-white/5 flex items-center justify-between hover:border-cyan-500/30 transition">
                                 <div class="flex items-center gap-3 min-w-0">
                                     <div class="status-dot status-online shrink-0"></div>
                                     <div class="min-w-0">
-                                        <div class="text-white text-sm font-medium truncate">nginx-web</div>
-                                        <div class="text-xs text-gray-400 truncate">nginx:1.25 · 0.0.0.0:80→80</div>
+                                        <div class="text-white text-sm font-medium">nginx-web</div>
+                                        <div class="text-xs text-zinc-500 font-mono">nginx:1.25 · 0.0.0.0:80→80</div>
                                     </div>
                                 </div>
-                                <div class="flex gap-1 shrink-0 ml-2">
-                                    <button class="bg-red-700 text-white px-2 py-1 rounded text-xs">停止</button>
-                                    <button class="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">日志</button>
+                                <div class="flex gap-2 shrink-0 ml-4">
+                                    <button class="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-xs hover:bg-red-500/30 transition">停止</button>
+                                    <button class="bg-white/5 text-zinc-400 px-3 py-1.5 rounded-lg text-xs hover:bg-white/10 transition">日志</button>
                                 </div>
                             </div>
-                            <div class="bg-gray-800 rounded-lg p-3 border border-gray-700 flex items-center justify-between">
+                            <div class="bg-white/3 rounded-lg p-4 border border-white/5 flex items-center justify-between hover:border-cyan-500/30 transition">
                                 <div class="flex items-center gap-3 min-w-0">
                                     <div class="status-dot status-online shrink-0"></div>
                                     <div class="min-w-0">
-                                        <div class="text-white text-sm font-medium truncate">postgres-db</div>
-                                        <div class="text-xs text-gray-400 truncate">postgres:16 · 0.0.0.0:5432→5432</div>
+                                        <div class="text-white text-sm font-medium">postgres-db</div>
+                                        <div class="text-xs text-zinc-500 font-mono">postgres:16 · 0.0.0.0:5432→5432</div>
                                     </div>
                                 </div>
-                                <div class="flex gap-1 shrink-0 ml-2">
-                                    <button class="bg-red-700 text-white px-2 py-1 rounded text-xs">停止</button>
-                                    <button class="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">日志</button>
+                                <div class="flex gap-2 shrink-0 ml-4">
+                                    <button class="bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-xs hover:bg-red-500/30 transition">停止</button>
+                                    <button class="bg-white/5 text-zinc-400 px-3 py-1.5 rounded-lg text-xs hover:bg-white/10 transition">日志</button>
                                 </div>
                             </div>
-                            <div class="bg-gray-800 rounded-lg p-3 border border-gray-700 flex items-center justify-between opacity-70">
+                            <div class="bg-white/3 rounded-lg p-4 border border-white/5 flex items-center justify-between opacity-60">
                                 <div class="flex items-center gap-3 min-w-0">
                                     <div class="status-dot status-offline shrink-0"></div>
                                     <div class="min-w-0">
-                                        <div class="text-white text-sm font-medium truncate">redis-cache</div>
-                                        <div class="text-xs text-gray-400 truncate">redis:7-alpine · Exited (0)</div>
+                                        <div class="text-white text-sm font-medium">redis-cache</div>
+                                        <div class="text-xs text-zinc-500 font-mono">redis:7-alpine · Exited (0)</div>
                                     </div>
                                 </div>
-                                <div class="flex gap-1 shrink-0 ml-2">
-                                    <button class="bg-green-700 text-white px-2 py-1 rounded text-xs">启动</button>
-                                    <button class="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">日志</button>
+                                <div class="flex gap-2 shrink-0 ml-4">
+                                    <button class="bg-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-xs hover:bg-green-500/30 transition">启动</button>
+                                    <button class="bg-white/5 text-zinc-400 px-3 py-1.5 rounded-lg text-xs hover:bg-white/10 transition">日志</button>
                                 </div>
                             </div>
                         </div>
@@ -380,15 +972,15 @@
             </div>
             
             <!-- Files Showcase -->
-            <div id="showcase-files" class="ui-demo max-w-4xl mx-auto hidden" style="height: 400px;">
+            <div id="showcase-files" class="ui-demo max-w-5xl mx-auto hidden animate-on-scroll" style="height: 420px;">
                 <div class="flex h-full">
-                    <div class="demo-sidebar p-3 border-r border-gray-700">
-                        <div class="text-xs text-gray-400 mb-3 px-2">Deploy Manager</div>
+                    <div class="demo-sidebar p-4">
+                        <div class="text-xs text-zinc-500 mb-4 px-2 font-mono">Deploy Manager</div>
                         <div class="space-y-1">
-                            <div class="menu-item flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-400">
+                            <div class="menu-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-zinc-500">
                                 <span>🖥️</span> 服务器
                             </div>
-                            <div class="menu-item active flex items-center gap-2 px-2 py-1.5 rounded text-sm text-blue-400">
+                            <div class="menu-item active flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-cyan-400">
                                 <span>📁</span> 文件管理
                             </div>
                         </div>
@@ -397,54 +989,56 @@
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-white text-lg font-semibold">文件管理</h3>
                             <div class="flex gap-2">
-                                <button class="bg-blue-600 text-white px-3 py-1.5 rounded text-xs">上传</button>
-                                <button class="bg-gray-700 text-gray-300 px-3 py-1.5 rounded text-xs">新建</button>
+                                <button class="neon-btn px-4 py-2 rounded-lg text-xs">
+                                    <span>上传</span>
+                                </button>
+                                <button class="bg-white/5 text-zinc-400 px-4 py-2 rounded-lg text-xs hover:bg-white/10 transition border border-white/5">新建</button>
                             </div>
                         </div>
-                        <div class="flex items-center gap-1 text-xs text-gray-400 mb-3 font-mono">
-                            <span class="text-blue-400">/</span>
-                            <span class="text-blue-400">home</span>
-                            <span class="text-gray-600">/</span>
-                            <span class="text-blue-400">admin</span>
-                            <span class="text-gray-600">/</span>
-                            <span class="text-gray-300">projects</span>
+                        <div class="flex items-center gap-2 text-xs text-zinc-500 mb-4 font-mono">
+                            <span class="text-cyan-400">/</span>
+                            <span class="text-cyan-400">home</span>
+                            <span class="text-zinc-600">/</span>
+                            <span class="text-cyan-400">admin</span>
+                            <span class="text-zinc-600">/</span>
+                            <span class="text-zinc-300">projects</span>
                         </div>
-                        <div class="space-y-0.5">
-                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group">
-                                <span class="text-yellow-400 w-5">📁</span>
-                                <span class="text-gray-300 flex-1">nginx-config</span>
-                                <span class="text-gray-600 text-xs">2026-07-06</span>
-                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 编辑 删除</span>
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer text-sm group transition">
+                                <span class="text-yellow-400">📁</span>
+                                <span class="text-zinc-300 flex-1">nginx-config</span>
+                                <span class="text-zinc-600 text-xs font-mono">2026-07-06</span>
+                                <span class="text-zinc-500 text-xs hidden group-hover:inline ml-2">下载 编辑 删除</span>
                             </div>
-                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group">
-                                <span class="text-yellow-400 w-5">📁</span>
-                                <span class="text-gray-300 flex-1">docker-compose</span>
-                                <span class="text-gray-600 text-xs">2026-07-05</span>
-                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 编辑 删除</span>
+                            <div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer text-sm group transition">
+                                <span class="text-yellow-400">📁</span>
+                                <span class="text-zinc-300 flex-1">docker-compose</span>
+                                <span class="text-zinc-600 text-xs font-mono">2026-07-05</span>
+                                <span class="text-zinc-500 text-xs hidden group-hover:inline ml-2">下载 编辑 删除</span>
                             </div>
-                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group">
-                                <span class="text-gray-300 w-5">📄</span>
-                                <span class="text-gray-300 flex-1">deploy.sh</span>
-                                <span class="text-gray-600 text-xs">2026-07-06</span>
-                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 编辑 删除</span>
+                            <div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer text-sm group transition">
+                                <span class="text-zinc-400">📄</span>
+                                <span class="text-zinc-300 flex-1">deploy.sh</span>
+                                <span class="text-zinc-600 text-xs font-mono">2026-07-06</span>
+                                <span class="text-zinc-500 text-xs hidden group-hover:inline ml-2">下载 编辑 删除</span>
                             </div>
-                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group">
-                                <span class="text-gray-300 w-5">📄</span>
-                                <span class="text-gray-300 flex-1">docker-compose.yml</span>
-                                <span class="text-gray-600 text-xs">2026-07-04</span>
-                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 编辑 删除</span>
+                            <div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer text-sm group transition">
+                                <span class="text-zinc-400">📄</span>
+                                <span class="text-zinc-300 flex-1">docker-compose.yml</span>
+                                <span class="text-zinc-600 text-xs font-mono">2026-07-04</span>
+                                <span class="text-zinc-500 text-xs hidden group-hover:inline ml-2">下载 编辑 删除</span>
                             </div>
-                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group">
-                                <span class="text-gray-300 w-5">🔧</span>
-                                <span class="text-gray-300 flex-1">.env.production</span>
-                                <span class="text-gray-600 text-xs">2026-07-03</span>
-                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 编辑 删除</span>
+                            <div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer text-sm group transition">
+                                <span class="text-zinc-400">🔧</span>
+                                <span class="text-zinc-300 flex-1">.env.production</span>
+                                <span class="text-zinc-600 text-xs font-mono">2026-07-03</span>
+                                <span class="text-zinc-500 text-xs hidden group-hover:inline ml-2">下载 编辑 删除</span>
                             </div>
-                            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-700/50 cursor-pointer text-sm group opacity-50">
-                                <span class="text-gray-400 w-5">📄</span>
-                                <span class="text-gray-400 flex-1">backup-20260701.tar.gz</span>
-                                <span class="text-gray-600 text-xs">2026-07-01</span>
-                                <span class="text-gray-500 text-xs ml-2 hidden group-hover:inline">下载 删除</span>
+                            <div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer text-sm group transition opacity-50">
+                                <span class="text-zinc-500">📄</span>
+                                <span class="text-zinc-400 flex-1">backup-20260701.tar.gz</span>
+                                <span class="text-zinc-600 text-xs font-mono">2026-07-01</span>
+                                <span class="text-zinc-500 text-xs hidden group-hover:inline ml-2">下载 删除</span>
                             </div>
                         </div>
                     </div>
@@ -452,229 +1046,198 @@
             </div>
             
             <!-- Screenshots Showcase -->
-            <div id="showcase-screenshots" class="ui-demo max-w-4xl mx-auto hidden" style="height: 400px;">
+            <div id="showcase-screenshots" class="ui-demo max-w-5xl mx-auto hidden animate-on-scroll" style="height: 420px;">
                 <div class="flex h-full">
-                    <div class="demo-sidebar p-3 border-r border-gray-700">
-                        <div class="text-xs text-gray-400 mb-3 px-2">Deploy Manager</div>
+                    <div class="demo-sidebar p-4">
+                        <div class="text-xs text-zinc-500 mb-4 px-2 font-mono">Deploy Manager</div>
                         <div class="space-y-1">
-                            <div class="menu-item active flex items-center gap-2 px-2 py-1.5 rounded text-sm text-blue-400">
+                            <div class="menu-item active flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-cyan-400">
                                 <span>📸</span> 应用截图
                             </div>
                         </div>
                     </div>
                     <div class="demo-content p-4 flex flex-col">
-                        <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center justify-between mb-4">
                             <h3 class="text-white text-lg font-semibold">应用截图</h3>
-                            <span class="text-xs text-gray-400" id="screenshot-counter">1 / 5</span>
+                            <span class="text-xs text-zinc-500 font-mono" id="screenshot-counter">1 / 5</span>
                         </div>
-                        <div class="flex-1 relative bg-gray-900 rounded-lg overflow-hidden">
+                        <div class="flex-1 relative bg-black/50 rounded-xl overflow-hidden screenshot-gallery">
                             <img id="screenshot-img" class="w-full h-full object-contain" src="image/20260707-103820.jpg" alt="App screenshot">
-                            <button onclick="prevScreenshot()" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg">‹</button>
-                            <button onclick="nextScreenshot()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg">›</button>
+                            <button onclick="prevScreenshot()" class="gallery-btn absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-lg text-cyan-400">‹</button>
+                            <button onclick="nextScreenshot()" class="gallery-btn absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-lg text-cyan-400">›</button>
                         </div>
-                        <div class="flex justify-center gap-2 mt-3" id="screenshot-dots"></div>
+                        <div class="flex justify-center gap-3 mt-4" id="screenshot-dots"></div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Features Section -->
-    <section id="features" class="py-20">
-        <div class="container mx-auto px-6">
-            <h2 class="text-3xl font-bold text-center mb-12 text-gray-800">核心功能</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <!-- Server Management -->
-                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
-                    <div class="text-4xl mb-4">🖥️</div>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-800">服务器管理</h3>
-                    <ul class="text-gray-600 space-y-1 text-sm">
-                        <li>• 多台服务器 SSH 连接管理</li>
-                        <li>• 支持跳板机/堡垒机</li>
-                        <li>• SOCKS5/SOCKS4 代理连接</li>
-                        <li>• 服务器分组、在线状态监控</li>
-                    </ul>
-                </div>
-
-                <!-- Web Terminal -->
-                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
-                    <div class="text-4xl mb-4">💻</div>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-800">Web 终端</h3>
-                    <ul class="text-gray-600 space-y-1 text-sm">
-                        <li>• 基于 WebSocket 的实时终端</li>
-                        <li>• 多标签页管理</li>
-                        <li>• 鼠标选中自动复制</li>
-                        <li>• 终端会话历史记录与回放</li>
-                    </ul>
-                </div>
-
-                <!-- Desktop Client -->
-                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
-                    <div class="text-4xl mb-4">🪟</div>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-800">Desktop 客户端</h3>
-                    <ul class="text-gray-600 space-y-1 text-sm">
-                        <li>• 基于 Wails 的 Windows 桌面客户端</li>
-                        <li>• 内置后端服务</li>
-                        <li>• 本地终端支持</li>
-                        <li>• 系统托盘运行</li>
-                    </ul>
-                </div>
-
-                <!-- Container Management -->
-                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
-                    <div class="text-4xl mb-4">🐳</div>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-800">容器管理</h3>
-                    <ul class="text-gray-600 space-y-1 text-sm">
-                        <li>• Docker 容器查看、启动、停止</li>
-                        <li>• 容器日志查看</li>
-                        <li>• 镜像列表管理</li>
-                    </ul>
-                </div>
-
-                <!-- Service Deployment -->
-                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
-                    <div class="text-4xl mb-4">🚀</div>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-800">服务部署</h3>
-                    <ul class="text-gray-600 space-y-1 text-sm">
-                        <li>• Docker Compose 一键部署</li>
-                        <li>• 自定义 compose 配置</li>
-                        <li>• 部署状态跟踪</li>
-                    </ul>
-                </div>
-
-                <!-- Scheduled Tasks -->
-                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
-                    <div class="text-4xl mb-4">⏰</div>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-800">计划任务</h3>
-                    <ul class="text-gray-600 space-y-1 text-sm">
-                        <li>• Crontab 可视化编辑</li>
-                        <li>• 任务执行记录查看</li>
-                        <li>• 一键执行任务</li>
-                    </ul>
-                </div>
-
-                <!-- File Management -->
-                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
-                    <div class="text-4xl mb-4">📁</div>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-800">文件管理</h3>
-                    <ul class="text-gray-600 space-y-1 text-sm">
-                        <li>• 目录浏览、文件预览</li>
-                        <li>• 文件上传、下载</li>
-                        <li>• 在线编辑</li>
-                        <li>• 拖拽上传支持</li>
-                    </ul>
-                </div>
-
-                <!-- Notes -->
-                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
-                    <div class="text-4xl mb-4">📝</div>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-800">笔记管理</h3>
-                    <ul class="text-gray-600 space-y-1 text-sm">
-                        <li>• 笔记分类、搜索</li>
-                        <li>• Markdown 格式支持</li>
-                        <li>• 终端页面快捷查看</li>
-                    </ul>
-                </div>
-
-                <!-- Port Tunnels -->
-                <div class="feature-card bg-white p-6 rounded-xl shadow-md">
-                    <div class="text-4xl mb-4">🔗</div>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-800">端口隧道</h3>
-                    <ul class="text-gray-600 space-y-1 text-sm">
-                        <li>• SOCKS5 代理隧道</li>
-                        <li>• 支持绑定 127.0.0.1 或 0.0.0.0</li>
-                        <li>• 映射本地端口到远程服务器</li>
-                    </ul>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Tech Stack Section -->
-    <section class="bg-gray-100 py-16">
+    <section class="py-24 relative">
         <div class="container mx-auto px-6 text-center">
-            <h2 class="text-3xl font-bold mb-8 text-gray-800">技术栈</h2>
-            <div class="flex flex-wrap justify-center gap-8">
-                <div class="flex flex-col items-center">
-                    <span class="text-4xl mb-2">🐹</span>
-                    <span class="font-semibold">Go</span>
+            <div class="animate-on-scroll">
+                <span class="text-sm text-cyan-400 font-mono">// 技术栈</span>
+                <h2 class="text-4xl md:text-5xl font-bold mt-4 mb-12">
+                    <span class="gradient-text">现代化技术架构</span>
+                </h2>
+            </div>
+            <div class="flex flex-wrap justify-center gap-10">
+                <div class="flex flex-col items-center tech-icon animate-on-scroll delay-1">
+                    <div class="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 hover:border-cyan-500/50 transition">
+                        <span class="text-3xl">🐹</span>
+                    </div>
+                    <span class="font-semibold text-zinc-300">Go</span>
                 </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-4xl mb-2">⚡</span>
-                    <span class="font-semibold">Gin</span>
+                <div class="flex flex-col items-center tech-icon animate-on-scroll delay-2">
+                    <div class="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 hover:border-purple-500/50 transition">
+                        <span class="text-3xl">⚡</span>
+                    </div>
+                    <span class="font-semibold text-zinc-300">Gin</span>
                 </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-4xl mb-2">🗄️</span>
-                    <span class="font-semibold">SQLite</span>
+                <div class="flex flex-col items-center tech-icon animate-on-scroll delay-3">
+                    <div class="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 hover:border-blue-500/50 transition">
+                        <span class="text-3xl">🗄️</span>
+                    </div>
+                    <span class="font-semibold text-zinc-300">SQLite</span>
                 </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-4xl mb-2">🖥️</span>
-                    <span class="font-semibold">xterm.js</span>
+                <div class="flex flex-col items-center tech-icon animate-on-scroll delay-4">
+                    <div class="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 hover:border-green-500/50 transition">
+                        <span class="text-3xl">🖥️</span>
+                    </div>
+                    <span class="font-semibold text-zinc-300">xterm.js</span>
                 </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-4xl mb-2">🎨</span>
-                    <span class="font-semibold">Alpine.js</span>
+                <div class="flex flex-col items-center tech-icon animate-on-scroll delay-5">
+                    <div class="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 hover:border-pink-500/50 transition">
+                        <span class="text-3xl">🎨</span>
+                    </div>
+                    <span class="font-semibold text-zinc-300">Alpine.js</span>
                 </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-4xl mb-2">💨</span>
-                    <span class="font-semibold">TailwindCSS</span>
+                <div class="flex flex-col items-center tech-icon animate-on-scroll delay-6">
+                    <div class="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 hover:border-cyan-500/50 transition">
+                        <span class="text-3xl">💨</span>
+                    </div>
+                    <span class="font-semibold text-zinc-300">TailwindCSS</span>
                 </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-4xl mb-2">🪟</span>
-                    <span class="font-semibold">Wails</span>
+                <div class="flex flex-col items-center tech-icon animate-on-scroll delay-7">
+                    <div class="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 hover:border-purple-500/50 transition">
+                        <span class="text-3xl">🪟</span>
+                    </div>
+                    <span class="font-semibold text-zinc-300">Wails</span>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Quick Start Section -->
-    <section class="py-16">
+    <section class="py-24 relative">
         <div class="container mx-auto px-6">
-            <h2 class="text-3xl font-bold text-center mb-8 text-gray-800">快速开始</h2>
-            <div class="max-w-3xl mx-auto bg-gray-900 text-green-400 p-6 rounded-lg font-mono text-sm">
-                <p class="text-gray-500"># 编译</p>
-                <p>go build -o deploy-manager.exe ./cmd/server/main.go</p>
-                <br>
-                <p class="text-gray-500"># 运行</p>
-                <p>./deploy-manager.exe --password yourpass</p>
-                <br>
-                <p class="text-gray-500"># 访问</p>
-                <p>浏览器打开 http://localhost:3000</p>
+            <div class="text-center mb-12">
+                <div class="animate-on-scroll">
+                    <span class="text-sm text-cyan-400 font-mono">// 快速开始</span>
+                    <h2 class="text-4xl md:text-5xl font-bold mt-4 mb-4">
+                        <span class="gradient-text">三步启动</span>
+                    </h2>
+                </div>
+            </div>
+            <div class="max-w-3xl mx-auto animate-on-scroll">
+                <div class="code-block rounded-xl p-6 font-mono text-sm">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+                        <span class="text-zinc-500 ml-2 text-xs">terminal</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-zinc-500 mb-1"># 编译</p>
+                            <p class="text-cyan-400">go build -o deploy-manager.exe ./cmd/server/main.go</p>
+                        </div>
+                        <div>
+                            <p class="text-zinc-500 mb-1"># 运行</p>
+                            <p class="text-green-400">./deploy-manager.exe --password yourpass</p>
+                        </div>
+                        <div>
+                            <p class="text-zinc-500 mb-1"># 访问</p>
+                            <p class="text-purple-400">浏览器打开 http://localhost:3000</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- Download Section -->
-    <section class="gradient-bg py-16 text-white">
-        <div class="container mx-auto px-6 text-center">
-            <h2 class="text-3xl font-bold mb-4">立即开始使用</h2>
-            <p class="text-xl mb-8 opacity-90">选择适合你的版本</p>
-            <div class="flex flex-wrap justify-center gap-6">
-                <a href="https://github.com/sunquan819/sshmg/releases" class="bg-white text-purple-600 px-8 py-4 rounded-lg font-semibold hover:bg-gray-100 transition" target="_blank">
-                    <span class="text-2xl">🪟</span>
-                    <br>Desktop 客户端
+    <section class="py-24 relative">
+        <div class="absolute inset-0 bg-gradient-to-b from-cyan-500/5 via-transparent to-purple-500/5"></div>
+        <div class="container mx-auto px-6 text-center relative z-10">
+            <div class="animate-on-scroll">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">
+                    <span class="gradient-text">立即开始使用</span>
+                </h2>
+                <p class="text-zinc-400 text-lg mb-10">选择适合你的版本</p>
+            </div>
+            <div class="flex flex-wrap justify-center gap-6 animate-on-scroll delay-2">
+                <a href="https://github.com/sunquan819/sshmg/releases" class="neon-btn px-10 py-5 rounded-xl text-base font-semibold group" target="_blank">
+                    <span class="flex flex-col items-center gap-2">
+                        <span class="text-2xl group-hover:scale-110 transition">🪟</span>
+                        <span>Desktop 客户端</span>
+                    </span>
                 </a>
-                <a href="https://github.com/sunquan819/sshmg" class="border-2 border-white px-8 py-4 rounded-lg font-semibold hover:bg-white hover:text-purple-600 transition" target="_blank">
-                    <span class="text-2xl">📦</span>
-                    <br>源码编译
+                <a href="https://github.com/sunquan819/sshmg" class="px-10 py-5 rounded-xl text-base font-semibold border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white transition group" target="_blank">
+                    <span class="flex flex-col items-center gap-2">
+                        <span class="text-2xl group-hover:scale-110 transition">📦</span>
+                        <span>源码编译</span>
+                    </span>
                 </a>
             </div>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer class="bg-gray-800 text-gray-400 py-8">
+    <footer class="py-12 footer-border">
         <div class="container mx-auto px-6 text-center">
-            <p>Deploy Manager - 服务器运维管理工具</p>
-            <p class="mt-2">
-                <a href="https://github.com/sunquan819/sshmg" class="hover:text-white" target="_blank">GitHub</a>
-                <span class="mx-2">•</span>
-                <span>Apache 2.0 License</span>
-            </p>
+            <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
+                    <span>⚡</span>
+                </div>
+                <span class="font-bold gradient-text">Deploy Manager</span>
+            </div>
+            <p class="text-zinc-500 text-sm">服务器运维管理工具</p>
+            <div class="flex justify-center gap-6 mt-6">
+                <a href="https://github.com/sunquan819/sshmg" class="text-zinc-500 hover:text-cyan-400 text-sm transition" target="_blank">GitHub</a>
+                <span class="text-zinc-700">•</span>
+                <span class="text-zinc-500 text-sm">Apache 2.0 License</span>
+            </div>
         </div>
     </footer>
 
     <script>
+        // Mouse follower
+        const follower = document.getElementById('mouseFollower');
+        document.addEventListener('mousemove', (e) => {
+            follower.style.left = e.clientX + 'px';
+            follower.style.top = e.clientY + 'px';
+        });
+
+        // Scroll animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.animate-on-scroll').forEach(el => {
+            observer.observe(el);
+        });
+
         // Terminal typing - one command, once
         function typeOnce() {
             const typingEl = document.getElementById('typing-text');
@@ -746,7 +1309,9 @@
             document.getElementById('screenshot-img').src = screenshots[screenshotIdx];
             document.getElementById('screenshot-counter').textContent = (screenshotIdx + 1) + ' / ' + screenshots.length;
             document.querySelectorAll('#screenshot-dots span').forEach((dot, i) => {
-                dot.className = i === screenshotIdx ? 'w-2.5 h-2.5 rounded-full bg-blue-500' : 'w-2.5 h-2.5 rounded-full bg-gray-600 cursor-pointer';
+                dot.className = i === screenshotIdx 
+                    ? 'w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(0,212,255,0.5)]' 
+                    : 'w-3 h-3 rounded-full bg-zinc-600 hover:bg-zinc-500 cursor-pointer transition';
             });
         }
 
@@ -758,7 +1323,9 @@
         if (dotsEl) {
             screenshots.forEach((_, i) => {
                 const dot = document.createElement('span');
-                dot.className = i === 0 ? 'w-2.5 h-2.5 rounded-full bg-blue-500' : 'w-2.5 h-2.5 rounded-full bg-gray-600 cursor-pointer';
+                dot.className = i === 0 
+                    ? 'w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(0,212,255,0.5)]' 
+                    : 'w-3 h-3 rounded-full bg-zinc-600 hover:bg-zinc-500 cursor-pointer transition';
                 dot.onclick = () => { screenshotIdx = i; updateScreenshot(); };
                 dotsEl.appendChild(dot);
             });
