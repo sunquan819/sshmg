@@ -5,134 +5,164 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>笔记管理 - 部署管理系统</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
-    <link rel="stylesheet" href="/static/css/codemirror/codemirror.min.css">
-    <link rel="stylesheet" href="/static/css/codemirror/monokai.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/vditor@3.11.2/dist/index.css" />
     <style>
 html { font-size: 12px; }
 .dark .dark\:bg-gray-800 { background-color: #1f2937; }
 .dark .dark\:bg-gray-900 { background-color: #111827; }
 .dark .dark\:bg-gray-700 { background-color: #374151; }
-.dark .dark\:bg-gray-600 { background-color: #4b5563; }
-.dark .dark\:bg-blue-500 { background-color: #3b82f6; }
-.dark .dark\:bg-blue-900 { background-color: #1e3a5f; }
-.dark .dark\:bg-green-500 { background-color: #22c55e; }
-.dark .dark\:bg-green-900 { background-color: #14532d; }
-.dark .dark\:bg-purple-500 { background-color: #a855f7; }
-.dark .dark\:bg-purple-900 { background-color: #3b0764; }
-.dark .dark\:bg-red-500 { background-color: #ef4444; }
-.dark .dark\:bg-red-900 { background-color: #7f1d1d; }
-.dark .dark\:bg-yellow-900 { background-color: #713f12; }
 .dark .dark\:text-white { color: #fff; }
 .dark .dark\:text-gray-300 { color: #d1d5db; }
 .dark .dark\:text-gray-400 { color: #9ca3af; }
-.dark .dark\:text-blue-200 { color: #bfdbfe; }
-.dark .dark\:text-blue-400 { color: #60a5fa; }
-.dark .dark\:text-green-200 { color: #bbf7d0; }
-.dark .dark\:text-green-400 { color: #4ade80; }
-.dark .dark\:text-purple-200 { color: #e9d5ff; }
-.dark .dark\:text-red-200 { color: #fecaca; }
-.dark .dark\:text-red-400 { color: #f87171; }
-.dark .dark\:text-yellow-200 { color: #fef08a; }
 .dark .dark\:border-gray-600 { border-color: #4b5563; }
 .dark .dark\:border-gray-700 { border-color: #374151; }
-.dark .dark\:divide-gray-700 > * + * { border-color: #374151; }
-.dark .dark\:hover\:bg-gray-600:hover { background-color: #4b5563; }
-.dark .dark\:hover\:bg-gray-700:hover { background-color: #374151; }
-.dark .dark\:hover\:text-gray-200:hover { color: #e5e7eb; }
-.dark .dark\:hover\:text-gray-300:hover { color: #d1d5db; }
-.dark .dark\:hover\:text-white:hover { color: #fff; }
 
-/* Markdown preview styles */
-.markdown-preview {
-    line-height: 1.8;
-    font-size: 14px;
+/* Vditor dark theme override */
+.vditor {
+    border: 1px solid #374151 !important;
+    border-radius: 8px;
+    overflow: visible !important;
 }
-.markdown-preview h1 { font-size: 1.75em; font-weight: 700; margin: 0.8em 0 0.4em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
-.markdown-preview h2 { font-size: 1.5em; font-weight: 600; margin: 0.8em 0 0.4em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
-.markdown-preview h3 { font-size: 1.25em; font-weight: 600; margin: 0.8em 0 0.4em; }
-.markdown-preview h4 { font-size: 1.1em; font-weight: 600; margin: 0.6em 0 0.3em; }
-.markdown-preview p { margin: 0.5em 0; }
-.markdown-preview ul, .markdown-preview ol { margin: 0.5em 0; padding-left: 2em; }
-.markdown-preview ul { list-style-type: disc; }
-.markdown-preview ol { list-style-type: decimal; }
-.markdown-preview li { margin: 0.2em 0; }
-.markdown-preview blockquote {
-    border-left: 4px solid #3b82f6;
-    padding: 0.5em 1em;
-    margin: 0.5em 0;
-    background: rgba(59, 130, 246, 0.1);
-    border-radius: 0 4px 4px 0;
+.vditor-toolbar {
+    background: #1f2937 !important;
+    border-bottom: 1px solid #374151 !important;
+    border-radius: 8px 8px 0 0;
+    padding: 4px 8px !important;
+    overflow: visible !important;
 }
-.markdown-preview code {
-    background: rgba(0, 0, 0, 0.1);
-    padding: 0.2em 0.4em;
-    border-radius: 3px;
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 0.9em;
+.vditor-toolbar__item {
+    margin: 0 2px !important;
 }
-.markdown-preview pre {
-    background: #1e1e1e;
-    color: #d4d4d4;
-    padding: 1em;
-    border-radius: 6px;
-    overflow-x: auto;
-    margin: 0.5em 0;
+.vditor-toolbar__item button {
+    color: #9ca3af !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+    min-width: 28px !important;
+    height: 28px !important;
 }
-.markdown-preview pre code {
-    background: none;
-    padding: 0;
-    color: inherit;
+.vditor-toolbar__item button:hover {
+    color: #fff !important;
+    background: #374151 !important;
 }
-.markdown-preview a { color: #3b82f6; text-decoration: underline; }
-.markdown-preview a:hover { color: #2563eb; }
-.markdown-preview img { max-width: 100%; border-radius: 6px; margin: 0.5em 0; }
-.markdown-preview table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 0.5em 0;
+.vditor-toolbar__item--current button {
+    color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.1) !important;
 }
-.markdown-preview th, .markdown-preview td {
-    border: 1px solid #d1d5db;
-    padding: 0.5em 0.75em;
-    text-align: left;
+.vditor-tooltipped {
+    overflow: visible !important;
 }
-.markdown-preview th {
-    background: #f3f4f6;
-    font-weight: 600;
+.vditor-tooltipped::after {
+    z-index: 1000 !important;
+    background: #1f2937 !important;
+    color: #fff !important;
+    border: 1px solid #4b5563 !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
 }
-.markdown-preview hr {
-    border: none;
-    border-top: 1px solid #e5e7eb;
-    margin: 1em 0;
+.vditor-ir, .vditor-wysiwyg, .vditor-sv {
+    background: #111827 !important;
+    color: #d1d5db !important;
+    padding: 16px !important;
+    min-height: 300px !important;
 }
-.markdown-preview strong { font-weight: 600; }
-.markdown-preview em { font-style: italic; }
-
-/* Typora-style edit mode */
-.typora-editor {
-    min-height: 300px;
-    padding: 1em;
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 14px;
-    line-height: 1.6;
-    background: #1e1e1e;
-    color: #d4d4d4;
-    border: none;
-    outline: none;
-    resize: vertical;
-    width: 100%;
+.vditor-ir--marker, .vditor-wysiwyg--marker {
+    background: #1e3a5f !important;
 }
-.typora-editor:focus {
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+.vditor-ir pre.vditor-ir__marker--pre {
+    background: #1e1e1e !important;
+}
+.vditor-ir code.vditor-ir__marker--span {
+    background: #374151 !important;
+    color: #f87171 !important;
+}
+.vditor-ir__node--heading {
+    color: #fff !important;
+}
+.vditor-ir__node--blockquote {
+    border-left: 3px solid #3b82f6 !important;
+    color: #9ca3af !important;
+}
+.vditor-counter {
+    background: #1f2937 !important;
+    color: #6b7280 !important;
+    border-top: 1px solid #374151 !important;
+    border-radius: 0 0 8px 8px !important;
 }
 
-/* Edit mode indicator */
-.edit-indicator {
-    animation: pulse 2s infinite;
+/* Preview content styling */
+.vditor-preview, .vditor-content {
+    color: #d1d5db !important;
+    line-height: 1.8 !important;
 }
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+.vditor-preview h1, .vditor-content h1 { 
+    font-size: 1.75em !important; 
+    font-weight: 700 !important; 
+    margin: 0.5em 0 !important; 
+    color: #fff !important;
+    border-bottom: 1px solid #374151 !important;
+    padding-bottom: 0.3em !important;
+}
+.vditor-preview h2, .vditor-content h2 { 
+    font-size: 1.5em !important; 
+    font-weight: 600 !important; 
+    margin: 0.5em 0 !important; 
+    color: #fff !important;
+    border-bottom: 1px solid #374151 !important;
+    padding-bottom: 0.3em !important;
+}
+.vditor-preview h3, .vditor-content h3 { 
+    font-size: 1.25em !important; 
+    font-weight: 600 !important; 
+    margin: 0.5em 0 !important; 
+    color: #fff !important;
+}
+.vditor-preview p, .vditor-content p { 
+    margin: 0.5em 0 !important; 
+    white-space: pre-wrap !important;
+}
+.vditor-preview code, .vditor-content code {
+    background: #374151 !important;
+    color: #f87171 !important;
+    padding: 0.15em 0.4em !important;
+    border-radius: 3px !important;
+    font-family: 'Consolas', 'Monaco', monospace !important;
+}
+.vditor-preview pre, .vditor-content pre {
+    background: #1e1e1e !important;
+    color: #d4d4d4 !important;
+    padding: 1em !important;
+    border-radius: 6px !important;
+    overflow-x: auto !important;
+    margin: 0.5em 0 !important;
+}
+.vditor-preview pre code, .vditor-content pre code {
+    background: none !important;
+    padding: 0 !important;
+    color: inherit !important;
+}
+.vditor-preview blockquote, .vditor-content blockquote {
+    border-left: 4px solid #3b82f6 !important;
+    padding: 0.5em 1em !important;
+    margin: 0.5em 0 !important;
+    background: rgba(59, 130, 246, 0.1) !important;
+    color: #9ca3af !important;
+}
+.vditor-preview ul, .vditor-preview ol, .vditor-content ul, .vditor-content ol {
+    padding-left: 2em !important;
+    margin: 0.5em 0 !important;
+}
+.vditor-preview li, .vditor-content li {
+    margin: 0.2em 0 !important;
+}
+.vditor-preview a, .vditor-content a {
+    color: #3b82f6 !important;
+}
+.vditor-preview hr, .vditor-content hr {
+    border: none !important;
+    border-top: 1px solid #374151 !important;
+    margin: 1em 0 !important;
 }
     </style>
     <script>
@@ -141,9 +171,7 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
 </script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <script defer src="/static/js/alpine.min.js"></script>
-    <script src="/static/js/codemirror/codemirror.min.js"></script>
-    <script src="/static/js/codemirror/mode/markdown/markdown.min.js"></script>
-    <script src="/static/js/marked.min.js"></script>
+    <script src="https://unpkg.com/vditor@3.11.2/dist/index.min.js"></script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white text-sm" x-data="noteApp()" x-init="init()">
     <div id="copyToast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#16a34a;color:white;padding:8px 16px;border-radius:4px;font-size:14px;z-index:9999;">已复制</div>
@@ -190,18 +218,13 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
         </main>
     </div>
 
-    <!-- Add/Edit Modal with Typora-style editor -->
-    <div x-show="showAddModal || showEditModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class=" bg-white dark:bg-gray-800  rounded w-full max-w-4xl border border-gray-200 dark:border-gray-700 flex flex-col" style="max-height: 90vh;">
+    <!-- Add/Edit Modal with Vditor -->
+    <div x-show="showAddModal || showEditModal" @click.away="closeModal()" style="display:none;" x-init="$watch('showAddModal', val => { if(val) $nextTick(() => initVditor('')) }); $watch('showEditModal', val => { if(val) $nextTick(() => initVditor(noteForm.content)) })" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class=" bg-white dark:bg-gray-800  rounded w-full max-w-5xl border border-gray-200 dark:border-gray-700 flex flex-col" style="max-height: 90vh;">
             <!-- Header -->
             <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <h3 class="text-sm font-semibold" x-text="showEditModal ? '编辑笔记' : '新建笔记'"></h3>
-                <div class="flex items-center space-x-2">
-                    <button @click="toggleEditMode()" class="px-3 py-1 rounded text-xs" :class="isEditing ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'">
-                        <span x-text="isEditing ? '预览' : '编辑'"></span>
-                    </button>
-                    <button @click="closeModal()" class="text-gray-400 hover:text-white">✕</button>
-                </div>
+                <button @click="closeModal()" class="text-gray-400 hover:text-white">✕</button>
             </div>
             <!-- Title & Category -->
             <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 space-y-2">
@@ -215,21 +238,12 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
                     </datalist>
                 </div>
             </div>
-            <!-- Content Area -->
-            <div class="flex-1 overflow-auto" style="min-height: 300px;">
-                <!-- Preview Mode -->
-                <div x-show="!isEditing" @click="isEditing = true" class="markdown-preview p-6 cursor-text min-h-full" x-html="renderedContent || '<span class=\'text-gray-400\'>点击开始编辑...</span>'"></div>
-                <!-- Edit Mode -->
-                <div x-show="isEditing" class="h-full">
-                    <textarea x-ref="editor" x-model="noteForm.content" @input="updatePreview()" class="typora-editor" placeholder="输入 Markdown 内容..."></textarea>
-                </div>
+            <!-- Vditor Editor -->
+            <div class="flex-1 overflow-auto p-4">
+                <div id="vditor-editor"></div>
             </div>
             <!-- Footer -->
-            <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                <div class="text-xs text-gray-500">
-                    <span x-show="isEditing" class="edit-indicator text-blue-500">● 编辑中</span>
-                    <span x-show="!isEditing" class="text-green-500">● 预览</span>
-                </div>
+            <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center">
                 <div class="flex space-x-2">
                     <button @click="closeModal()" class="px-4 py-2 text-gray-400 hover:text-white">取消</button>
                     <button @click="saveNote()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white">保存</button>
@@ -256,18 +270,12 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
                 </div>
             </div>
             <div class="flex-1 overflow-auto p-6">
-                <div class="markdown-preview" x-html="renderNote(currentNote?.content)"></div>
+                <div id="vditor-preview" class="vditor-content"></div>
             </div>
         </div>
     </div>
 
     <script>
-    // Configure marked
-    marked.setOptions({
-        breaks: true,
-        gfm: true
-    });
-
     function noteApp() {
         return {
             notes: [],
@@ -279,8 +287,7 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
             showViewModal: false,
             currentNote: null,
             noteForm: { title: '', content: '', category: '' },
-            isEditing: false,
-            renderedContent: '',
+            vditor: null,
             init() {
                 this.checkAuth();
                 this.loadNotes();
@@ -311,61 +318,126 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
             viewNote(note) {
                 this.currentNote = note;
                 this.showViewModal = true;
+                this.$nextTick(() => {
+                    const previewEl = document.getElementById('vditor-preview');
+                    if (previewEl) {
+                        let content = note.content || '';
+                        
+                        // Ensure proper markdown line breaks
+                        // Markdown needs double newline for paragraph, single newline for line break
+                        // If content has only single newlines, convert them to double for proper rendering
+                        if (content && !content.includes('\n\n')) {
+                            // Single newlines - treat each line as a paragraph
+                            content = content.split('\n').map(line => line.trim()).filter(line => line).join('\n\n');
+                        }
+                        
+                        // Use Vditor's markdown rendering
+                        if (typeof Vditor !== 'undefined') {
+                            Vditor.preview(previewEl, content, {
+                                mode: 'dark',
+                                theme: 'dark',
+                                markdown: {
+                                    mark: true,
+                                    sanitize: false,
+                                    breaks: true  // Enable single newline as <br>
+                                }
+                            });
+                        } else {
+                            // Fallback: render with basic markdown
+                            previewEl.innerHTML = this.renderMarkdownBasic(content);
+                        }
+                    }
+                });
+            },
+            renderMarkdownBasic(text) {
+                if (!text) return '';
+                // Simple markdown rendering
+                let html = text
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    // Headings
+                    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+                    .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+                    .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+                    // Bold and italic
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    // Code
+                    .replace(/`(.*?)`/g, '<code>$1</code>')
+                    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+                    // Lists
+                    .replace(/^\- (.*$)/gm, '<li>$1</li>')
+                    .replace(/^\* (.*$)/gm, '<li>$1</li>')
+                    // Line breaks - preserve them!
+                    .replace(/\n\n/g, '</p><p>')
+                    .replace(/\n/g, '<br>');
+                
+                // Wrap in paragraphs if not already
+                if (!html.startsWith('<')) {
+                    html = '<p>' + html + '</p>';
+                }
+                return html;
             },
             editNote(note) {
                 this.currentNote = note;
                 this.noteForm = { title: note.title, content: note.content, category: note.category };
                 this.showEditModal = true;
                 this.showViewModal = false;
-                this.isEditing = true;
-                this.updatePreview();
+                // Vditor will be initialized by x-init watcher
             },
-            toggleEditMode() {
-                this.isEditing = !this.isEditing;
-                if (!this.isEditing) {
-                    this.updatePreview();
+            initVditor(content) {
+                // Destroy existing instance
+                if (this.vditor) {
+                    this.vditor.destroy();
+                    this.vditor = null;
                 }
-            },
-            updatePreview() {
-                try {
-                    this.renderedContent = marked.parse(this.noteForm.content || '');
-                } catch (e) {
-                    this.renderedContent = this.noteForm.content;
-                }
-            },
-            renderNote(content) {
-                if (!content) return '<span class="text-gray-400">暂无内容</span>';
-                try {
-                    return marked.parse(content);
-                } catch (e) {
-                    return content;
-                }
-            },
-            async copyContent() {
-                try {
-                    await navigator.clipboard.writeText(this.currentNote?.content || '');
-                    var el = document.getElementById('copyToast');
-                    el.style.display = 'block';
-                    setTimeout(function(){ el.style.display = 'none'; }, 1500);
-                } catch (e) { console.log(e); }
-            },
-            async copyNote(content) {
-                try {
-                    await navigator.clipboard.writeText(content || '');
-                    var el = document.getElementById('copyToast');
-                    el.style.display = 'block';
-                    setTimeout(function(){ el.style.display = 'none'; }, 1500);
-                } catch (e) { console.log(e); }
+                
+                // Create new Vditor instance
+                this.vditor = new Vditor('vditor-editor', {
+                    height: 400,
+                    mode: 'ir', // Instant Rendering mode (like Typora)
+                    theme: 'classic',
+                    toolbar: [
+                        'emoji', 'headings', 'bold', 'italic', 'strike', '|',
+                        'line', 'quote', 'list', 'ordered-list', 'check', '|',
+                        'code', 'inline-code', 'link', 'table', '|',
+                        'undo', 'redo', '|',
+                        'fullscreen', 'edit-mode', '|',
+                        {
+                            name: 'more',
+                            toolbar: [
+                                'both', 'preview', 'devtools', 'info', 'help'
+                            ]
+                        }
+                    ],
+                    value: content,
+                    placeholder: '输入 Markdown 内容...',
+                    cache: {
+                        enable: false
+                    },
+                    after: () => {
+                        console.log('Vditor initialized');
+                    }
+                });
             },
             closeModal() {
                 this.showAddModal = false;
                 this.showEditModal = false;
-                this.isEditing = false;
                 this.noteForm = { title: '', content: '', category: '' };
-                this.renderedContent = '';
+                if (this.vditor) {
+                    this.vditor.destroy();
+                    this.vditor = null;
+                }
             },
             async saveNote() {
                 if (!this.noteForm.title) { alert('请输入标题'); return; }
+                
+                // Get content from Vditor
+                if (this.vditor) {
+                    this.noteForm.content = this.vditor.getValue();
+                }
+                
                 try {
                     const url = this.showEditModal ? '/api/notes/' + this.currentNote.id : '/api/notes';
                     const method = this.showEditModal ? 'PUT' : 'POST';
@@ -389,6 +461,22 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
                     const res = await fetch('/api/notes/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.getToken() } });
                     if (res.ok) this.loadNotes();
                 } catch (e) { console.error(e); }
+            },
+            async copyContent() {
+                try {
+                    await navigator.clipboard.writeText(this.currentNote?.content || '');
+                    var el = document.getElementById('copyToast');
+                    el.style.display = 'block';
+                    setTimeout(function(){ el.style.display = 'none'; }, 1500);
+                } catch (e) { console.log(e); }
+            },
+            async copyNote(content) {
+                try {
+                    await navigator.clipboard.writeText(content || '');
+                    var el = document.getElementById('copyToast');
+                    el.style.display = 'block';
+                    setTimeout(function(){ el.style.display = 'none'; }, 1500);
+                } catch (e) { console.log(e); }
             },
             logout() { localStorage.clear(); window.location.href = '/login'; }
         };

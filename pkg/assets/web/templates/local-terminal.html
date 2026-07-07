@@ -137,6 +137,8 @@ html{font-size:12px}*{margin:0;padding:0;box-sizing:border-box}body{overflow:hid
     <span style="margin:0 4px;color:#444;">│</span>
     <button title="命令库" style="background:none;border:none;color:#999;cursor:pointer;padding:2px 6px;border-radius:3px;font-size:12px;" id="commands-btn">命令</button>
     <span style="margin:0 4px;color:#444;">│</span>
+    <button title="目录切换 (Ctrl+G)" style="background:none;border:none;color:#999;cursor:pointer;padding:2px 6px;border-radius:3px;font-size:12px;" id="dir-switch-btn">📂目录</button>
+    <span style="margin:0 4px;color:#444;">│</span>
     <button title="当前终端历史" style="background:none;border:none;color:#999;cursor:pointer;padding:2px 6px;border-radius:3px;font-size:12px;" id="current-history-btn">当前历史</button>
     <span style="margin:0 4px;color:#444;">│</span>
     <button title="服务器" style="background:none;border:none;color:#999;cursor:pointer;padding:2px 6px;border-radius:3px;font-size:12px;" id="server-btn">服务器</button>
@@ -159,6 +161,30 @@ html{font-size:12px}*{margin:0;padding:0;box-sizing:border-box}body{overflow:hid
 <div id="font-menu" class="popup-menu"></div>
 <div id="server-picker-menu" class="popup-menu"></div>
 <div id="send-selection-menu" class="popup-menu"></div>
+<div id="dir-switch-menu" class="popup-menu" style="min-width:360px;max-height:400px;">
+    <div class="menu-header" style="display:flex;align-items:center;gap:6px;padding:6px 12px;">
+        <span style="flex:1;">📂 目录快速切换</span>
+        <kbd style="font-size:10px;color:#888;background:#444;padding:1px 4px;border-radius:3px;">Ctrl+G</kbd>
+    </div>
+    <div style="padding:6px 12px;border-bottom:1px solid #444;">
+        <input type="text" id="dir-search-input" placeholder="输入路径搜索..." style="width:100%;background:#222;border:1px solid #555;color:#ddd;border-radius:3px;padding:4px 8px;font-size:12px;font-family:monospace;outline:none;" autofocus>
+    </div>
+    <div id="dir-bookmarks-section" style="display:none;">
+        <div style="padding:4px 12px;color:#888;font-size:11px;display:flex;justify-content:space-between;align-items:center;">
+            <span>⭐ 收藏目录</span>
+            <button onclick="addCurrentDirBookmark()" style="background:none;border:none;color:#3b82f6;cursor:pointer;font-size:11px;">+ 添加当前</button>
+        </div>
+        <div id="dir-bookmarks-list"></div>
+    </div>
+    <div id="dir-history-section" style="display:none;">
+        <div style="padding:4px 12px;color:#888;font-size:11px;border-top:1px solid #444;">📁 最近访问</div>
+        <div id="dir-history-list"></div>
+    </div>
+    <div id="dir-empty" style="padding:16px;text-align:center;color:#888;font-size:12px;">
+        <p>暂无目录记录</p>
+        <p style="font-size:11px;margin-top:4px;">使用 cd 命令切换目录时会自动记录</p>
+    </div>
+</div>
 <div id="remote-file-panel">
     <div class="rf-header">
         <span class="rf-title" id="remote-file-title">文件管理</span>
@@ -718,7 +744,24 @@ html{font-size:12px}*{margin:0;padding:0;box-sizing:border-box}body{overflow:hid
         positionBottomMenu(histMenu);
         attachOutsideClose(histMenu, 'current-history-btn');
     });
-    function sendToPane(cmd) { var p=getActivePane(); if(p&&p.ws&&p.ws.readyState===1) { p.ws.send(cmd+'\r'); startPendingCommand(p.id, cmd); addToHistory(cmd); } }
+    function sendToPane(cmd) { 
+        var p=getActivePane(); 
+        if(p&&p.ws&&p.ws.readyState===1) { 
+            p.ws.send(cmd+'\r'); 
+            startPendingCommand(p.id, cmd); 
+            addToHistory(cmd); 
+            // Track cd commands for directory history
+            if (cmd.startsWith('cd ')) {
+                var targetPath = cmd.substring(3).trim();
+                if (targetPath === '~' || targetPath === '') targetPath = '/root';
+                if (!targetPath.startsWith('/') && p.currentPath) {
+                    targetPath = p.currentPath + '/' + targetPath;
+                }
+                p.currentPath = targetPath;
+                addDirToHistory(targetPath);
+            }
+        } 
+    }
 
     // ===== Status Tools =====
     function authHeaders(extra) {
@@ -1517,7 +1560,7 @@ html{font-size:12px}*{margin:0;padding:0;box-sizing:border-box}body{overflow:hid
             term.onResize(function(size){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'resize',cols:size.cols,rows:size.rows}));if(focusedPaneId===sid)stSize.textContent=size.cols+'×'+size.rows;});
             setTimeout(function(){fitAndSyncTerminal(fitAddon,term,ws);},50);
             paneDiv.addEventListener('mousedown',function(){focusedPaneId=sid;container.querySelectorAll('.pane-item').forEach(function(p){p.classList.remove('focused')});paneDiv.classList.add('focused');term.focus();var fp=findPane(sid);if(fp)updateStatus(fp);});
-            if(onComplete)onComplete({id:sid,term:term,ws:ws,fitAddon:fitAddon,searchAddon:searchAddon,paneDiv:paneDiv,shellName:shellName,server:opts.server||null,serverButton:serverBtn,fileButton:fileBtn,sessionStartTime:new Date().toISOString(),logSaved:false,setAutoPassword:function(pw){autoPasswords=pw?[pw]:[];autoPasswordIndex=0;outputTail='';},setAutoPasswords:function(list){autoPasswords=(list||[]).filter(function(p){return !!p;});autoPasswordIndex=0;outputTail='';}});
+            if(onComplete)onComplete({id:sid,term:term,ws:ws,fitAddon:fitAddon,searchAddon:searchAddon,paneDiv:paneDiv,shellName:shellName,server:opts.server||null,serverButton:serverBtn,fileButton:fileBtn,sessionStartTime:new Date().toISOString(),logSaved:false,currentPath:'/',setAutoPassword:function(pw){autoPasswords=pw?[pw]:[];autoPasswordIndex=0;outputTail='';},setAutoPasswords:function(list){autoPasswords=(list||[]).filter(function(p){return !!p;});autoPasswordIndex=0;outputTail='';}});
         }).catch(function(e){alert('创建终端失败: '+e.message);});
     }
 
@@ -1682,6 +1725,182 @@ html{font-size:12px}*{margin:0;padding:0;box-sizing:border-box}body{overflow:hid
             setTimeout(function() { fitAndSyncTab(tab); }, 100);
         }, splitOpts);
     };
+
+    // ===== Directory Quick Switch =====
+    var dirBookmarks = [];
+    var dirHistory = [];
+    var filteredDirHistory = [];
+    
+    function loadDirBookmarks() {
+        try {
+            var saved = localStorage.getItem('dirBookmarks');
+            if (saved) dirBookmarks = JSON.parse(saved);
+        } catch(e) {}
+    }
+    function saveDirBookmarks() {
+        try {
+            localStorage.setItem('dirBookmarks', JSON.stringify(dirBookmarks));
+        } catch(e) {}
+    }
+    function loadDirHistory() {
+        try {
+            var saved = localStorage.getItem('dirHistory');
+            if (saved) dirHistory = JSON.parse(saved);
+            filterDirs();
+        } catch(e) {}
+    }
+    function saveDirHistory() {
+        try {
+            if (dirHistory.length > 50) dirHistory = dirHistory.slice(0, 50);
+            localStorage.setItem('dirHistory', JSON.stringify(dirHistory));
+        } catch(e) {}
+    }
+    function addDirToHistory(path) {
+        if (!path || path === '/') return;
+        dirHistory = dirHistory.filter(function(d) { return d.path !== path; });
+        dirHistory.unshift({ path: path, lastVisit: new Date().toLocaleString('zh-CN') });
+        saveDirHistory();
+        filterDirs();
+    }
+    function filterDirs() {
+        var search = (document.getElementById('dir-search-input').value || '').toLowerCase();
+        if (!search) {
+            filteredDirHistory = dirHistory.slice();
+        } else {
+            filteredDirHistory = dirHistory.filter(function(d) { return d.path.toLowerCase().indexOf(search) >= 0; });
+        }
+        renderDirList();
+    }
+    function renderDirList() {
+        var bookmarksSection = document.getElementById('dir-bookmarks-section');
+        var bookmarksList = document.getElementById('dir-bookmarks-list');
+        var historySection = document.getElementById('dir-history-section');
+        var historyList = document.getElementById('dir-history-list');
+        var emptyState = document.getElementById('dir-empty');
+        
+        // Render bookmarks
+        if (dirBookmarks.length > 0) {
+            bookmarksSection.style.display = 'block';
+            bookmarksList.innerHTML = '';
+            dirBookmarks.forEach(function(dir, index) {
+                var item = document.createElement('div');
+                item.className = 'menu-item';
+                item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;';
+                item.innerHTML = '<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;"><span style="color:#eab308;">⭐</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (dir.name || dir.path) + '</span></div><span style="color:#888;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;">' + dir.path + '</span>';
+                item.onclick = function() { switchToDir(dir.path); };
+                item.oncontextmenu = function(e) { e.preventDefault(); removeBookmark(index); };
+                bookmarksList.appendChild(item);
+            });
+        } else {
+            bookmarksSection.style.display = 'none';
+        }
+        
+        // Render history
+        if (filteredDirHistory.length > 0) {
+            historySection.style.display = 'block';
+            historyList.innerHTML = '';
+            filteredDirHistory.forEach(function(dir) {
+                var item = document.createElement('div');
+                item.className = 'menu-item';
+                item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;';
+                item.innerHTML = '<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;"><span style="color:#888;">📁</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dir.path + '</span></div><span style="color:#888;font-size:10px;">' + dir.lastVisit + '</span>';
+                item.onclick = function() { switchToDir(dir.path); };
+                historyList.appendChild(item);
+            });
+        } else {
+            historySection.style.display = 'none';
+        }
+        
+        // Show/hide empty state
+        emptyState.style.display = (dirBookmarks.length === 0 && filteredDirHistory.length === 0) ? 'block' : 'none';
+    }
+    function addCurrentDirBookmark() {
+        var pane = getActivePane();
+        if (!pane || !pane.currentPath) {
+            clientLog('dir-bookmark', 'no active pane');
+            return;
+        }
+        var path = pane.currentPath;
+        if (dirBookmarks.some(function(b) { return b.path === path; })) {
+            return;
+        }
+        var name = path.split('/').filter(Boolean).pop() || path;
+        dirBookmarks.push({ path: path, name: name });
+        saveDirBookmarks();
+        renderDirList();
+    }
+    function removeBookmark(index) {
+        dirBookmarks.splice(index, 1);
+        saveDirBookmarks();
+        renderDirList();
+    }
+    function switchToDir(path) {
+        if (!path) return;
+        var pane = getActivePane();
+        if (!pane || !pane.ws || pane.ws.readyState !== WebSocket.OPEN) {
+            return;
+        }
+        pane.ws.send(JSON.stringify({ type: 'input', data: 'cd ' + path + '\r' }));
+        pane.currentPath = path;
+        closeDirSwitch();
+    }
+    function openDirSwitch() {
+        var menu = document.getElementById('dir-switch-menu');
+        if (!menu) return;
+        if (menu.style.display !== 'none') { closeDirSwitch(); return; }
+        
+        // Position menu in center
+        var rect = document.body.getBoundingClientRect();
+        menu.style.cssText = 'display:block;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:200;min-width:360px;max-height:400px;';
+        
+        // Load data
+        loadDirBookmarks();
+        loadDirHistory();
+        renderDirList();
+        
+        // Focus search input
+        setTimeout(function() {
+            var input = document.getElementById('dir-search-input');
+            if (input) { input.value = ''; input.focus(); }
+        }, 50);
+        
+        // Close on outside click
+        setTimeout(function() {
+            document.addEventListener('mousedown', function handler(ev) {
+                if (!menu.contains(ev.target)) {
+                    closeDirSwitch();
+                    document.removeEventListener('mousedown', handler);
+                }
+            });
+        }, 50);
+    }
+    function closeDirSwitch() {
+        var menu = document.getElementById('dir-switch-menu');
+        if (menu) menu.style.display = 'none';
+    }
+    function goToFirstDir() {
+        if (filteredDirHistory.length > 0) {
+            switchToDir(filteredDirHistory[0].path);
+        } else if (dirBookmarks.length > 0) {
+            switchToDir(dirBookmarks[0].path);
+        }
+    }
+    
+    // Event listeners for directory switch
+    document.getElementById('dir-switch-btn').addEventListener('click', openDirSwitch);
+    document.getElementById('dir-search-input').addEventListener('input', filterDirs);
+    document.getElementById('dir-search-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); goToFirstDir(); }
+        if (e.key === 'Escape') { closeDirSwitch(); }
+    });
+    
+    // Keyboard shortcut: Ctrl+G
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'g') {
+            e.preventDefault();
+            openDirSwitch();
+        }
+    });
 
     // ===== Theme =====
     var THEMES={dark:{name:'Dark',bg:'#0c0c0c',fg:'#cccccc',cursor:'#ffffff',sel:'#264f78'},light:{name:'Light',bg:'#ffffff',fg:'#24292e',cursor:'#0969da',sel:'#add6ff'},solarized:{name:'Solarized',bg:'#002b36',fg:'#839496',cursor:'#839496',sel:'#073642'},monokai:{name:'Monokai',bg:'#272822',fg:'#f8f8f2',cursor:'#f8f8f0',sel:'#49483e'},dracula:{name:'Dracula',bg:'#282a36',fg:'#f8f8f2',cursor:'#f8f8f2',sel:'#44475a'},nord:{name:'Nord',bg:'#2e3440',fg:'#d8dee9',cursor:'#d8dee9',sel:'#434c5e'}};
