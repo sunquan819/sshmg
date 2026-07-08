@@ -526,7 +526,7 @@ function app() {
             return !!url && url.indexOf('/local-terminal') >= 0;
         },
         isWebTerminalUrl(url) {
-            return !!url && (url.indexOf('/terminal?') >= 0 || url.indexOf('/container-terminal') >= 0);
+            return !!url && url.indexOf('/terminal?') >= 0;
         },
         isLocalTerminalSubpage() {
             return this.activeSubpage === 'local-terminal' || this.isLocalTerminalUrl(this.pageUrl);

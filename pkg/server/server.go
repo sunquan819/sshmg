@@ -201,11 +201,6 @@ func Start(ctx context.Context, opts Options) (int, error) {
 		c.HTML(http.StatusOK, "containers.html", nil)
 	})
 
-	r.GET("/container-terminal", func(c *gin.Context) {
-		log.Println("Serving /container-terminal page")
-		c.HTML(http.StatusOK, "container-terminal.html", nil)
-	})
-
 	r.GET("/infrastructure", func(c *gin.Context) {
 		log.Println("Serving /infrastructure page")
 		c.HTML(http.StatusOK, "infrastructure.html", nil)

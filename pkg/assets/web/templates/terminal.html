@@ -120,6 +120,24 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
                 </template>
                 <div x-show="servers.length === 0" class="text-center text-gray-500 text-sm py-4">暂无服务器</div>
             </div>
+            <div class="border-t border-gray-700 flex-shrink-0">
+                <div @click="showContainers = !showContainers" class="p-2 cursor-pointer hover:bg-gray-700 flex items-center justify-between">
+                    <span class="text-xs font-semibold text-gray-400">🐳 容器列表</span>
+                    <span class="text-xs text-gray-500" x-text="showContainers ? '▲' : '▼'"></span>
+                </div>
+                <div x-show="showContainers" class="max-h-48 overflow-y-auto p-2">
+                    <template x-for="c in containers" :key="c.id">
+                        <div @click="connectContainer(c)" 
+                             :class="currentContainer?.id === c.id ? 'bg-purple-600' : 'hover:bg-gray-700'"
+                             class="file-item rounded mb-1 p-2 cursor-pointer transition">
+                            <p class="text-sm font-medium text-white truncate" x-text="c.name"></p>
+                            <p class="text-xs text-gray-400 truncate" x-text="c.image"></p>
+                        </div>
+                    </template>
+                    <div x-show="containers.length === 0" class="text-center text-gray-500 text-xs py-2">暂无运行中容器</div>
+                    <button @click="loadContainers()" class="w-full mt-1 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs">🔄 刷新容器</button>
+                </div>
+            </div>
         </aside>
         <main class="flex-1 flex flex-col">
             <div class="bg-gray-800 px-2 py-1 border-b border-gray-700 flex items-center justify-between overflow-hidden">
@@ -128,7 +146,7 @@ function toggleTheme(){var d=document.documentElement;if(d.classList.contains('d
                         <div @click="switchTab(tab.id)" 
                              :class="activeTabId === tab.id ? 'bg-gray-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
                              class="flex items-center space-x-1 px-3 py-1 rounded text-sm cursor-pointer whitespace-nowrap">
-                            <span x-text="tab.server ? tab.server.name : '未选择'"></span>
+                            <span x-text="tab.type === 'container' ? '🐳 ' + (tab.container ? tab.container.name : '容器') : (tab.server ? tab.server.name : '未选择')"></span>
                             <span @click.stop="closeTab(tab.id)" class="text-gray-400 hover:text-white ml-1">×</span>
                         </div>
                     </template>
@@ -382,6 +400,9 @@ function terminalApp() {
         uploading: false,
         downloadMode: false,
         uploadProgress: 0,
+        containers: [],
+        showContainers: false,
+        currentContainer: null,
         showEditModal: false,
         showPreviewModal: false,
         editingFile: null,
@@ -644,6 +665,7 @@ function terminalApp() {
             const params = new URLSearchParams(window.location.search);
             this.token = params.get('token');
             const serverId = params.get('serverId') || params.get('server');
+            const containerId = params.get('containerId');
             this.osType = params.get('osType') || 'linux';
             if (!this.token) { this.showMessageCenter('缺少认证信息', 'error'); window.close(); return; }
             
@@ -669,7 +691,18 @@ function terminalApp() {
                     if (!this.osType && server.os_type) {
                         this.osType = server.os_type;
                     }
-                    this.createTab(server);
+                    this.currentServer = server;
+                    if (containerId) {
+                        await this.loadContainers(server);
+                        const container = this.containers.find(c => c.id === containerId || c.id.startsWith(containerId.substring(0, 12)));
+                        if (container) {
+                            this.createTab(server, container);
+                        } else {
+                            this.createTab(server);
+                        }
+                    } else {
+                        this.createTab(server);
+                    }
                 }
             } else if (this.servers.length > 0) {
                 this.createTab(this.servers[0]);
@@ -677,12 +710,14 @@ function terminalApp() {
                 this.showMessageCenter('没有找到服务器', 'error');
             }
         },
-        createTab(server = null) {
+        createTab(server = null, container = null) {
             this.tabCounter++;
             const tabId = 'tab-' + this.tabCounter;
             const newTab = {
                 id: tabId,
+                type: container ? 'container' : 'ssh',
                 server: server,
+                container: container,
                 terminal: null,
                 ws: null,
                 fitAddon: null,
@@ -693,7 +728,11 @@ function terminalApp() {
             
             this.$nextTick(() => {
                 this.initTerminalForTab(tabId);
-                if (server) this.connectTerminalForTab(tabId);
+                if (container) {
+                    this.connectContainerTerminalForTab(tabId);
+                } else if (server) {
+                    this.connectTerminalForTab(tabId);
+                }
             });
             
             return tabId;
@@ -703,6 +742,7 @@ function terminalApp() {
             const tab = this.tabs.find(t => t.id === tabId);
             if (tab && tab.server) {
                 this.currentServer = tab.server;
+                this.currentContainer = tab.container || null;
                 this.currentPath = tab.currentPath;
                 this.loadFiles();
             }
@@ -775,7 +815,32 @@ function terminalApp() {
             }
         },
         switchServer(server) {
+            this.currentServer = server;
+            this.loadContainers(server);
             this.createTab(server);
+        },
+        async loadContainers(server) {
+            if (!server) server = this.currentServer;
+            if (!server) return;
+            try {
+                const res = await fetch('/api/containers?server_id=' + server.id + '&all=false', { headers: { 'Authorization': 'Bearer ' + this.token } });
+                const data = await res.json();
+                if (res.ok && data.containers) {
+                    this.containers = data.containers.filter(c => c.state === 'running');
+                }
+            } catch (e) {
+                console.error('Failed to load containers:', e);
+            }
+        },
+        connectContainer(container) {
+            if (!container) return;
+            const existingTab = this.tabs.find(t => t.container && t.container.id === container.id);
+            if (existingTab) {
+                this.switchTab(existingTab.id);
+                return;
+            }
+            this.currentContainer = container;
+            this.createTab(this.currentServer, container);
         },
         initTerminalForTab(tabId) {
             const tab = this.tabs.find(t => t.id === tabId);
@@ -1025,6 +1090,159 @@ function terminalApp() {
                 if (tab.fitAddon) tab.fitAddon.fit(); 
             });
         },
+        connectContainerTerminalForTab(tabId) {
+            const tab = this.tabs.find(t => t.id === tabId);
+            if (!tab || !tab.container) return;
+            
+            if (tab.ws) {
+                try { tab.ws.close(); } catch(e) {}
+            }
+            
+            const termEl = document.getElementById('terminal-' + tabId);
+            if (termEl) termEl.innerHTML = '';
+            
+            this.initTerminalForTab(tabId);
+            
+            if (!tab.terminal) return;
+            
+            const self = this;
+            tab.terminal.writeln('\x1b[32m 正在连接容器...\x1b[0m\r\n');
+            const initCols = tab.terminal.cols;
+            const initRows = tab.terminal.rows;
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = protocol + '//' + window.location.host + '/ws/container-terminal/' + tab.server.id + '/' + tab.container.id + '?token=' + this.token + '&cols=' + initCols + '&rows=' + initRows;
+            tab.ws = new WebSocket(wsUrl);
+            
+            tab.ws.onopen = function() {
+                tab.terminal.writeln('\x1b[32m✓ 连接成功!\x1b[0m\r\n');
+                tab.terminal.writeln('\x1b[36m================================\x1b[0m\r\n');
+                tab.terminal.focus();
+                tab.terminal.writeln('\x1b[33m 容器：' + tab.container.name + '\x1b[0m\r\n');
+                tab.terminal.writeln('\x1b[33m 镜像：' + tab.container.image + '\x1b[0m\r\n');
+                tab.terminal.writeln('\r\n\x1b[32m 准备就绪！\x1b[0m\r\n\r\n');
+                self.updateConnectionStatus('已连接', 'text-xs text-green-400');
+                tab.sessionHistory = [];
+                tab.sessionStartTime = new Date().toISOString();
+                tab.pendingCommand = null;
+                tab.outputBuffer = '';
+            };
+            
+            tab.ws.onmessage = async function(event) {
+                let str = '';
+                if (event.data instanceof ArrayBuffer) {
+                    const bytes = new Uint8Array(event.data);
+                    for (let i = 0; i < bytes.length; i++) {
+                        str += String.fromCharCode(bytes[i]);
+                    }
+                } else if (event.data instanceof Blob) {
+                    str = await event.data.text();
+                } else {
+                    str = event.data;
+                }
+                tab.terminal.write(str);
+                if (tab.pendingCommand) {
+                    tab.outputBuffer += str;
+                }
+            };
+            
+            tab.ws.onclose = function() {
+                tab.terminal.writeln('\r\n\x1b[31m✗ 连接已断开\x1b[0m\r\n');
+                self.updateConnectionStatus('已断开', 'text-xs text-red-400');
+                self.saveContainerSessionHistory(tab);
+            };
+            
+            tab.ws.onerror = function(event) {
+                tab.terminal.writeln('\r\n\x1b[31m 连接错误\x1b[0m\r\n');
+                self.updateConnectionStatus('错误', 'text-xs text-red-400');
+            };
+            
+            tab.currentLine = '';
+            tab.currentLineUnknown = false;
+            tab.pendingRmConfirm = false;
+            tab.pendingRmLine = '';
+            tab.outputBuffer = '';
+
+            tab.terminal.onData(function(data) { 
+                if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+                    if (tab.pendingRmConfirm) {
+                        if (data === 'y' || data === 'Y') {
+                            tab.pendingRmConfirm = false;
+                            const line = tab.pendingRmLine;
+                            tab.pendingRmLine = '';
+                            tab.currentLine = '';
+                            tab.currentLineUnknown = false;
+                            tab.ws.send(JSON.stringify({ type: 'input', data: line }));
+                            tab.terminal.write('\r\n');
+                        } else if (data === 'n' || data === 'N' || data === '\r' || data === '\x03' || data === '\x15') {
+                            tab.pendingRmConfirm = false;
+                            tab.pendingRmLine = '';
+                            tab.currentLine = '';
+                            tab.currentLineUnknown = false;
+                            tab.terminal.write('\r\n\x1b[33m已取消\x1b[0m\r\n');
+                            tab.ws.send(JSON.stringify({ type: 'input', data: '\x03' }));
+                        } else {
+                            tab.terminal.write('\x07');
+                        }
+                        return;
+                    }
+                    if (data === '\r' || data === '\n') {
+                        let lineToCheck = tab.currentLineUnknown ? self.getCurrentTerminalLine(tab.terminal) : tab.currentLine;
+                        const cmd = tab.currentLineUnknown ? self.getCurrentTerminalLine(tab.terminal) : tab.currentLine;
+                        if (cmd && cmd.trim() && tab.sessionHistory) {
+                            tab.pendingCommand = {
+                                timestamp: new Date().toLocaleString('zh-CN'),
+                                command: cmd.trim(),
+                                output: ''
+                            };
+                            tab.outputBuffer = '';
+                        }
+                        tab.currentLine = '';
+                        tab.currentLineUnknown = false;
+                        if (self.isRmCommand(lineToCheck)) {
+                            tab.pendingRmConfirm = true;
+                            tab.pendingRmLine = data;
+                            tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
+                            return;
+                        }
+                    } else if (data === '\x7f' || data === '\b') {
+                        if (tab.currentLine.length > 0) tab.currentLine = tab.currentLine.slice(0, -1);
+                    } else if (data === '\x03') {
+                        tab.currentLine = '';
+                        tab.currentLineUnknown = false;
+                    } else if (data === '\x15') {
+                        tab.currentLine = '';
+                    } else if (data.startsWith('\x1b[') || data.startsWith('\x1bO')) {
+                        tab.currentLineUnknown = true;
+                    } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
+                        tab.currentLine += data;
+                    } else if (data.length > 1) {
+                        if (data.includes('\n') || data.includes('\r')) {
+                            if (self.isRmCommand(data)) {
+                                tab.pendingRmConfirm = true;
+                                tab.pendingRmLine = data;
+                                tab.terminal.write('\r\n\x1b[33m⚠ 检测到rm命令，确认执行？(y/n)\x1b[0m ');
+                                tab.currentLine = '';
+                                return;
+                            }
+                        } else {
+                            tab.currentLineUnknown = true;
+                        }
+                    }
+                    tab.ws.send(JSON.stringify({ type: 'input', data: data }));
+                } 
+            });
+            
+            tab.terminal.onResize(function(size) { 
+                if (tab.ws && tab.ws.readyState === WebSocket.OPEN) { 
+                    tab.ws.send(JSON.stringify({ type: 'resize', cols: size.cols, rows: size.rows })); 
+                } 
+            });
+            
+            window.addEventListener('resize', function() { 
+                if (tab.fitAddon) tab.fitAddon.fit(); 
+            });
+        },
         isRmCommand(line) {
             const trimmed = line.trim();
             if (!trimmed) return false;
@@ -1126,6 +1344,25 @@ function terminalApp() {
                 if (res.ok) {
                     console.log('终端日志已保存');
                 }
+            } catch (e) { console.error('保存历史失败:', e); }
+        },
+        async saveContainerSessionHistory(tab) {
+            if (!tab || !tab.sessionHistory || tab.sessionHistory.length === 0) return;
+            try {
+                const logData = {
+                    server_id: tab.server.id,
+                    server_name: tab.server.name,
+                    server_ip: tab.server.ip,
+                    system_user: 'container',
+                    session_type: 'container',
+                    start_time: tab.sessionStartTime,
+                    commands: JSON.stringify(tab.sessionHistory)
+                };
+                await fetch('/api/terminal-logs', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify(logData)
+                });
             } catch (e) { console.error('保存历史失败:', e); }
         },
         getCurrentSessionHistory() {
@@ -1298,7 +1535,11 @@ function terminalApp() {
         reconnect() { 
             const tab = this.getActiveTab();
             if (tab && tab.server) {
-                this.connectTerminalForTab(tab.id);
+                if (tab.type === 'container' && tab.container) {
+                    this.connectContainerTerminalForTab(tab.id);
+                } else {
+                    this.connectTerminalForTab(tab.id);
+                }
             }
         },
         clearTerminal() { 
@@ -1393,10 +1634,13 @@ function terminalApp() {
             const path = this.pendingPath || tab.currentPath || '/';
             try {
                 const encodedPath = encodeURIComponent(path);
-                console.log('Loading files from:', path, 'server:', server.name);
-                const res = await fetch('/api/files/' + server.id + '?path=' + encodedPath, { headers: { 'Authorization': 'Bearer ' + this.token } });
+                let res;
+                if (tab.type === 'container' && tab.container) {
+                    res = await fetch('/api/container-files/' + tab.container.id + '/list?server_id=' + server.id + '&path=' + encodedPath, { headers: { 'Authorization': 'Bearer ' + this.token } });
+                } else {
+                    res = await fetch('/api/files/' + server.id + '?path=' + encodedPath, { headers: { 'Authorization': 'Bearer ' + this.token } });
+                }
                 const data = await res.json();
-                console.log('Files response:', data);
                 if (res.ok) {
                     const tab = this.getActiveTab();
                     if (tab && this.pendingPath) {
@@ -1488,14 +1732,18 @@ function terminalApp() {
             return size.toFixed(1) + ' ' + units[i];
         },
         async viewFile(file) {
-            const server = this.getCurrentServer();
-            if (!server) return;
+            const tab = this.getActiveTab();
+            if (!tab || !tab.server) return;
             try {
-                const res = await fetch('/api/files/' + server.id + '/read?path=' + encodeURIComponent(file.path), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                let res;
+                if (tab.type === 'container' && tab.container) {
+                    res = await fetch('/api/container-files/' + tab.container.id + '/read?server_id=' + tab.server.id + '&path=' + encodeURIComponent(file.path), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                } else {
+                    res = await fetch('/api/files/' + tab.server.id + '/read?path=' + encodeURIComponent(file.path), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                }
                 const data = await res.json();
                 if (res.ok && data.content) {
-                    const tab = this.getActiveTab();
-                    if (tab && tab.terminal) {
+                    if (tab.terminal) {
                         tab.terminal.writeln('\r\n\x1b[33m=== 文件内容：' + file.path + ' ===\x1b[0m\r\n');
                         tab.terminal.writeln(data.content);
                         tab.terminal.writeln('\r\n\x1b[33m=== 文件结束 ===\x1b[0m\r\n\r\n');
@@ -1506,12 +1754,17 @@ function terminalApp() {
             } catch (e) { this.showMessage('查看文件失败', 'error'); }
         },
         async viewFileInModal() {
-            const server = this.getCurrentServer();
-            if (!server) { this.showMessageCenter('请先选择服务器', 'error'); return; }
+            const tab = this.getActiveTab();
+            if (!tab || !tab.server) { this.showMessageCenter('请先选择服务器', 'error'); return; }
             const file = this.selectedFile;
             if (!file || file.is_dir || file.IsDir) { this.showMessageCenter('请先选择文件', 'error'); return; }
             try {
-                const res = await fetch('/api/files/' + server.id + '/read?path=' + encodeURIComponent(file.path), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                let res;
+                if (tab.type === 'container' && tab.container) {
+                    res = await fetch('/api/container-files/' + tab.container.id + '/read?server_id=' + tab.server.id + '&path=' + encodeURIComponent(file.path), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                } else {
+                    res = await fetch('/api/files/' + tab.server.id + '/read?path=' + encodeURIComponent(file.path), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                }
                 const data = await res.json();
                 if (res.ok && data.content !== undefined) {
                     this.editingFile = file;
@@ -1530,10 +1783,15 @@ function terminalApp() {
             setTimeout(() => this.initEditor(), 100);
         },
         async loadFileForEdit(file) {
-            const server = this.getCurrentServer();
-            if (!server) return;
+            const tab = this.getActiveTab();
+            if (!tab || !tab.server) return;
             try {
-                const res = await fetch('/api/files/' + server.id + '/read?path=' + encodeURIComponent(file.path), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                let res;
+                if (tab.type === 'container' && tab.container) {
+                    res = await fetch('/api/container-files/' + tab.container.id + '/read?server_id=' + tab.server.id + '&path=' + encodeURIComponent(file.path), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                } else {
+                    res = await fetch('/api/files/' + tab.server.id + '/read?path=' + encodeURIComponent(file.path), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                }
                 const data = await res.json();
                 if (res.ok && data.content !== undefined) {
                     this.editingFile = file;
@@ -1629,14 +1887,23 @@ function terminalApp() {
             }
         },
         async saveFile() {
-            const server = this.getCurrentServer();
-            if (!server || !this.editingFile) return;
+            const tab = this.getActiveTab();
+            if (!tab || !tab.server || !this.editingFile) return;
             try {
-                const res = await fetch('/api/files/' + server.id + '/write', {
-                    method: 'PUT',
-                    headers: { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: this.editingFile.path, content: this.editingContent, backup: true })
-                });
+                let res;
+                if (tab.type === 'container' && tab.container) {
+                    res = await fetch('/api/container-files/' + tab.container.id + '/write?server_id=' + tab.server.id, {
+                        method: 'PUT',
+                        headers: { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: this.editingFile.path, content: this.editingContent })
+                    });
+                } else {
+                    res = await fetch('/api/files/' + tab.server.id + '/write', {
+                        method: 'PUT',
+                        headers: { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: this.editingFile.path, content: this.editingContent, backup: true })
+                    });
+                }
                 const data = await res.json();
                 if (res.ok) {
                     this.showMessageCenter('文件保存成功' + (data.backup_path ? '，已备份到: ' + data.backup_path : ''), 'success');
@@ -1648,13 +1915,14 @@ function terminalApp() {
             } catch (e) { this.showMessageCenter('保存失败', 'error'); }
         },
         uploadFile() { 
-            if (!this.getCurrentServer()) { this.showMessageCenter('请先选择服务器', 'error'); return; }
+            const tab = this.getActiveTab();
+            if (!tab || !tab.server) { this.showMessageCenter('请先选择服务器', 'error'); return; }
             document.getElementById('fileInput').click(); 
         },
         handleFileUpload(event) {
-            const server = this.getCurrentServer();
+            const tab = this.getActiveTab();
+            if (!tab || !tab.server) return;
             const currentPath = this.getCurrentPath();
-            if (!server) return;
             const file = event.target.files[0];
             if (!file) return;
             
@@ -1669,7 +1937,12 @@ function terminalApp() {
             formData.append('path', currentPath + '/' + file.name);
             
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/files/' + server.id + '/upload');
+            if (tab.type === 'container' && tab.container) {
+                formData.append('server_id', tab.server.id);
+                xhr.open('POST', '/api/container-files/' + tab.container.id + '/upload');
+            } else {
+                xhr.open('POST', '/api/files/' + tab.server.id + '/upload');
+            }
             xhr.setRequestHeader('Authorization', 'Bearer ' + this.token);
             
             xhr.upload.onprogress = (e) => {
@@ -1702,10 +1975,10 @@ function terminalApp() {
             xhr.send(formData);
         },
         downloadFile() {
-            const server = this.getCurrentServer();
+            const tab = this.getActiveTab();
             const file = this.selectedFile;
             if (!file) { this.showMessageCenter('请先选择要下载的文件', 'error'); return; }
-            if (!server) return;
+            if (!tab || !tab.server) return;
             if (file.is_dir || file.IsDir) { this.showMessageCenter('不能下载文件夹', 'error'); return; }
             
             this.downloadMode = true;
@@ -1715,7 +1988,12 @@ function terminalApp() {
             
             const self = this;
             const token = localStorage.getItem('access_token');
-            const url = `/api/files/${server.id}/download?path=${encodeURIComponent(file.path)}`;
+            let url;
+            if (tab.type === 'container' && tab.container) {
+                url = '/api/container-files/' + tab.container.id + '/download?server_id=' + tab.server.id + '&path=' + encodeURIComponent(file.path);
+            } else {
+                url = `/api/files/${tab.server.id}/download?path=${encodeURIComponent(file.path)}`;
+            }
             
             fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
                 .then(function(response) {
@@ -1743,23 +2021,33 @@ function terminalApp() {
                 });
         },
         async newFolder() {
-            const server = this.getCurrentServer();
+            const tab = this.getActiveTab();
+            if (!tab || !tab.server) return;
             const currentPath = this.getCurrentPath();
-            if (!server) return;
             const name = prompt('请输入文件夹名称:');
             if (!name) return;
             try {
-                const res = await fetch('/api/files/' + server.id + '/mkdir', { method: 'POST', headers: { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' }, body: JSON.stringify({ path: currentPath + '/' + name }) });
+                let res;
+                if (tab.type === 'container' && tab.container) {
+                    res = await fetch('/api/container-files/' + tab.container.id + '/mkdir?server_id=' + tab.server.id, { method: 'POST', headers: { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' }, body: JSON.stringify({ path: currentPath + '/' + name }) });
+                } else {
+                    res = await fetch('/api/files/' + tab.server.id + '/mkdir', { method: 'POST', headers: { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' }, body: JSON.stringify({ path: currentPath + '/' + name }) });
+                }
                 if (res.ok) { this.showMessage('创建成功！', 'success'); this.loadFiles(); } else { this.showMessage('创建失败', 'error'); }
             } catch (e) { this.showMessage('创建失败', 'error'); }
         },
         async deleteFile() {
-            const server = this.getCurrentServer();
+            const tab = this.getActiveTab();
             if (!this.selectedFile) { this.showMessage('请先选择要删除的文件或文件夹', 'error'); return; }
-            if (!server) return;
+            if (!tab || !tab.server) return;
             if (!confirm('确定要删除 "' + this.selectedFile.name + '" 吗？此操作不可恢复！')) return;
             try {
-                const res = await fetch('/api/files/' + server.id + '?path=' + encodeURIComponent(this.selectedFile.path), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
+                let res;
+                if (tab.type === 'container' && tab.container) {
+                    res = await fetch('/api/container-files/' + tab.container.id + '?server_id=' + tab.server.id + '&path=' + encodeURIComponent(this.selectedFile.path), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
+                } else {
+                    res = await fetch('/api/files/' + tab.server.id + '?path=' + encodeURIComponent(this.selectedFile.path), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
+                }
                 if (res.ok) { this.showMessage('删除成功！', 'success'); this.loadFiles(); } else { this.showMessage('删除失败', 'error'); }
             } catch (e) { this.showMessage('删除失败', 'error'); }
         }
