@@ -167,6 +167,7 @@ func Start(ctx context.Context, opts Options) (int, error) {
 	projectHandler := &handler.ProjectHandler{}
 	noteHandler := handler.NewNoteHandler()
 	toolHandler := handler.NewToolHandler()
+	packetCaptureHandler := handler.NewPacketCaptureHandler()
 	tunnelHandler := handler.NewTunnelHandler()
 	commandHandler := handler.NewCommandHandler()
 	terminalLogHandler := handler.NewTerminalLogHandler()
@@ -224,6 +225,10 @@ func Start(ctx context.Context, opts Options) (int, error) {
 	r.GET("/tools", func(c *gin.Context) {
 		log.Println("Serving /tools page")
 		c.HTML(http.StatusOK, "tools.html", nil)
+	})
+
+	r.GET("/packet-capture", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "packet-capture.html", nil)
 	})
 
 	r.GET("/tunnels", func(c *gin.Context) {
@@ -401,6 +406,11 @@ func Start(ctx context.Context, opts Options) (int, error) {
 			tools := auth.Group("/tools")
 			{
 				tools.POST("/exec", toolHandler.ExecTool)
+			}
+
+			packetCapture := auth.Group("/packet-capture")
+			{
+				packetCapture.POST("/run", packetCaptureHandler.Run)
 			}
 
 			tunnels := auth.Group("/tunnels")

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>端口抓包 - 部署管理系统</title>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <style>
+html { font-size: 12px; }
+.dark .dark\:bg-gray-800 { background-color: #1f2937; }
+.dark .dark\:bg-gray-900 { background-color: #111827; }
+.dark .dark\:bg-gray-700 { background-color: #374151; }
+.dark .dark\:bg-gray-600 { background-color: #4b5563; }
+.dark .dark\:text-white { color: #fff; }
+.dark .dark\:text-gray-300 { color: #d1d5db; }
+.dark .dark\:text-gray-400 { color: #9ca3af; }
+.dark .dark\:border-gray-600 { border-color: #4b5563; }
+.dark .dark\:border-gray-700 { border-color: #374151; }
+.dark .dark\:hover\:bg-gray-600:hover { background-color: #4b5563; }
+</style>
+    <script>
+(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')})()
+</script>
+    <script defer src="/static/js/alpine.min.js"></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white text-sm" x-data="packetCaptureApp()" x-init="init()">
+    <div class="min-h-screen flex flex-col">
+        <header class="bg-white dark:bg-gray-800 px-4 py-3 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+            <div>
+                <h1 class="text-sm font-semibold">📡 端口抓包</h1>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">抓本机或服务器接口流量，并整理成更容易看的包列表。</p>
+            </div>
+            <button @click="loadServers()" class="text-xs px-3 py-1.5 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">刷新服务器</button>
+        </header>
+
+        <main class="flex-1 p-4 overflow-auto">
+            <div class="grid grid-cols-1 xl:grid-cols-4 gap-4">
+                <section class="xl:col-span-1 space-y-4">
+                    <div class="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 p-4">
+                        <h2 class="text-sm font-semibold mb-3">抓包目标</h2>
+                        <div class="grid grid-cols-2 gap-2 mb-3">
+                            <button @click="form.target_type='local'" :class="form.target_type==='local' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'" class="rounded px-3 py-2 text-sm">本机</button>
+                            <button @click="form.target_type='server'" :class="form.target_type==='server' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'" class="rounded px-3 py-2 text-sm">服务器</button>
+                        </div>
+                        <div x-show="form.target_type==='server'" class="mb-3">
+                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">服务器</label>
+                            <select x-model="form.server_id" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2">
+                                <option value="">选择服务器</option>
+                                <template x-for="server in servers" :key="server.id">
+                                    <option :value="server.id" x-text="server.name + ' (' + server.ip + ':' + server.port + ')'"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <p class="text-xs text-amber-600 dark:text-amber-400" x-show="form.target_type==='local'">本机抓包需要安装 Npcap + tshark/Windump，或可用的 tcpdump，并可能需要管理员权限。</p>
+                        <p class="text-xs text-amber-600 dark:text-amber-400" x-show="form.target_type==='server'">服务器抓包需要目标机器已安装 tcpdump，并具备抓包权限。</p>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 p-4">
+                        <h2 class="text-sm font-semibold mb-3">过滤条件</h2>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">网卡</label>
+                                <input x-model="form.interface" placeholder="any / eth0 / Wi-Fi" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">端口</label>
+                                    <input x-model="form.port" inputmode="numeric" placeholder="8080" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">协议</label>
+                                    <select x-model="form.protocol" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2">
+                                        <option value="any">全部</option>
+                                        <option value="tcp">TCP</option>
+                                        <option value="udp">UDP</option>
+                                        <option value="icmp">ICMP</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">主机过滤</label>
+                                <input x-model="form.host" placeholder="192.168.1.10 / example.com" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">包数量</label>
+                                    <input type="number" min="1" max="500" x-model.number="form.count" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">最长秒数</label>
+                                    <input type="number" min="1" max="60" x-model.number="form.duration" class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-3 py-2">
+                                </div>
+                            </div>
+                            <button @click="runCapture()" :disabled="running || !canRun()" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white rounded px-4 py-2">
+                                <span x-show="!running">开始抓包</span>
+                                <span x-show="running">抓包中...</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="xl:col-span-3 space-y-4">
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div class="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 p-3">
+                            <div class="text-xs text-gray-500 dark:text-gray-400">总包数</div>
+                            <div class="text-lg font-semibold" x-text="summary.total || 0"></div>
+                        </div>
+                        <template x-for="protocol in ['TCP','UDP','ICMP','OTHER']" :key="protocol">
+                            <div class="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 p-3">
+                                <div class="text-xs text-gray-500 dark:text-gray-400" x-text="protocol"></div>
+                                <div class="text-lg font-semibold" x-text="summary.protocols?.[protocol] || 0"></div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 p-4" x-show="error">
+                        <div class="text-sm font-semibold text-red-600 dark:text-red-400">抓包未完成</div>
+                        <div class="text-sm mt-2 whitespace-pre-wrap" x-text="error"></div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h2 class="text-sm font-semibold">可读结果</h2>
+                            <button @click="showRaw=!showRaw" class="text-xs px-3 py-1.5 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" x-text="showRaw ? '隐藏原始输出' : '显示原始输出'"></button>
+                        </div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mb-3 break-all" x-show="command">
+                            执行命令：<span class="font-mono" x-text="command"></span>
+                        </div>
+                        <div class="overflow-auto border border-gray-200 dark:border-gray-700 rounded">
+                            <table class="min-w-full text-xs">
+                                <thead class="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                    <tr>
+                                        <th class="text-left px-3 py-2">时间</th>
+                                        <th class="text-left px-3 py-2">协议</th>
+                                        <th class="text-left px-3 py-2">来源</th>
+                                        <th class="text-left px-3 py-2">目标</th>
+                                        <th class="text-left px-3 py-2">长度</th>
+                                        <th class="text-left px-3 py-2">摘要</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                    <template x-for="(record, idx) in records" :key="idx">
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                            <td class="px-3 py-2 whitespace-nowrap font-mono" x-text="record.time || '-'"></td>
+                                            <td class="px-3 py-2" x-text="record.protocol || '-'"></td>
+                                            <td class="px-3 py-2 font-mono whitespace-nowrap" x-text="record.source || '-'"></td>
+                                            <td class="px-3 py-2 font-mono whitespace-nowrap" x-text="record.destination || '-'"></td>
+                                            <td class="px-3 py-2" x-text="record.length || '-'"></td>
+                                            <td class="px-3 py-2 min-w-80" x-text="record.summary || record.raw"></td>
+                                        </tr>
+                                    </template>
+                                    <tr x-show="records.length===0">
+                                        <td colspan="6" class="px-3 py-8 text-center text-gray-500 dark:text-gray-400">还没有抓包结果</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div class="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 p-4">
+                            <h2 class="text-sm font-semibold mb-3">活跃端点</h2>
+                            <template x-for="talker in summary.top_talkers || []" :key="talker.address">
+                                <div class="flex items-center justify-between text-xs py-1 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                                    <span class="font-mono truncate pr-2" x-text="talker.address"></span>
+                                    <span class="text-gray-500" x-text="talker.count"></span>
+                                </div>
+                            </template>
+                            <div x-show="!(summary.top_talkers || []).length" class="text-xs text-gray-500 dark:text-gray-400">暂无数据</div>
+                        </div>
+                        <div class="lg:col-span-2 bg-gray-950 text-green-300 rounded border border-gray-800 p-4 overflow-auto font-mono text-xs whitespace-pre-wrap max-h-80" x-show="showRaw" x-text="output || '暂无原始输出'"></div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    function packetCaptureApp() {
+        return {
+            servers: [],
+            running: false,
+            showRaw: false,
+            command: '',
+            output: '',
+            error: '',
+            records: [],
+            summary: { total: 0, protocols: {}, top_talkers: [] },
+            form: {
+                target_type: 'local',
+                server_id: '',
+                interface: 'any',
+                port: '',
+                host: '',
+                protocol: 'any',
+                count: 80,
+                duration: 20
+            },
+            init() {
+                this.checkAuth();
+                this.loadServers();
+            },
+            checkAuth() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlToken = urlParams.get('token');
+                if (urlToken) localStorage.setItem('access_token', urlToken);
+                const token = localStorage.getItem('access_token');
+                if (!token) window.location.href = '/login';
+            },
+            getToken() { return localStorage.getItem('access_token'); },
+            async loadServers() {
+                try {
+                    const res = await fetch('/api/servers', { headers: { 'Authorization': 'Bearer ' + this.getToken() } });
+                    const data = await res.json();
+                    if (res.ok) this.servers = data.servers || [];
+                } catch (e) {
+                    this.error = '加载服务器失败: ' + e.message;
+                }
+            },
+            canRun() {
+                return this.form.target_type === 'local' || !!this.form.server_id;
+            },
+            async runCapture() {
+                if (!this.canRun() || this.running) return;
+                this.running = true;
+                this.error = '';
+                this.output = '';
+                this.command = '';
+                this.records = [];
+                this.summary = { total: 0, protocols: {}, top_talkers: [] };
+                try {
+                    const payload = Object.assign({}, this.form, { server_id: parseInt(this.form.server_id || '0', 10) });
+                    const res = await fetch('/api/packet-capture/run', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + this.getToken(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || '请求失败');
+                    this.error = data.error || '';
+                    this.output = data.output || '';
+                    this.command = data.command || '';
+                    this.records = data.records || [];
+                    this.summary = data.summary || { total: 0, protocols: {}, top_talkers: [] };
+                    if (this.error) this.showRaw = true;
+                } catch (e) {
+                    this.error = e.message || String(e);
+                } finally {
+                    this.running = false;
+                }
+            }
+        };
+    }
+    </script>
+</body>
+</html>
